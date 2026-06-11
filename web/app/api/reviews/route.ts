@@ -53,7 +53,31 @@ export async function GET(request: NextRequest) {
         take: 50,
       });
 
-      return NextResponse.json({ reviews });
+      // Transform to match expected types
+      const transformedReviews = reviews.map((review) => ({
+        id: review.id,
+        userId: review.userId,
+        user: review.user,
+        track: {
+          trackId: review.trackId,
+          name: review.trackName,
+          artist: review.trackArtist,
+          album: review.trackAlbum,
+          artworkUrl: review.artworkUrl,
+          previewUrl: review.previewUrl || undefined,
+        },
+        rating: review.rating,
+        take: review.take || undefined,
+        moment: review.momentSeconds ? {
+          seconds: review.momentSeconds,
+          label: review.momentLabel || undefined,
+        } : undefined,
+        createdAt: review.createdAt.toISOString(),
+        likeCount: review._count.likes,
+        repostCount: review._count.reposts,
+      }));
+
+      return NextResponse.json({ reviews: transformedReviews });
     }
 
     // Get specific user's reviews (public, no auth required if userId provided)
@@ -71,7 +95,31 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: "desc" },
       });
 
-      return NextResponse.json({ reviews });
+      // Transform to match expected types
+      const transformedReviews = reviews.map((review) => ({
+        id: review.id,
+        userId: review.userId,
+        user: review.user,
+        track: {
+          trackId: review.trackId,
+          name: review.trackName,
+          artist: review.trackArtist,
+          album: review.trackAlbum,
+          artworkUrl: review.artworkUrl,
+          previewUrl: review.previewUrl || undefined,
+        },
+        rating: review.rating,
+        take: review.take || undefined,
+        moment: review.momentSeconds ? {
+          seconds: review.momentSeconds,
+          label: review.momentLabel || undefined,
+        } : undefined,
+        createdAt: review.createdAt.toISOString(),
+        likeCount: review._count.likes,
+        repostCount: review._count.reposts,
+      }));
+
+      return NextResponse.json({ reviews: transformedReviews });
     }
 
     // Get current user's reviews (requires auth)
@@ -92,7 +140,31 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ reviews });
+    // Transform to match expected types
+    const transformedReviews = reviews.map((review) => ({
+      id: review.id,
+      userId: review.userId,
+      user: review.user,
+      track: {
+        trackId: review.trackId,
+        name: review.trackName,
+        artist: review.trackArtist,
+        album: review.trackAlbum,
+        artworkUrl: review.artworkUrl,
+        previewUrl: review.previewUrl || undefined,
+      },
+      rating: review.rating,
+      take: review.take || undefined,
+      moment: review.momentSeconds ? {
+        seconds: review.momentSeconds,
+        label: review.momentLabel || undefined,
+      } : undefined,
+      createdAt: review.createdAt.toISOString(),
+      likeCount: review._count.likes,
+      repostCount: review._count.reposts,
+    }));
+
+    return NextResponse.json({ reviews: transformedReviews });
   } catch (error) {
     console.error("Get reviews error:", error);
     return NextResponse.json(
