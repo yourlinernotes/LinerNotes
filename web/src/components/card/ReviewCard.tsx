@@ -62,6 +62,18 @@ export function ReviewCard({ review, className = "" }: ReviewCardProps) {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const getSpotifyLink = (trackId: string, momentSeconds?: number) => {
+    // Try Spotify deep link first (works on mobile)
+    const spotifyUri = `spotify:track:${trackId}`;
+
+    // Fallback to web link
+    const webLink = momentSeconds
+      ? `https://open.spotify.com/track/${trackId}#${formatTime(momentSeconds)}`
+      : `https://open.spotify.com/track/${trackId}`;
+
+    return webLink;
+  };
+
   return (
     <div
       className={`review-card relative overflow-hidden rounded-xl shadow-2xl ${className}`}
@@ -106,7 +118,7 @@ export function ReviewCard({ review, className = "" }: ReviewCardProps) {
         </div>
 
         {/* Waveform with moment */}
-        {review.moment && review.track.previewUrl && (
+        {review.moment && (
           <div className="space-y-2">
             <Waveform
               momentSeconds={review.moment.seconds}
@@ -114,9 +126,21 @@ export function ReviewCard({ review, className = "" }: ReviewCardProps) {
               accentColor={colors.accent}
               baseColor={`${colors.text}40`}
             />
-            <p className="text-sm opacity-75">
+            <a
+              href={getSpotifyLink(review.track.trackId, review.moment.seconds)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm opacity-75 hover:opacity-100 transition-opacity cursor-pointer"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+              </svg>
               {formatTime(review.moment.seconds)} · {review.moment.label || "marked moment"}
-            </p>
+            </a>
           </div>
         )}
 
@@ -130,28 +154,26 @@ export function ReviewCard({ review, className = "" }: ReviewCardProps) {
           </blockquote>
         )}
 
-        {/* Jump in link */}
-        {review.track.previewUrl && (
-          <a
-            href={review.track.previewUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm opacity-75 hover:opacity-100 transition-opacity"
+        {/* Jump in link - opens song on Spotify */}
+        <a
+          href={getSpotifyLink(review.track.trackId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-sm opacity-75 hover:opacity-100 transition-opacity"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="currentColor"
+            viewBox="0 0 20 20"
           >
-            <svg
-              className="w-4 h-4"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                clipRule="evenodd"
-              />
-            </svg>
-            jump in
-          </a>
-        )}
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+              clipRule="evenodd"
+            />
+          </svg>
+          listen on Spotify
+        </a>
 
         {/* Footer */}
         <div className="pt-4 border-t flex items-center justify-between text-sm opacity-60"
