@@ -32,7 +32,31 @@ export async function GET(
       return NextResponse.json({ error: "Review not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ review });
+    // Transform to match expected types
+    const transformedReview = {
+      id: review.id,
+      userId: review.userId,
+      user: review.user,
+      track: {
+        trackId: review.trackId,
+        name: review.trackName,
+        artist: review.trackArtist,
+        album: review.trackAlbum,
+        artworkUrl: review.artworkUrl,
+        previewUrl: review.previewUrl || undefined,
+      },
+      rating: review.rating,
+      take: review.take || undefined,
+      moment: review.momentSeconds ? {
+        seconds: review.momentSeconds,
+        label: review.momentLabel || undefined,
+      } : undefined,
+      createdAt: review.createdAt.toISOString(),
+      likeCount: review._count.likes,
+      repostCount: review._count.reposts,
+    };
+
+    return NextResponse.json({ review: transformedReview });
   } catch (error) {
     console.error("Get review error:", error);
     return NextResponse.json(

@@ -1,21 +1,25 @@
 import { ReviewCard } from "@/components/card";
-import { mockReviews } from "@/lib/mocks";
 import { notFound } from "next/navigation";
 
 interface CardPageProps {
   params: Promise<{ id: string }>;
 }
 
-// This would eventually call GET /api/reviews/:id
 async function getReview(id: string) {
-  // TODO: Replace with actual API call when Abia pushes backend
-  // const res = await fetch(`/api/reviews/${id}`);
-  // if (!res.ok) return null;
-  // return res.json();
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const res = await fetch(`${baseUrl}/api/reviews/${id}`, {
+      cache: "no-store",
+    });
 
-  // For now, use mocks
-  const review = mockReviews.find((r) => r.id === id);
-  return review || null;
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    return data.review;
+  } catch (error) {
+    console.error("Failed to fetch review:", error);
+    return null;
+  }
 }
 
 export default async function CardPage({ params }: CardPageProps) {
