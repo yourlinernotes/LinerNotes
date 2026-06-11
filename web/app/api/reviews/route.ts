@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         },
         rating: review.rating,
         take: review.take || undefined,
-        moment: review.momentSeconds ? {
+        moment: review.momentSeconds !== null && review.momentSeconds !== undefined ? {
           seconds: review.momentSeconds,
           label: review.momentLabel || undefined,
         } : undefined,
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
         },
         rating: review.rating,
         take: review.take || undefined,
-        moment: review.momentSeconds ? {
+        moment: review.momentSeconds !== null && review.momentSeconds !== undefined ? {
           seconds: review.momentSeconds,
           label: review.momentLabel || undefined,
         } : undefined,

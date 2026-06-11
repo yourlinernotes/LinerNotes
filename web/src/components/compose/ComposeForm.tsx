@@ -15,7 +15,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [rating, setRating] = useState(3.5);
   const [take, setTake] = useState("");
-  const [momentSeconds, setMomentSeconds] = useState("");
+  const [momentTime, setMomentTime] = useState(""); // mm:ss format
   const [momentLabel, setMomentLabel] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -30,9 +30,20 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
     setSubmitting(true);
 
     try {
+      // Convert mm:ss to seconds
+      let momentSeconds: number | undefined;
+      if (momentTime) {
+        const parts = momentTime.split(':');
+        if (parts.length === 2) {
+          const mins = parseInt(parts[0]) || 0;
+          const secs = parseInt(parts[1]) || 0;
+          momentSeconds = mins * 60 + secs;
+        }
+      }
+
       const moment: Moment | undefined =
-        momentSeconds && momentLabel
-          ? { seconds: parseFloat(momentSeconds), label: momentLabel }
+        momentSeconds !== undefined && momentLabel
+          ? { seconds: momentSeconds, label: momentLabel }
           : undefined;
 
       const reviewData = {
@@ -61,7 +72,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
       setSelectedTrack(null);
       setRating(3.5);
       setTake("");
-      setMomentSeconds("");
+      setMomentTime("");
       setMomentLabel("");
 
       // Redirect to profile to see the review
@@ -158,14 +169,16 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
             </label>
             <div className="flex gap-2">
               <input
-                type="number"
-                value={momentSeconds}
-                onChange={(e) => setMomentSeconds(e.target.value)}
-                placeholder="Seconds"
-                min="0"
-                max="600"
-                step="1"
-                className="flex-1 px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
+                type="text"
+                value={momentTime}
+                onChange={(e) => {
+                  // Only allow digits and colon
+                  const value = e.target.value.replace(/[^0-9:]/g, '');
+                  setMomentTime(value);
+                }}
+                placeholder="0:00 (mm:ss)"
+                maxLength={5}
+                className="w-24 px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
                 style={{
                   backgroundColor: "var(--ln-surface)",
                   color: "var(--ln-ink)",
@@ -176,7 +189,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
                 type="text"
                 value={momentLabel}
                 onChange={(e) => setMomentLabel(e.target.value)}
-                placeholder="Label (e.g., 'best bit')"
+                placeholder="Label (e.g., 'best bit', 'intro', 'drop')"
                 maxLength={30}
                 className="flex-1 px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
                 style={{
@@ -186,6 +199,9 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
                 }}
               />
             </div>
+            <p className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>
+              Mark a specific moment in the track. Examples: 0:00 (intro), 1:23, 3:45
+            </p>
           </div>
 
           {/* Submit */}
