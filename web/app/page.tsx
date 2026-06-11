@@ -2,7 +2,9 @@
 
 import { useRef, useState } from "react";
 import { ReviewCard, useCardExport } from "@/components/card";
+import { AuthButton } from "@/components/AuthButton";
 import { mockReviews } from "@/lib/mocks";
+import Link from "next/link";
 
 export default function Home() {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -43,6 +45,31 @@ export default function Home() {
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "var(--ln-bg)" }}>
       <div className="max-w-6xl mx-auto space-y-8">
+        {/* Navigation */}
+        <div className="flex justify-end gap-4 items-center">
+          <Link
+            href="/log"
+            className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
+            style={{
+              backgroundColor: "var(--ln-surface)",
+              color: "var(--ln-ink)",
+            }}
+          >
+            Log Review
+          </Link>
+          <Link
+            href="/feed"
+            className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
+            style={{
+              backgroundColor: "var(--ln-surface)",
+              color: "var(--ln-ink)",
+            }}
+          >
+            Feed
+          </Link>
+          <AuthButton />
+        </div>
+
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-bold" style={{ color: "var(--ln-ink)" }}>
             LinerNotes Review Card

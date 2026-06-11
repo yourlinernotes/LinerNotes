@@ -1,6 +1,8 @@
 "use client";
 
 import { ComposeForm } from "@/components/compose";
+import { AuthButton } from "@/components/AuthButton";
+import { searchTracks } from "@/lib/api";
 import Link from "next/link";
 
 export default function LogPage() {
@@ -12,7 +14,7 @@ export default function LogPage() {
           <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
             Log a Review
           </h1>
-          <nav className="flex gap-4">
+          <nav className="flex gap-4 items-center">
             <Link
               href="/feed"
               className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
@@ -33,6 +35,7 @@ export default function LogPage() {
             >
               Profile
             </Link>
+            <AuthButton />
           </nav>
         </div>
 
@@ -52,7 +55,7 @@ export default function LogPage() {
           className="p-6 rounded-lg"
           style={{ backgroundColor: "var(--ln-surface)" }}
         >
-          <ComposeForm />
+          <ComposeForm searchAPI={searchTracks} />
         </div>
       </div>
     </div>

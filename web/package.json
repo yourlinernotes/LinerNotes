@@ -12,6 +12,7 @@
     "@prisma/client": "^7.8.0",
     "fast-average-color": "^9.5.2",
     "html-to-image": "^1.11.13",
+    "iron-session": "^8.0.4",
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4"

@@ -8,9 +8,10 @@ import { RatingSelector } from "./RatingSelector";
 interface ComposeFormProps {
   onSubmit?: (review: Partial<Review>) => Promise<void>;
   onSuccess?: (review: Review) => void;
+  searchAPI?: (query: string) => Promise<Track[]>;
 }
 
-export function ComposeForm({ onSubmit, onSuccess }: ComposeFormProps) {
+export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps) {
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [rating, setRating] = useState(3.5);
   const [take, setTake] = useState("");
@@ -73,7 +74,7 @@ export function ComposeForm({ onSubmit, onSuccess }: ComposeFormProps) {
         <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
           Search for a track
         </label>
-        <TrackSearch onTrackSelect={setSelectedTrack} />
+        <TrackSearch onTrackSelect={setSelectedTrack} searchAPI={searchAPI} />
       </div>
 
       {/* Selected Track Preview */}
