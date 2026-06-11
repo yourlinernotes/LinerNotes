@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AuthButton } from "@/components/AuthButton";
+import { UserNav } from "@/components/UserNav";
 import {
   getFriends,
   updateFriendRequest,
@@ -77,29 +77,7 @@ export default function FriendsPage() {
           <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
             Friends
           </h1>
-          <nav className="flex gap-4 items-center">
-            <Link
-              href="/log"
-              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-accent)",
-                color: "white",
-              }}
-            >
-              Log Review
-            </Link>
-            <Link
-              href="/feed"
-              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-surface)",
-                color: "var(--ln-ink)",
-              }}
-            >
-              Feed
-            </Link>
-            <AuthButton />
-          </nav>
+          <UserNav />
         </div>
 
         {/* Not authenticated */}

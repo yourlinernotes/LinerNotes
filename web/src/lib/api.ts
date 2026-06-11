@@ -28,6 +28,8 @@ export async function checkAuth(): Promise<{
   authenticated: boolean;
   hasRefreshToken?: boolean;
   isExpired?: boolean;
+  userHandle?: string;
+  userId?: string;
 }> {
   const response = await fetch("/api/auth/me");
   return response.json();

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FeedList } from "@/components/feed";
-import { AuthButton } from "@/components/AuthButton";
+import { UserNav } from "@/components/UserNav";
 import { getReviews, checkAuth, toggleLike, toggleRepost } from "@/lib/api";
 import type { FeedItem, Review } from "@/lib/types";
 import Link from "next/link";
@@ -126,29 +126,7 @@ export default function FeedPage() {
           <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
             Friends Feed
           </h1>
-          <nav className="flex gap-4 items-center">
-            <Link
-              href="/log"
-              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-accent)",
-                color: "white",
-              }}
-            >
-              Log Review
-            </Link>
-            <Link
-              href="/friends"
-              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-surface)",
-                color: "var(--ln-ink)",
-              }}
-            >
-              Friends
-            </Link>
-            <AuthButton />
-          </nav>
+          <UserNav />
         </div>
 
         {/* Not authenticated */}

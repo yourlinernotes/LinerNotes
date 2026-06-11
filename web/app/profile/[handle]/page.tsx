@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ReviewItem } from "@/components/feed";
-import { AuthButton } from "@/components/AuthButton";
+import { UserNav } from "@/components/UserNav";
 import type { User, Review } from "@/lib/types";
 import Link from "next/link";
 
@@ -120,29 +120,7 @@ export default function ProfilePage() {
               </p>
             </div>
           </div>
-          <nav className="flex gap-4 items-center">
-            <Link
-              href="/log"
-              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-accent)",
-                color: "white",
-              }}
-            >
-              Log Review
-            </Link>
-            <Link
-              href="/feed"
-              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-surface)",
-                color: "var(--ln-ink)",
-              }}
-            >
-              Feed
-            </Link>
-            <AuthButton />
-          </nav>
+          <UserNav />
         </div>
 
         {/* Stats */}

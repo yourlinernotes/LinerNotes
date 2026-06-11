@@ -64,7 +64,14 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
       setMomentSeconds("");
       setMomentLabel("");
 
-      alert("Review submitted successfully!");
+      // Redirect to profile to see the review
+      const { checkAuth } = await import("@/lib/api");
+      const authStatus = await checkAuth();
+      if (authStatus.userHandle) {
+        window.location.href = `/profile/${authStatus.userHandle}`;
+      } else {
+        alert("Review submitted successfully!");
+      }
     } catch (error) {
       console.error("Failed to submit review:", error);
       alert("Failed to submit review. Please try again.");

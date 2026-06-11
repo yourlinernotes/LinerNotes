@@ -22,6 +22,8 @@ export async function GET() {
       authenticated: true,
       hasRefreshToken: !!session.spotifyRefreshToken,
       isExpired,
+      userHandle: session.userHandle,
+      userId: session.userId,
     });
   } catch (error) {
     console.error("Auth check error:", error);
