@@ -5,6 +5,7 @@ export interface SessionData {
   spotifyRefreshToken?: string;
   spotifyExpiresAt?: number;
   userId?: string;
+  userHandle?: string;
 }
 
 export const sessionOptions: SessionOptions = {

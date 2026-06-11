@@ -35,19 +35,25 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
           ? { seconds: parseFloat(momentSeconds), label: momentLabel }
           : undefined;
 
-      const reviewData: Partial<Review> = {
-        track: selectedTrack,
+      const reviewData = {
+        trackId: selectedTrack.trackId,
+        trackName: selectedTrack.name,
+        trackArtist: selectedTrack.artist,
+        trackAlbum: selectedTrack.album,
+        artworkUrl: selectedTrack.artworkUrl,
+        previewUrl: selectedTrack.previewUrl,
         rating,
         take: take.trim() || undefined,
-        moment,
+        momentSeconds: moment?.seconds,
+        momentLabel: moment?.label,
       };
 
       if (onSubmit) {
-        await onSubmit(reviewData);
+        await onSubmit(reviewData as any);
       } else {
-        // Fallback to mock API
-        const { mockAPI } = await import("@/lib/mocks");
-        const newReview = await mockAPI.submitReview(reviewData);
+        // Use real API
+        const { createReview } = await import("@/lib/api");
+        const newReview = await createReview(reviewData);
         onSuccess?.(newReview);
       }
 

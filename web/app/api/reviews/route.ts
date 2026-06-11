@@ -1,0 +1,163 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getIronSession } from "iron-session";
+import { cookies } from "next/headers";
+import { sessionOptions, SessionData } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+
+/**
+ * GET /api/reviews - Get user's reviews or friends' feed
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const cookieStore = await cookies();
+    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+
+    if (!session.userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const userId = searchParams.get("userId");
+    const feedType = searchParams.get("feed"); // "friends" or null
+
+    if (feedType === "friends") {
+      // Get reviews from accepted friends
+      const friendships = await prisma.friendship.findMany({
+        where: {
+          OR: [
+            { requesterId: session.userId, status: "ACCEPTED" },
+            { addresseeId: session.userId, status: "ACCEPTED" },
+          ],
+        },
+      });
+
+      const friendIds = friendships.map((f) =>
+        f.requesterId === session.userId ? f.addresseeId : f.requesterId
+      );
+
+      const reviews = await prisma.review.findMany({
+        where: {
+          userId: { in: friendIds },
+        },
+        include: {
+          user: true,
+          likes: true,
+          reposts: {
+            include: { user: true },
+          },
+          _count: {
+            select: { likes: true, reposts: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+
+      return NextResponse.json({ reviews });
+    }
+
+    // Get specific user's reviews
+    const targetUserId = userId || session.userId;
+    const reviews = await prisma.review.findMany({
+      where: { userId: targetUserId },
+      include: {
+        user: true,
+        likes: true,
+        reposts: true,
+        _count: {
+          select: { likes: true, reposts: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({ reviews });
+  } catch (error) {
+    console.error("Get reviews error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch reviews" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/reviews - Create a new review
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const cookieStore = await cookies();
+    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+
+    if (!session.userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const {
+      trackId,
+      trackName,
+      trackArtist,
+      trackAlbum,
+      artworkUrl,
+      previewUrl,
+      rating,
+      take,
+      momentSeconds,
+      momentLabel,
+    } = body;
+
+    // Validate required fields
+    if (
+      !trackId ||
+      !trackName ||
+      !trackArtist ||
+      !trackAlbum ||
+      !artworkUrl ||
+      rating === undefined
+    ) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Validate rating
+    if (rating < 0.5 || rating > 5.0) {
+      return NextResponse.json(
+        { error: "Rating must be between 0.5 and 5.0" },
+        { status: 400 }
+      );
+    }
+
+    const review = await prisma.review.create({
+      data: {
+        userId: session.userId,
+        trackId,
+        trackName,
+        trackArtist,
+        trackAlbum,
+        artworkUrl,
+        previewUrl,
+        rating,
+        take: take || null,
+        momentSeconds: momentSeconds || null,
+        momentLabel: momentLabel || null,
+      },
+      include: {
+        user: true,
+        _count: {
+          select: { likes: true, reposts: true },
+        },
+      },
+    });
+
+    return NextResponse.json({ review }, { status: 201 });
+  } catch (error) {
+    console.error("Create review error:", error);
+    return NextResponse.json(
+      { error: "Failed to create review" },
+      { status: 500 }
+    );
+  }
+}

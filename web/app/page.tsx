@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ReviewCard, useCardExport } from "@/components/card";
+import { ReviewCard, useCardExport, ShareButton } from "@/components/card";
 import { AuthButton } from "@/components/AuthButton";
 import { mockReviews } from "@/lib/mocks";
 import Link from "next/link";
@@ -109,7 +109,7 @@ export default function Home() {
           </div>
 
           {/* Export controls */}
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap justify-center">
             <button
               onClick={handleExport}
               disabled={exporting}
@@ -133,6 +133,11 @@ export default function Home() {
             >
               {copied ? "Copied!" : "Copy to Clipboard"}
             </button>
+
+            <ShareButton
+              reviewId={mockReviews[selectedReview].id}
+              cardElement={cardRef.current}
+            />
           </div>
 
           {/* Share link */}

@@ -2,8 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { sessionOptions, SessionData } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
+
+/**
+ * Generate a unique handle from display name
+ */
+function generateHandle(displayName: string): string {
+  // Create base handle from display name
+  let handle = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 15);
+
+  // Add random suffix to ensure uniqueness
+  const randomSuffix = Math.random().toString(36).substring(2, 6);
+  return `${handle}${randomSuffix}`;
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -51,11 +68,43 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json();
 
-    // Store tokens in session
+    // Fetch user profile from Spotify
+    const profileResponse = await fetch(`${SPOTIFY_API_BASE}/me`, {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    });
+
+    if (!profileResponse.ok) {
+      throw new Error("Failed to fetch user profile");
+    }
+
+    const spotifyProfile = await profileResponse.json();
+
+    // Create or update user in database
+    const user = await prisma.user.upsert({
+      where: { spotifyId: spotifyProfile.id },
+      update: {
+        email: spotifyProfile.email,
+        displayName: spotifyProfile.display_name || spotifyProfile.id,
+        avatarUrl: spotifyProfile.images?.[0]?.url,
+      },
+      create: {
+        spotifyId: spotifyProfile.id,
+        email: spotifyProfile.email,
+        handle: generateHandle(spotifyProfile.display_name || spotifyProfile.id),
+        displayName: spotifyProfile.display_name || spotifyProfile.id,
+        avatarUrl: spotifyProfile.images?.[0]?.url,
+      },
+    });
+
+    // Store tokens and user info in session
     const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
     session.spotifyAccessToken = tokenData.access_token;
     session.spotifyRefreshToken = tokenData.refresh_token;
     session.spotifyExpiresAt = Date.now() + tokenData.expires_in * 1000;
+    session.userId = user.id;
+    session.userHandle = user.handle;
     await session.save();
 
     // Clean up state cookie
