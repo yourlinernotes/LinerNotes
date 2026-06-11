@@ -48,12 +48,59 @@ export default function CardPage() {
   };
 
   const handleShareToStory = async () => {
+    if (!review) return;
+
     const url = window.location.href;
+
     try {
+      // Copy link to clipboard
       await navigator.clipboard.writeText(url);
-      alert("Link copied! Now paste it into your Instagram story link sticker.");
+
+      // Generate image of the card
+      const cardElement = document.querySelector('.review-card');
+      if (!cardElement) {
+        alert("Card not found. Try again in a moment.");
+        return;
+      }
+
+      const { toPng } = await import('html-to-image');
+
+      // Convert card to image
+      const dataUrl = await toPng(cardElement as HTMLElement, {
+        quality: 1,
+        pixelRatio: 2, // Higher quality for Instagram
+      });
+
+      // Convert data URL to blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      const file = new File([blob], 'review.png', { type: 'image/png' });
+
+      // Check if we can use Web Share API (works on mobile)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `${review.track.name} - ${review.user?.displayName}'s review`,
+          text: `Check out my review! Link: ${url}`,
+        });
+      } else {
+        // Fallback: download the image and show instructions
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = 'review.png';
+        link.click();
+
+        alert(
+          "Link copied! Image downloaded.\n\n" +
+          "To share to Instagram Story:\n" +
+          "1. Open Instagram\n" +
+          "2. Upload the downloaded image to your story\n" +
+          "3. Add a link sticker and paste the copied link"
+        );
+      }
     } catch (error) {
-      console.error("Failed to copy:", error);
+      console.error("Failed to share:", error);
+      alert("Failed to prepare story. Try the 'Copy Link' button instead.");
     }
   };
 
