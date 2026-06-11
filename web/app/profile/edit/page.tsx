@@ -12,6 +12,7 @@ export default function EditProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [handle, setHandle] = useState("");
+  const [originalHandle, setOriginalHandle] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -30,6 +31,7 @@ export default function EditProfilePage() {
         setBio(data.user.bio || "");
         setAvatarUrl(data.user.avatarUrl || "");
         setHandle(data.user.handle || "");
+        setOriginalHandle(data.user.handle || "");
       } catch (error) {
         console.error("Failed to load profile:", error);
         alert("Failed to load profile");
@@ -53,6 +55,7 @@ export default function EditProfilePage() {
           displayName: displayName.trim(),
           bio: bio.trim(),
           avatarUrl: avatarUrl.trim(),
+          handle: handle.trim().toLowerCase(),
         }),
       });
 
@@ -61,8 +64,10 @@ export default function EditProfilePage() {
         throw new Error(data.error || "Failed to update profile");
       }
 
-      // Redirect to profile
-      router.push(`/profile/${handle}`);
+      const result = await res.json();
+
+      // Redirect to profile (use new handle if it changed)
+      router.push(`/profile/${result.user.handle}`);
     } catch (error) {
       console.error("Failed to update profile:", error);
       alert(error instanceof Error ? error.message : "Failed to update profile");
@@ -156,22 +161,32 @@ export default function EditProfilePage() {
             />
           </div>
 
-          {/* Handle (read-only) */}
+          {/* Handle */}
           <div className="space-y-2">
             <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Handle
+              Handle *
             </label>
-            <div
-              className="px-4 py-3 rounded-lg"
-              style={{
-                backgroundColor: "var(--ln-line)",
-                color: "var(--ln-ink-soft)",
-              }}
-            >
-              @{handle}
+            <div className="flex items-center gap-2">
+              <span style={{ color: "var(--ln-ink-soft)" }}>@</span>
+              <input
+                type="text"
+                value={handle}
+                onChange={(e) => setHandle(e.target.value.toLowerCase())}
+                placeholder="your_handle"
+                required
+                minLength={3}
+                maxLength={20}
+                pattern="[a-z0-9_]+"
+                className="flex-1 px-4 py-3 rounded-lg focus:outline-none focus:ring-2"
+                style={{
+                  backgroundColor: "var(--ln-bg)",
+                  color: "var(--ln-ink)",
+                  borderColor: "var(--ln-line)",
+                }}
+              />
             </div>
             <p className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>
-              Your handle cannot be changed.
+              3-20 characters, lowercase letters, numbers, and underscores only. Your profile URL will be /profile/@{handle || "your_handle"}
             </p>
           </div>
 

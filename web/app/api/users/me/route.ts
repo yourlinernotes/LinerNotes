@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { displayName, bio, avatarUrl } = body;
+    const { displayName, bio, avatarUrl, handle } = body;
 
     // Validate input
     if (displayName !== undefined && (typeof displayName !== "string" || displayName.trim().length === 0)) {
@@ -80,6 +80,38 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    if (handle !== undefined) {
+      if (typeof handle !== "string" || handle.trim().length === 0) {
+        return NextResponse.json(
+          { error: "Handle must be a non-empty string" },
+          { status: 400 }
+        );
+      }
+
+      const trimmedHandle = handle.trim().toLowerCase();
+
+      // Validate handle format (alphanumeric + underscores only, 3-20 chars)
+      const handleRegex = /^[a-z0-9_]{3,20}$/;
+      if (!handleRegex.test(trimmedHandle)) {
+        return NextResponse.json(
+          { error: "Handle must be 3-20 characters, lowercase letters, numbers, and underscores only" },
+          { status: 400 }
+        );
+      }
+
+      // Check if handle is already taken (by someone else)
+      const existingUser = await prisma.user.findUnique({
+        where: { handle: trimmedHandle },
+      });
+
+      if (existingUser && existingUser.id !== session.userId) {
+        return NextResponse.json(
+          { error: "Handle is already taken" },
+          { status: 400 }
+        );
+      }
+    }
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: session.userId },
@@ -87,6 +119,7 @@ export async function PATCH(request: NextRequest) {
         ...(displayName !== undefined && { displayName: displayName.trim() }),
         ...(bio !== undefined && { bio: bio.trim() || null }),
         ...(avatarUrl !== undefined && { avatarUrl: avatarUrl.trim() || null }),
+        ...(handle !== undefined && { handle: handle.trim().toLowerCase() }),
       },
       select: {
         id: true,
@@ -97,6 +130,12 @@ export async function PATCH(request: NextRequest) {
         email: true,
       },
     });
+
+    // Update session if handle changed
+    if (handle !== undefined) {
+      session.userHandle = updatedUser.handle;
+      await session.save();
+    }
 
     return NextResponse.json({ user: updatedUser });
   } catch (error) {
