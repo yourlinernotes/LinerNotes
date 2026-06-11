@@ -10,6 +10,42 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for error in URL
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (error) {
+      const details = params.get("details");
+      let errorMessage = "Authentication failed. ";
+
+      switch (error) {
+        case "missing_credentials":
+          errorMessage += "Spotify credentials are not configured. Please contact support.";
+          break;
+        case "missing_session_secret":
+          errorMessage += "Session secret is not configured. Please contact support.";
+          break;
+        case "missing_database":
+          errorMessage += "Database is not configured. Please contact support.";
+          break;
+        case "token_exchange_failed":
+          errorMessage += details ? `Token exchange failed: ${details}` : "Could not exchange authorization code.";
+          break;
+        case "access_denied":
+          errorMessage += "You denied access to Spotify.";
+          break;
+        case "invalid_state":
+          errorMessage += "Invalid security state. Please try again.";
+          break;
+        default:
+          errorMessage += `Error: ${error}`;
+      }
+
+      alert(errorMessage);
+
+      // Clear error from URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
     checkAuth()
       .then((status) => setAuthenticated(status.authenticated))
       .catch(() => setAuthenticated(false))

@@ -45,6 +45,28 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Check required environment variables
+  if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+    console.error("Missing Spotify credentials");
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}?error=missing_credentials`
+    );
+  }
+
+  if (!process.env.SESSION_SECRET) {
+    console.error("Missing SESSION_SECRET");
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}?error=missing_session_secret`
+    );
+  }
+
+  if (!process.env.DATABASE_URL) {
+    console.error("Missing DATABASE_URL");
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}?error=missing_database`
+    );
+  }
+
   // Exchange code for access token
   try {
     const tokenResponse = await fetch(SPOTIFY_TOKEN_URL, {
@@ -63,7 +85,9 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenResponse.ok) {
-      throw new Error("Failed to exchange code for token");
+      const errorData = await tokenResponse.text();
+      console.error("Spotify token exchange failed:", tokenResponse.status, errorData);
+      throw new Error(`Failed to exchange code for token: ${tokenResponse.status}`);
     }
 
     const tokenData = await tokenResponse.json();
@@ -114,8 +138,13 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Spotify OAuth error:", error);
+    // Log the full error for debugging
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}?error=token_exchange_failed`
+      `${process.env.NEXT_PUBLIC_APP_URL}?error=token_exchange_failed&details=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`
     );
   }
 }
