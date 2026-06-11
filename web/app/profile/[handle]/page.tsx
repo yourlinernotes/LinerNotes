@@ -19,22 +19,33 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadProfile = async () => {
       try {
+        console.log("Loading profile for handle:", handle);
+
         // Fetch user
         const userResponse = await fetch(`/api/users/${handle}`);
+        console.log("User response status:", userResponse.status);
+
         if (!userResponse.ok) {
+          const errorText = await userResponse.text();
+          console.error("Failed to fetch user:", errorText);
           setError(true);
           setLoading(false);
           return;
         }
+
         const userData = await userResponse.json();
+        console.log("User data:", userData);
         setUser(userData.user);
 
         // Fetch reviews
         const reviewsResponse = await fetch(
           `/api/reviews?userId=${userData.user.id}`
         );
+        console.log("Reviews response status:", reviewsResponse.status);
+
         if (reviewsResponse.ok) {
           const reviewsData = await reviewsResponse.json();
+          console.log("Reviews data:", reviewsData);
           setReviews(reviewsData.reviews);
         }
       } catch (err) {
@@ -45,7 +56,9 @@ export default function ProfilePage() {
       }
     };
 
-    loadProfile();
+    if (handle) {
+      loadProfile();
+    }
   }, [handle]);
 
   if (loading) {
@@ -62,28 +75,45 @@ export default function ProfilePage() {
     );
   }
 
-  if (error || !user) {
+  if (error || (!loading && !user)) {
     return (
       <div
         className="min-h-screen p-6 flex items-center justify-center"
         style={{ backgroundColor: "var(--ln-bg)" }}
       >
         <div
-          className="p-8 rounded-lg text-center"
+          className="p-8 rounded-lg text-center max-w-md"
           style={{ backgroundColor: "var(--ln-surface)", color: "var(--ln-ink)" }}
         >
-          <h1 className="text-2xl font-bold mb-2">User Not Found</h1>
-          <p className="mb-4">This user doesn't exist.</p>
-          <Link
-            href="/"
-            className="inline-block px-6 py-3 rounded-lg font-medium"
-            style={{ backgroundColor: "var(--ln-accent)", color: "white" }}
-          >
-            Go Home
-          </Link>
+          <h1 className="text-2xl font-bold mb-2">Profile Not Found</h1>
+          <p className="mb-4" style={{ color: "var(--ln-ink-soft)" }}>
+            We couldn't load the profile for @{handle}.
+            <br />
+            Check the browser console for error details.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Link
+              href="/"
+              className="inline-block px-6 py-3 rounded-lg font-medium"
+              style={{ backgroundColor: "var(--ln-accent)", color: "white" }}
+            >
+              Go Home
+            </Link>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 rounded-lg font-medium"
+              style={{ backgroundColor: "var(--ln-surface)", color: "var(--ln-ink)", border: "1px solid var(--ln-line)" }}
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   // Calculate Top 4 (simple: highest rated)

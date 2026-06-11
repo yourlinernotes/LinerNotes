@@ -12,15 +12,15 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
 
-    if (!session.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
     const feedType = searchParams.get("feed"); // "friends" or null
 
+    // Friends feed requires authentication
     if (feedType === "friends") {
+      if (!session.userId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       // Get reviews from accepted friends
       const friendships = await prisma.friendship.findMany({
         where: {
@@ -56,10 +56,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ reviews });
     }
 
-    // Get specific user's reviews
-    const targetUserId = userId || session.userId;
+    // Get specific user's reviews (public, no auth required if userId provided)
+    if (userId) {
+      const reviews = await prisma.review.findMany({
+        where: { userId },
+        include: {
+          user: true,
+          likes: true,
+          reposts: true,
+          _count: {
+            select: { likes: true, reposts: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return NextResponse.json({ reviews });
+    }
+
+    // Get current user's reviews (requires auth)
+    if (!session.userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const reviews = await prisma.review.findMany({
-      where: { userId: targetUserId },
+      where: { userId: session.userId },
       include: {
         user: true,
         likes: true,
