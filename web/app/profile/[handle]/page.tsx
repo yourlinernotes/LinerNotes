@@ -1,37 +1,102 @@
-import { mockUsers, mockReviews } from "@/lib/mocks";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { ReviewItem } from "@/components/feed";
-import { notFound } from "next/navigation";
+import { AuthButton } from "@/components/AuthButton";
+import type { User, Review } from "@/lib/types";
 import Link from "next/link";
 
-interface ProfilePageProps {
-  params: Promise<{ handle: string }>;
-}
+export default function ProfilePage() {
+  const params = useParams();
+  const handle = params.handle as string;
 
-async function getUserByHandle(handle: string) {
-  // TODO: Replace with API call GET /api/users/:handle
-  const user = mockUsers.find((u) => u.handle === handle);
-  return user || null;
-}
+  const [user, setUser] = useState<User | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-async function getUserReviews(userId: string) {
-  // TODO: Replace with GET /api/reviews?userId=:userId
-  return mockReviews.filter((r) => r.userId === userId);
-}
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        // Fetch user
+        const userResponse = await fetch(`/api/users/${handle}`);
+        if (!userResponse.ok) {
+          setError(true);
+          setLoading(false);
+          return;
+        }
+        const userData = await userResponse.json();
+        setUser(userData.user);
 
-export default async function ProfilePage({ params }: ProfilePageProps) {
-  const { handle } = await params;
-  const user = await getUserByHandle(handle);
+        // Fetch reviews
+        const reviewsResponse = await fetch(
+          `/api/reviews?userId=${userData.user.id}`
+        );
+        if (reviewsResponse.ok) {
+          const reviewsData = await reviewsResponse.json();
+          setReviews(reviewsData.reviews);
+        }
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (!user) {
-    notFound();
+    loadProfile();
+  }, [handle]);
+
+  if (loading) {
+    return (
+      <div
+        className="min-h-screen p-6 flex items-center justify-center"
+        style={{ backgroundColor: "var(--ln-bg)" }}
+      >
+        <div
+          className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: "var(--ln-accent)" }}
+        />
+      </div>
+    );
   }
 
-  const reviews = await getUserReviews(user.id);
+  if (error || !user) {
+    return (
+      <div
+        className="min-h-screen p-6 flex items-center justify-center"
+        style={{ backgroundColor: "var(--ln-bg)" }}
+      >
+        <div
+          className="p-8 rounded-lg text-center"
+          style={{ backgroundColor: "var(--ln-surface)", color: "var(--ln-ink)" }}
+        >
+          <h1 className="text-2xl font-bold mb-2">User Not Found</h1>
+          <p className="mb-4">This user doesn't exist.</p>
+          <Link
+            href="/"
+            className="inline-block px-6 py-3 rounded-lg font-medium"
+            style={{ backgroundColor: "var(--ln-accent)", color: "white" }}
+          >
+            Go Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate Top 4 (simple: highest rated)
   const topReviews = [...reviews]
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 4);
+
+  // Calculate stats
+  const totalLikes = reviews.reduce((sum, r) => sum + (r.likeCount || 0), 0);
+  const avgRating =
+    reviews.length > 0
+      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+      : "0.0";
 
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: "var(--ln-bg)" }}>
@@ -55,7 +120,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
               </p>
             </div>
           </div>
-          <nav className="flex gap-4">
+          <nav className="flex gap-4 items-center">
             <Link
               href="/log"
               className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
@@ -76,6 +141,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
             >
               Feed
             </Link>
+            <AuthButton />
           </nav>
         </div>
 
@@ -94,7 +160,7 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           </div>
           <div>
             <div className="text-2xl font-bold" style={{ color: "var(--ln-accent)" }}>
-              {reviews.reduce((sum, r) => sum + r.likeCount, 0)}
+              {totalLikes}
             </div>
             <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
               Likes
@@ -102,12 +168,18 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
           </div>
           <div>
             <div className="text-2xl font-bold" style={{ color: "var(--ln-accent)" }}>
-              {(
-                reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-              ).toFixed(1)}
+              {avgRating}
             </div>
             <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
               Avg Rating
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold" style={{ color: "var(--ln-accent)" }}>
+              {(user as any).friendCount || 0}
+            </div>
+            <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
+              Friends
             </div>
           </div>
         </div>
@@ -167,20 +239,4 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
       </div>
     </div>
   );
-}
-
-export async function generateMetadata({ params }: ProfilePageProps) {
-  const { handle } = await params;
-  const user = await getUserByHandle(handle);
-
-  if (!user) {
-    return {
-      title: "User Not Found",
-    };
-  }
-
-  return {
-    title: `${user.displayName} (@${user.handle}) - LinerNotes`,
-    description: `Check out ${user.displayName}'s music reviews on LinerNotes`,
-  };
 }

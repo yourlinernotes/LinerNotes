@@ -1,179 +1,180 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { ReviewCard, useCardExport, ShareButton } from "@/components/card";
+import { useEffect, useState } from "react";
 import { AuthButton } from "@/components/AuthButton";
-import { mockReviews } from "@/lib/mocks";
+import { checkAuth } from "@/lib/api";
 import Link from "next/link";
 
 export default function Home() {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const { exportCard, copyCardToClipboard } = useCardExport();
-  const [selectedReview, setSelectedReview] = useState(0);
-  const [exporting, setExporting] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleExport = async () => {
-    if (!cardRef.current) return;
+  useEffect(() => {
+    checkAuth()
+      .then((status) => setAuthenticated(status.authenticated))
+      .catch(() => setAuthenticated(false))
+      .finally(() => setLoading(false));
+  }, []);
 
-    setExporting(true);
-    try {
-      await exportCard(cardRef.current, mockReviews[selectedReview].id);
-      alert("Card exported successfully!");
-    } catch (error) {
-      alert("Failed to export card. Check console for details.");
-    } finally {
-      setExporting(false);
-    }
-  };
+  if (loading) {
+    return (
+      <main
+        className="min-h-screen p-8 flex items-center justify-center"
+        style={{ backgroundColor: "var(--ln-bg)" }}
+      >
+        <div
+          className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin"
+          style={{ borderColor: "var(--ln-accent)" }}
+        />
+      </main>
+    );
+  }
 
-  const handleCopy = async () => {
-    if (!cardRef.current) return;
-
-    setExporting(true);
-    try {
-      await copyCardToClipboard(cardRef.current);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      alert("Failed to copy card. Check console for details.");
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  return (
-    <main className="min-h-screen p-8" style={{ backgroundColor: "var(--ln-bg)" }}>
-      <div className="max-w-6xl mx-auto space-y-8">
-        {/* Navigation */}
-        <div className="flex justify-end gap-4 items-center">
-          <Link
-            href="/log"
-            className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-            style={{
-              backgroundColor: "var(--ln-surface)",
-              color: "var(--ln-ink)",
-            }}
-          >
-            Log Review
-          </Link>
-          <Link
-            href="/feed"
-            className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
-            style={{
-              backgroundColor: "var(--ln-surface)",
-              color: "var(--ln-ink)",
-            }}
-          >
-            Feed
-          </Link>
-          <AuthButton />
-        </div>
-
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold" style={{ color: "var(--ln-ink)" }}>
-            LinerNotes Review Card
-          </h1>
-          <p className="text-lg" style={{ color: "var(--ln-ink-soft)" }}>
-            Preview and export review cards
-          </p>
-        </div>
-
-        {/* Review selector */}
-        <div className="flex justify-center gap-2">
-          {mockReviews.map((review, idx) => (
-            <button
-              key={review.id}
-              onClick={() => setSelectedReview(idx)}
-              className="px-4 py-2 rounded-lg transition-all"
-              style={{
-                backgroundColor:
-                  selectedReview === idx
-                    ? "var(--ln-accent)"
-                    : "var(--ln-surface)",
-                color:
-                  selectedReview === idx
-                    ? "white"
-                    : "var(--ln-ink)",
-              }}
-            >
-              Review {idx + 1}
-            </button>
-          ))}
-        </div>
-
-        {/* Card preview */}
-        <div className="flex flex-col items-center gap-6">
-          <div ref={cardRef}>
-            <ReviewCard review={mockReviews[selectedReview]} />
-          </div>
-
-          {/* Export controls */}
-          <div className="flex gap-4 flex-wrap justify-center">
-            <button
-              onClick={handleExport}
-              disabled={exporting}
-              className="px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50"
+  // If authenticated, redirect to feed
+  if (authenticated) {
+    return (
+      <main className="min-h-screen p-8" style={{ backgroundColor: "var(--ln-bg)" }}>
+        <div className="max-w-4xl mx-auto space-y-8">
+          {/* Navigation */}
+          <div className="flex justify-end gap-4 items-center">
+            <Link
+              href="/log"
+              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
               style={{
                 backgroundColor: "var(--ln-accent)",
                 color: "white",
               }}
             >
-              {exporting ? "Exporting..." : "Download as PNG"}
-            </button>
-
-            <button
-              onClick={handleCopy}
-              disabled={exporting}
-              className="px-6 py-3 rounded-lg font-medium transition-all disabled:opacity-50"
+              Log Review
+            </Link>
+            <Link
+              href="/feed"
+              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
               style={{
-                backgroundColor: "var(--ln-peach)",
+                backgroundColor: "var(--ln-surface)",
+                color: "var(--ln-ink)",
+              }}
+            >
+              Feed
+            </Link>
+            <Link
+              href="/friends"
+              className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
+              style={{
+                backgroundColor: "var(--ln-surface)",
+                color: "var(--ln-ink)",
+              }}
+            >
+              Friends
+            </Link>
+            <AuthButton />
+          </div>
+
+          {/* Welcome Message */}
+          <div className="text-center space-y-6 py-12">
+            <h1 className="text-5xl font-bold" style={{ color: "var(--ln-ink)" }}>
+              Welcome to LinerNotes
+            </h1>
+            <p className="text-xl" style={{ color: "var(--ln-ink-soft)" }}>
+              Share your music reviews with emotion and personality
+            </p>
+            <div className="flex gap-4 justify-center pt-6">
+              <Link
+                href="/log"
+                className="px-8 py-4 rounded-lg text-lg font-medium transition-opacity hover:opacity-80"
+                style={{
+                  backgroundColor: "var(--ln-accent)",
+                  color: "white",
+                }}
+              >
+                Write a Review
+              </Link>
+              <Link
+                href="/feed"
+                className="px-8 py-4 rounded-lg text-lg font-medium transition-opacity hover:opacity-80"
+                style={{
+                  backgroundColor: "var(--ln-surface)",
+                  color: "var(--ln-ink)",
+                }}
+              >
+                See Your Feed
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Landing page for non-authenticated users
+  return (
+    <main className="min-h-screen p-8" style={{ backgroundColor: "var(--ln-bg)" }}>
+      <div className="max-w-4xl mx-auto space-y-12">
+        {/* Hero */}
+        <div className="text-center space-y-6 py-12">
+          <h1 className="text-6xl font-bold" style={{ color: "var(--ln-ink)" }}>
+            LinerNotes
+          </h1>
+          <p className="text-2xl" style={{ color: "var(--ln-ink-soft)" }}>
+            Music reviews with emotion and personality
+          </p>
+          <p className="text-lg max-w-2xl mx-auto" style={{ color: "var(--ln-ink-soft)" }}>
+            Rate tracks, share your takes, mark the moment that hit you.
+            <br />
+            Create beautiful review cards and share them with friends.
+          </p>
+          <div className="pt-6">
+            <a
+              href="/api/auth/spotify/login"
+              className="inline-block px-10 py-5 rounded-lg text-xl font-medium transition-opacity hover:opacity-80"
+              style={{
+                backgroundColor: "var(--ln-accent)",
                 color: "white",
               }}
             >
-              {copied ? "Copied!" : "Copy to Clipboard"}
-            </button>
-
-            <ShareButton
-              reviewId={mockReviews[selectedReview].id}
-              cardElement={cardRef.current}
-            />
-          </div>
-
-          {/* Share link */}
-          <div className="text-center space-y-2">
-            <p className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-              Public share link:
-            </p>
-            <code
-              className="px-4 py-2 rounded text-sm"
-              style={{
-                backgroundColor: "var(--ln-surface)",
-                color: "var(--ln-accent-2)",
-              }}
-            >
-              {typeof window !== "undefined"
-                ? `${window.location.origin}/card/${mockReviews[selectedReview].id}`
-                : `/card/${mockReviews[selectedReview].id}`}
-            </code>
+              Login with Spotify
+            </a>
           </div>
         </div>
 
-        {/* Info */}
-        <div
-          className="text-center text-sm p-6 rounded-lg"
-          style={{
-            backgroundColor: "var(--ln-surface)",
-            color: "var(--ln-ink-soft)",
-          }}
-        >
-          <p>
-            This is Anusha's feat/card branch demo.
-            <br />
-            Card colors are extracted from album art dynamically.
-            <br />
-            The waveform shows the marked moment with an accent notch.
-          </p>
+        {/* Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div
+            className="p-6 rounded-lg"
+            style={{ backgroundColor: "var(--ln-surface)" }}
+          >
+            <h3 className="text-xl font-bold mb-2" style={{ color: "var(--ln-ink)" }}>
+              Rate & Review
+            </h3>
+            <p style={{ color: "var(--ln-ink-soft)" }}>
+              0.5-5.0 star ratings with optional one-liner takes. Simple or detailed,
+              your choice.
+            </p>
+          </div>
+          <div
+            className="p-6 rounded-lg"
+            style={{ backgroundColor: "var(--ln-surface)" }}
+          >
+            <h3 className="text-xl font-bold mb-2" style={{ color: "var(--ln-ink)" }}>
+              Mark the Moment
+            </h3>
+            <p style={{ color: "var(--ln-ink-soft)" }}>
+              Timestamp the exact second that gave you chills, made you cry, or blew
+              your mind.
+            </p>
+          </div>
+          <div
+            className="p-6 rounded-lg"
+            style={{ backgroundColor: "var(--ln-surface)" }}
+          >
+            <h3 className="text-xl font-bold mb-2" style={{ color: "var(--ln-ink)" }}>
+              Share Everywhere
+            </h3>
+            <p style={{ color: "var(--ln-ink-soft)" }}>
+              Export beautiful cards to Instagram Stories, or share with friends on
+              LinerNotes.
+            </p>
+          </div>
         </div>
       </div>
     </main>
