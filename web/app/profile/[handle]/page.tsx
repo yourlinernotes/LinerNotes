@@ -6,6 +6,7 @@ import { ReviewItem } from "@/components/feed";
 import { UserNav } from "@/components/UserNav";
 import type { User, Review } from "@/lib/types";
 import Link from "next/link";
+import { checkAuth } from "@/lib/api";
 
 export default function ProfilePage() {
   const params = useParams();
@@ -15,11 +16,16 @@ export default function ProfilePage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
         console.log("Loading profile for handle:", handle);
+
+        // Check if this is the current user's profile
+        const authStatus = await checkAuth();
+        setIsOwnProfile(authStatus.userHandle === handle);
 
         // Fetch user
         const userResponse = await fetch(`/api/users/${handle}`);
@@ -133,21 +139,40 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header with Navigation */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-1">
             {user.avatarUrl && (
               <img
                 src={user.avatarUrl}
                 alt={user.displayName}
-                className="w-16 h-16 rounded-full"
+                className="w-20 h-20 rounded-full object-cover"
               />
             )}
-            <div>
-              <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
-                {user.displayName}
-              </h1>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
+                  {user.displayName}
+                </h1>
+                {isOwnProfile && (
+                  <Link
+                    href="/profile/edit"
+                    className="px-3 py-1 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
+                    style={{
+                      backgroundColor: "var(--ln-line)",
+                      color: "var(--ln-ink)",
+                    }}
+                  >
+                    Edit Profile
+                  </Link>
+                )}
+              </div>
               <p className="text-lg" style={{ color: "var(--ln-ink-soft)" }}>
                 @{user.handle}
               </p>
+              {(user as any).bio && (
+                <p className="mt-2 text-sm" style={{ color: "var(--ln-ink)" }}>
+                  {(user as any).bio}
+                </p>
+              )}
             </div>
           </div>
           <UserNav />
