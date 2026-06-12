@@ -12,6 +12,8 @@ export default function CardPage() {
   const [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [showNotePicker, setShowNotePicker] = useState(false);
 
   useEffect(() => {
     const loadReview = async () => {
@@ -23,6 +25,13 @@ export default function CardPage() {
         }
         const data = await res.json();
         setReview(data.review);
+
+        // Check if current user is the owner
+        const authRes = await fetch('/api/auth/me');
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          setIsOwner(authData.userId === data.review.userId);
+        }
       } catch (error) {
         console.error("Failed to fetch review:", error);
       } finally {
@@ -44,6 +53,30 @@ export default function CardPage() {
     } catch (error) {
       console.error("Failed to copy:", error);
       alert("Failed to copy link");
+    }
+  };
+
+  const handleSetFeaturedNote = async (noteId: string) => {
+    if (!review) return;
+
+    try {
+      const res = await fetch(`/api/reviews/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ featuredNoteId: noteId }),
+      });
+
+      if (!res.ok) {
+        alert('Failed to update featured note');
+        return;
+      }
+
+      const data = await res.json();
+      setReview(data.review);
+      setShowNotePicker(false);
+    } catch (error) {
+      console.error('Failed to update featured note:', error);
+      alert('Failed to update featured note');
     }
   };
 
@@ -119,6 +152,12 @@ export default function CardPage() {
     }
   };
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0a0a0a" }}>
@@ -142,7 +181,7 @@ export default function CardPage() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-4" style={{ backgroundColor: "#0a0a0a" }}>
       {/* Action buttons */}
       <div className="flex flex-col items-center gap-2">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-center">
           <button
             onClick={handleCopyLink}
             className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-80 flex items-center gap-2"
@@ -164,11 +203,60 @@ export default function CardPage() {
             </svg>
             Share to Story
           </button>
+          {isOwner && review.notes && review.notes.length > 1 && (
+            <button
+              onClick={() => setShowNotePicker(!showNotePicker)}
+              className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-80 flex items-center gap-2"
+              style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "white" }}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+              </svg>
+              Choose Featured Note
+            </button>
+          )}
         </div>
         <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.5)", maxWidth: "320px" }}>
           Tip: The card exports as a transparent sticker. Add it to your story, then hide the link sticker underneath it.
         </p>
       </div>
+
+      {/* Note Picker Modal */}
+      {showNotePicker && review.notes && review.notes.length > 0 && (
+        <div className="w-full max-w-md p-4 rounded-lg space-y-3" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-white">Select Featured Note</h3>
+            <button
+              onClick={() => setShowNotePicker(false)}
+              className="text-white opacity-75 hover:opacity-100"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-2">
+            {review.notes.map((note) => (
+              <button
+                key={note.id}
+                onClick={() => handleSetFeaturedNote(note.id)}
+                className="w-full p-3 rounded-lg text-left transition-all hover:opacity-90"
+                style={{
+                  backgroundColor: review.featuredNoteId === note.id ? "var(--ln-accent)" : "rgba(255,255,255,0.1)",
+                  color: "white",
+                  border: review.featuredNoteId === note.id ? "2px solid white" : "none",
+                }}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  {review.featuredNoteId === note.id && <span>★</span>}
+                  <span>{formatTime(note.seconds)} · {note.label}</span>
+                </div>
+                {note.note && (
+                  <p className="text-sm opacity-75 mt-1">"{note.note}"</p>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Visible card with links */}
       <ReviewCard review={review} />
