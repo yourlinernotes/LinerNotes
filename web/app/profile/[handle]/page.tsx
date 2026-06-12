@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { ReviewItem } from "@/components/feed";
 import { ReviewCard } from "@/components/card";
 import { UserNav } from "@/components/UserNav";
-import type { User, Review } from "@/lib/types";
+import type { User, Review, AlbumReview } from "@/lib/types";
 import Link from "next/link";
 import { checkAuth } from "@/lib/api";
 
@@ -15,6 +15,7 @@ export default function ProfilePage() {
 
   const [user, setUser] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [albumReviews, setAlbumReviews] = useState<AlbumReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
@@ -44,7 +45,7 @@ export default function ProfilePage() {
         console.log("User data:", userData);
         setUser(userData.user);
 
-        // Fetch reviews
+        // Fetch track reviews
         const reviewsResponse = await fetch(
           `/api/reviews?userId=${userData.user.id}`
         );
@@ -54,6 +55,18 @@ export default function ProfilePage() {
           const reviewsData = await reviewsResponse.json();
           console.log("Reviews data:", reviewsData);
           setReviews(reviewsData.reviews);
+        }
+
+        // Fetch album reviews
+        const albumReviewsResponse = await fetch(
+          `/api/album-reviews?userId=${userData.user.id}`
+        );
+        console.log("Album reviews response status:", albumReviewsResponse.status);
+
+        if (albumReviewsResponse.ok) {
+          const albumReviewsData = await albumReviewsResponse.json();
+          console.log("Album reviews data:", albumReviewsData);
+          setAlbumReviews(albumReviewsData.albumReviews);
         }
       } catch (err) {
         console.error("Failed to load profile:", err);
@@ -243,7 +256,7 @@ export default function ProfilePage() {
           <h2 className="text-xl font-bold" style={{ color: "var(--ln-ink)" }}>
             All Reviews
           </h2>
-          {reviews.length === 0 ? (
+          {reviews.length === 0 && albumReviews.length === 0 ? (
             <div
               className="p-8 rounded-lg text-center"
               style={{
@@ -255,8 +268,69 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Track Reviews */}
               {reviews.map((review) => (
                 <ReviewItem key={review.id} review={review} />
+              ))}
+
+              {/* Album Reviews */}
+              {albumReviews.map((albumReview) => (
+                <Link
+                  key={albumReview.id}
+                  href={`/album-card/${albumReview.id}`}
+                  className="block"
+                >
+                  <div
+                    className="p-4 rounded-lg hover:opacity-90 transition-opacity"
+                    style={{ backgroundColor: "var(--ln-surface)" }}
+                  >
+                    <div className="flex gap-4">
+                      <img
+                        src={albumReview.album.artworkUrl}
+                        alt={albumReview.album.name}
+                        className="w-20 h-20 rounded object-cover"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold" style={{ color: "var(--ln-ink)" }}>
+                            {albumReview.album.name}
+                          </span>
+                          {albumReview.overallRating && (
+                            <span className="text-sm" style={{ color: "var(--ln-accent)" }}>
+                              ⭐ {albumReview.overallRating.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm mb-2" style={{ color: "var(--ln-ink-soft)" }}>
+                          {albumReview.album.artist}
+                        </div>
+                        {albumReview.take && (
+                          <p className="text-sm italic line-clamp-2" style={{ color: "var(--ln-ink)" }}>
+                            "{albumReview.take}"
+                          </p>
+                        )}
+                        {albumReview.trackReviews && albumReview.trackReviews.length > 0 && (
+                          <div className="mt-2 flex gap-1">
+                            {albumReview.trackReviews.slice(0, 5).map((tr) => (
+                              tr.reaction && (
+                                <span key={tr.id} className="text-lg">
+                                  {tr.reaction === "flame" && "🔥"}
+                                  {tr.reaction === "love" && "❤️"}
+                                  {tr.reaction === "skip" && "⏭️"}
+                                </span>
+                              )
+                            ))}
+                            {albumReview.trackReviews.length > 5 && (
+                              <span className="text-sm opacity-75">
+                                +{albumReview.trackReviews.length - 5}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
           )}

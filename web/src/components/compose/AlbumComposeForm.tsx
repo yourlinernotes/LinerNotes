@@ -166,7 +166,10 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
         }
 
         const data = await res.json();
-        onSuccess?.(data.albumReview);
+
+        // Redirect to album card page to view the review
+        window.location.href = `/album-card/${data.albumReview.id}`;
+        return;
       }
 
       // Reset form
@@ -175,15 +178,6 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
       setOverallRating(null);
       setAlbumTake("");
       setTrackReactions([]);
-
-      // Redirect to profile
-      const { checkAuth } = await import("@/lib/api");
-      const authStatus = await checkAuth();
-      if (authStatus.userHandle) {
-        window.location.href = `/profile/${authStatus.userHandle}`;
-      } else {
-        alert("Album review submitted successfully!");
-      }
     } catch (error) {
       console.error("Failed to submit album review:", error);
       alert("Failed to submit album review. Please try again.");
@@ -405,12 +399,11 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                         <span className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>stars</span>
                       </div>
 
-                      <input
-                        type="text"
+                      <textarea
                         value={tr.take}
                         onChange={(e) => setTrackTake(index, e.target.value)}
-                        placeholder="Quick thought on this track..."
-                        maxLength={150}
+                        placeholder="Your thoughts on this track (as long or short as you want)..."
+                        rows={3}
                         className="w-full px-3 py-2 rounded text-sm"
                         style={{
                           backgroundColor: "var(--ln-bg)",
