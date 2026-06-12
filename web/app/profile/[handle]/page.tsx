@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ReviewItem } from "@/components/feed";
+import { ReviewCard } from "@/components/card";
 import { UserNav } from "@/components/UserNav";
 import type { User, Review } from "@/lib/types";
 import Link from "next/link";
@@ -223,23 +224,14 @@ export default function ProfilePage() {
             <h2 className="text-xl font-bold" style={{ color: "var(--ln-ink)" }}>
               Top 4
             </h2>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {topReviews.map((review) => (
                 <Link
                   key={review.id}
                   href={`/card/${review.id}`}
-                  className="group relative aspect-square rounded-lg overflow-hidden"
+                  className="block hover:opacity-90 transition-opacity"
                 >
-                  <img
-                    src={review.track.artworkUrl}
-                    alt={review.track.album}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity flex items-center justify-center">
-                    <span className="opacity-0 group-hover:opacity-100 text-white font-bold text-2xl">
-                      {review.rating.toFixed(1)}
-                    </span>
-                  </div>
+                  <ReviewCard review={review} className="w-full" />
                 </Link>
               ))}
             </div>

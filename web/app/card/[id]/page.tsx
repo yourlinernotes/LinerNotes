@@ -56,8 +56,8 @@ export default function CardPage() {
       // Copy link to clipboard
       await navigator.clipboard.writeText(url);
 
-      // Generate image of the card
-      const cardElement = document.querySelector('.review-card');
+      // Generate image of the export card (without links)
+      const cardElement = document.querySelector('#export-card .review-card');
       if (!cardElement) {
         alert("Card not found. Try again in a moment.");
         return;
@@ -150,7 +150,13 @@ export default function CardPage() {
         </button>
       </div>
 
+      {/* Visible card with links */}
       <ReviewCard review={review} />
+
+      {/* Hidden card without links for Instagram export - positioned off-screen */}
+      <div style={{ position: 'fixed', left: '-9999px', top: 0 }} id="export-card">
+        <ReviewCard review={review} hideLinks={true} />
+      </div>
     </div>
   );
 }
