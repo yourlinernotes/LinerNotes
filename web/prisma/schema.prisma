@@ -22,8 +22,11 @@ model User {
 
   // Relations
   reviews           Review[]
+  albumReviews      AlbumReview[]
   likes             Like[]
   reposts           Repost[]
+  albumLikes        AlbumLike[]
+  albumReposts      AlbumRepost[]
   friendRequestsSent     Friendship[] @relation("FriendRequestsSent")
   friendRequestsReceived Friendship[] @relation("FriendRequestsReceived")
 
@@ -51,6 +54,14 @@ model Review {
   momentLabel   String?  // DEPRECATED: Use notes relation instead
   featuredNoteId String? // Which note to feature on the share card
 
+  // Album review relation (optional - for per-track reviews within an album)
+  albumReviewId String?
+  albumReview   AlbumReview? @relation(fields: [albumReviewId], references: [id], onDelete: Cascade)
+  trackNumber   Int?         // Position in album tracklist
+
+  // Quick reaction for mobile sharing (flame/love/skip)
+  reaction      String?      // "flame" | "love" | "skip"
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -61,6 +72,7 @@ model Review {
 
   @@index([userId])
   @@index([createdAt])
+  @@index([albumReviewId])
 }
 
 model Note {
@@ -120,6 +132,64 @@ model Repost {
   @@unique([userId, reviewId])
   @@index([userId])
   @@index([reviewId])
+  @@index([createdAt])
+}
+
+model AlbumReview {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Album metadata (stored to avoid Spotify API calls)
+  albumId       String
+  albumName     String
+  albumArtist   String
+  artworkUrl    String
+  releaseDate   String?
+  totalTracks   Int?
+
+  // Album review content
+  overallRating Float?   // Manual override or auto-calculated from track ratings
+  take          String?  // Optional review of the album as a whole
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  trackReviews  Review[]
+  likes         AlbumLike[]
+  reposts       AlbumRepost[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AlbumLike {
+  id            String      @id @default(cuid())
+  userId        String
+  albumReviewId String
+  createdAt     DateTime    @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  albumReview   AlbumReview @relation(fields: [albumReviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, albumReviewId])
+  @@index([userId])
+  @@index([albumReviewId])
+}
+
+model AlbumRepost {
+  id            String      @id @default(cuid())
+  userId        String
+  albumReviewId String
+  createdAt     DateTime    @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  albumReview   AlbumReview @relation(fields: [albumReviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, albumReviewId])
+  @@index([userId])
+  @@index([albumReviewId])
   @@index([createdAt])
 }
 
