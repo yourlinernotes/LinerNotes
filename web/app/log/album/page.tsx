@@ -1,30 +1,29 @@
 "use client";
 
-import { ComposeForm } from "@/components/compose";
+import { AlbumComposeForm } from "@/components/compose/AlbumComposeForm";
 import { UserNav } from "@/components/UserNav";
-import { searchTracks } from "@/lib/api";
 import Link from "next/link";
 
-export default function LogPage() {
+export default function LogAlbumPage() {
   return (
     <div className="min-h-screen p-6" style={{ backgroundColor: "var(--ln-bg)" }}>
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
-              Review a Track
-            </h1>
             <Link
-              href="/log/album"
+              href="/log"
               className="px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-80"
               style={{
                 backgroundColor: "var(--ln-surface)",
                 color: "var(--ln-ink)",
               }}
             >
-              Album Review →
+              ← Track Review
             </Link>
+            <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
+              Review an Album
+            </h1>
           </div>
           <UserNav />
         </div>
@@ -32,21 +31,16 @@ export default function LogPage() {
         {/* Info */}
         <div
           className="p-4 rounded-lg"
-          style={{ backgroundColor: "var(--ln-surface)", color: "var(--ln-ink-soft)" }}
+          style={{ backgroundColor: "var(--ln-surface)" }}
         >
-          <p className="text-sm">
-            Search for a track, rate it (0.5–5.0), optionally add your take and mark a
-            moment. Minimum: just a rating!
+          <p className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
+            <strong>Tip:</strong> You don't need to rate every track. React to the ones that stuck (flame/love/skip),
+            add notes to standout moments, and let the rest gracefully fade into the background.
           </p>
         </div>
 
-        {/* Compose Form */}
-        <div
-          className="p-6 rounded-lg"
-          style={{ backgroundColor: "var(--ln-surface)" }}
-        >
-          <ComposeForm searchAPI={searchTracks} />
-        </div>
+        {/* Form */}
+        <AlbumComposeForm />
       </div>
     </div>
   );
