@@ -1,4 +1,4 @@
-import { NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -176,3 +176,8 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
+
+/**
+ * Export NextAuth instance for server-side usage
+ */
+export const { auth, signIn, signOut } = NextAuth(authOptions);

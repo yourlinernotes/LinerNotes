@@ -1,12 +1,11 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "./auth";
+import { auth } from "./auth";
 
 /**
  * Get the current session on the server side
  * Use this in API routes and server components
  */
 export async function getSession() {
-  return await getServerSession(authOptions);
+  return await auth();
 }
 
 /**
