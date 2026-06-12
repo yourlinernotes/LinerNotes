@@ -63,6 +63,16 @@ export function ReviewCard({ review, className = "", hideLinks = false }: Review
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Get the note to display on the card
+  // Priority: featuredNote > first note > deprecated moment field
+  const displayNote = review.notes && review.notes.length > 0
+    ? review.featuredNoteId
+      ? review.notes.find(n => n.id === review.featuredNoteId) || review.notes[0]
+      : review.notes[0]
+    : review.moment
+      ? { seconds: review.moment.seconds, label: review.moment.label || "marked moment", note: undefined, id: "", createdAt: "" }
+      : undefined;
+
   const getSpotifyLink = (trackId: string, momentSeconds?: number) => {
     // Try Spotify deep link first (works on mobile)
     const spotifyUri = `spotify:track:${trackId}`;
@@ -118,18 +128,18 @@ export function ReviewCard({ review, className = "", hideLinks = false }: Review
           )}
         </div>
 
-        {/* Waveform with moment */}
-        {review.moment && (
+        {/* Waveform with note */}
+        {displayNote && (
           <div className="space-y-2">
             <Waveform
-              momentSeconds={review.moment.seconds}
+              momentSeconds={displayNote.seconds}
               duration={30}
               accentColor={colors.accent}
               baseColor={`${colors.text}40`}
             />
             {!hideLinks ? (
               <a
-                href={getSpotifyLink(review.track.trackId, review.moment.seconds)}
+                href={getSpotifyLink(review.track.trackId, displayNote.seconds)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-sm opacity-75 hover:opacity-100 transition-opacity cursor-pointer"
@@ -141,11 +151,16 @@ export function ReviewCard({ review, className = "", hideLinks = false }: Review
                 >
                   <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
                 </svg>
-                {formatTime(review.moment.seconds)} · {review.moment.label || "marked moment"}
+                {formatTime(displayNote.seconds)} · {displayNote.label}
               </a>
             ) : (
               <p className="text-sm opacity-75">
-                {formatTime(review.moment.seconds)} · {review.moment.label || "marked moment"}
+                {formatTime(displayNote.seconds)} · {displayNote.label}
+              </p>
+            )}
+            {displayNote.note && (
+              <p className="text-sm italic opacity-75">
+                "{displayNote.note}"
               </p>
             )}
           </div>

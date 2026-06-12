@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Track, Review, Moment } from "@/lib/types";
+import type { Track, Review, Note } from "@/lib/types";
 import { TrackSearch } from "./TrackSearch";
 import { RatingSelector } from "./RatingSelector";
 
@@ -11,12 +11,17 @@ interface ComposeFormProps {
   searchAPI?: (query: string) => Promise<Track[]>;
 }
 
+interface NoteInput {
+  time: string; // mm:ss format
+  label: string;
+  note?: string;
+}
+
 export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps) {
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [rating, setRating] = useState(3.5);
   const [take, setTake] = useState("");
-  const [momentTime, setMomentTime] = useState(""); // mm:ss format
-  const [momentLabel, setMomentLabel] = useState("");
+  const [notes, setNotes] = useState<NoteInput[]>([{ time: "", label: "", note: "" }]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,21 +35,19 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
     setSubmitting(true);
 
     try {
-      // Convert mm:ss to seconds
-      let momentSeconds: number | undefined;
-      if (momentTime) {
-        const parts = momentTime.split(':');
-        if (parts.length === 2) {
-          const mins = parseInt(parts[0]) || 0;
-          const secs = parseInt(parts[1]) || 0;
-          momentSeconds = mins * 60 + secs;
-        }
-      }
-
-      const moment: Moment | undefined =
-        momentSeconds !== undefined && momentLabel
-          ? { seconds: momentSeconds, label: momentLabel }
-          : undefined;
+      // Convert notes from input format to API format
+      const notesData = notes
+        .filter(note => note.time && note.label) // Only include notes with time and label
+        .map(note => {
+          const parts = note.time.split(':');
+          const mins = parts.length === 2 ? parseInt(parts[0]) || 0 : 0;
+          const secs = parts.length === 2 ? parseInt(parts[1]) || 0 : 0;
+          return {
+            seconds: mins * 60 + secs,
+            label: note.label,
+            note: note.note?.trim() || undefined,
+          };
+        });
 
       const reviewData = {
         trackId: selectedTrack.trackId,
@@ -55,8 +58,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
         previewUrl: selectedTrack.previewUrl,
         rating,
         take: take.trim() || undefined,
-        momentSeconds: moment?.seconds,
-        momentLabel: moment?.label,
+        notes: notesData.length > 0 ? notesData : undefined,
       };
 
       if (onSubmit) {
@@ -72,8 +74,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
       setSelectedTrack(null);
       setRating(3.5);
       setTake("");
-      setMomentTime("");
-      setMomentLabel("");
+      setNotes([{ time: "", label: "", note: "" }]);
 
       // Redirect to profile to see the review
       const { checkAuth } = await import("@/lib/api");
@@ -89,6 +90,22 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const addNote = () => {
+    setNotes([...notes, { time: "", label: "", note: "" }]);
+  };
+
+  const removeNote = (index: number) => {
+    if (notes.length > 1) {
+      setNotes(notes.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateNote = (index: number, field: keyof NoteInput, value: string) => {
+    const newNotes = [...notes];
+    newNotes[index] = { ...newNotes[index], [field]: value };
+    setNotes(newNotes);
   };
 
   return (
@@ -162,45 +179,85 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
             </div>
           </div>
 
-          {/* Moment (optional) */}
-          <div className="space-y-2">
+          {/* Notes (optional) */}
+          <div className="space-y-3">
             <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Mark the moment (optional)
+              Mark moments (optional)
             </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={momentTime}
-                onChange={(e) => {
-                  // Only allow digits and colon
-                  const value = e.target.value.replace(/[^0-9:]/g, '');
-                  setMomentTime(value);
-                }}
-                placeholder="0:00 (mm:ss)"
-                maxLength={5}
-                className="w-24 px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: "var(--ln-surface)",
-                  color: "var(--ln-ink)",
-                  borderColor: "var(--ln-line)",
-                }}
-              />
-              <input
-                type="text"
-                value={momentLabel}
-                onChange={(e) => setMomentLabel(e.target.value)}
-                placeholder="Label (e.g., 'best bit', 'intro', 'drop')"
-                maxLength={30}
-                className="flex-1 px-4 py-2 rounded-lg focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: "var(--ln-surface)",
-                  color: "var(--ln-ink)",
-                  borderColor: "var(--ln-line)",
-                }}
-              />
-            </div>
+            {notes.map((note, index) => (
+              <div key={index} className="space-y-2 p-3 rounded-lg" style={{ backgroundColor: "var(--ln-surface)" }}>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={note.time}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9:]/g, '');
+                      updateNote(index, 'time', value);
+                    }}
+                    placeholder="0:00 (mm:ss)"
+                    maxLength={5}
+                    className="w-24 px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: "var(--ln-bg)",
+                      color: "var(--ln-ink)",
+                      borderColor: "var(--ln-line)",
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={note.label}
+                    onChange={(e) => updateNote(index, 'label', e.target.value)}
+                    placeholder="Label (e.g., 'best bit', 'intro', 'drop')"
+                    maxLength={30}
+                    className="flex-1 px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
+                    style={{
+                      backgroundColor: "var(--ln-bg)",
+                      color: "var(--ln-ink)",
+                      borderColor: "var(--ln-line)",
+                    }}
+                  />
+                  {notes.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeNote(index)}
+                      className="px-3 py-2 rounded-lg text-sm"
+                      style={{
+                        backgroundColor: "var(--ln-line)",
+                        color: "var(--ln-ink-soft)",
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={note.note || ""}
+                  onChange={(e) => updateNote(index, 'note', e.target.value)}
+                  placeholder="Optional note or commentary..."
+                  maxLength={150}
+                  className="w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: "var(--ln-bg)",
+                    color: "var(--ln-ink)",
+                    borderColor: "var(--ln-line)",
+                  }}
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addNote}
+              className="w-full py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-80"
+              style={{
+                backgroundColor: "var(--ln-surface)",
+                color: "var(--ln-ink)",
+              }}
+            >
+              + Add another moment
+            </button>
             <p className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>
-              Mark a specific moment in the track. Examples: 0:00 (intro), 1:23, 3:45
+              Mark specific moments in the track. Examples: 0:00 (intro), 1:23 (drop), 3:45 (outro)
             </p>
           </div>
 

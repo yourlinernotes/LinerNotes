@@ -1,5 +1,13 @@
 // THE DATA CONTRACT — everyone imports, only Abia edits
 
+export type Note = {
+  id: string;
+  seconds: number;
+  label: string;
+  note?: string; // Optional longer commentary
+  createdAt: string;
+};
+
 export type Moment = {
   seconds: number;
   label?: string;
@@ -29,7 +37,9 @@ export type Review = {
   track: Track;
   rating: number; // 0.5–5.0 in 0.5 steps
   take?: string; // one short line
-  moment?: Moment; // optional marked highlight
+  moment?: Moment; // DEPRECATED: Use notes[0] or featuredNote instead
+  notes?: Note[]; // Multiple timestamped notes
+  featuredNoteId?: string; // Which note to show on share card
   createdAt: string; // ISO
   likeCount: number;
   repostCount: number;

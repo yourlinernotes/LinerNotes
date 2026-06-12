@@ -45,6 +45,9 @@ export async function GET(request: NextRequest) {
           reposts: {
             include: { user: true },
           },
+          notes: {
+            orderBy: { createdAt: 'asc' },
+          },
           _count: {
             select: { likes: true, reposts: true },
           },
@@ -72,6 +75,14 @@ export async function GET(request: NextRequest) {
           seconds: review.momentSeconds,
           label: review.momentLabel || undefined,
         } : undefined,
+        notes: review.notes.map(note => ({
+          id: note.id,
+          seconds: note.seconds,
+          label: note.label,
+          note: note.note || undefined,
+          createdAt: note.createdAt.toISOString(),
+        })),
+        featuredNoteId: review.featuredNoteId || undefined,
         createdAt: review.createdAt.toISOString(),
         likeCount: review._count.likes,
         repostCount: review._count.reposts,
@@ -88,6 +99,9 @@ export async function GET(request: NextRequest) {
           user: true,
           likes: true,
           reposts: true,
+          notes: {
+            orderBy: { createdAt: 'asc' },
+          },
           _count: {
             select: { likes: true, reposts: true },
           },
@@ -114,6 +128,14 @@ export async function GET(request: NextRequest) {
           seconds: review.momentSeconds,
           label: review.momentLabel || undefined,
         } : undefined,
+        notes: review.notes.map(note => ({
+          id: note.id,
+          seconds: note.seconds,
+          label: note.label,
+          note: note.note || undefined,
+          createdAt: note.createdAt.toISOString(),
+        })),
+        featuredNoteId: review.featuredNoteId || undefined,
         createdAt: review.createdAt.toISOString(),
         likeCount: review._count.likes,
         repostCount: review._count.reposts,
@@ -133,6 +155,9 @@ export async function GET(request: NextRequest) {
         user: true,
         likes: true,
         reposts: true,
+        notes: {
+          orderBy: { createdAt: 'asc' },
+        },
         _count: {
           select: { likes: true, reposts: true },
         },
@@ -155,10 +180,18 @@ export async function GET(request: NextRequest) {
       },
       rating: review.rating,
       take: review.take || undefined,
-      moment: review.momentSeconds ? {
+      moment: review.momentSeconds !== null && review.momentSeconds !== undefined ? {
         seconds: review.momentSeconds,
         label: review.momentLabel || undefined,
       } : undefined,
+      notes: review.notes.map(note => ({
+        id: note.id,
+        seconds: note.seconds,
+        label: note.label,
+        note: note.note || undefined,
+        createdAt: note.createdAt.toISOString(),
+      })),
+      featuredNoteId: review.featuredNoteId || undefined,
       createdAt: review.createdAt.toISOString(),
       likeCount: review._count.likes,
       repostCount: review._count.reposts,
@@ -196,8 +229,9 @@ export async function POST(request: NextRequest) {
       previewUrl,
       rating,
       take,
-      momentSeconds,
-      momentLabel,
+      momentSeconds, // DEPRECATED: for backward compatibility
+      momentLabel,   // DEPRECATED: for backward compatibility
+      notes,         // Array of { seconds, label, note? }
     } = body;
 
     // Validate required fields
@@ -223,6 +257,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Create review with notes
     const review = await prisma.review.create({
       data: {
         userId: session.userId,
@@ -234,16 +269,34 @@ export async function POST(request: NextRequest) {
         previewUrl,
         rating,
         take: take || null,
-        momentSeconds: momentSeconds || null,
-        momentLabel: momentLabel || null,
+        // Keep deprecated fields for backward compatibility
+        momentSeconds: momentSeconds ?? null,
+        momentLabel: momentLabel ?? null,
+        // Create notes if provided
+        notes: notes && notes.length > 0 ? {
+          create: notes.map((note: any) => ({
+            seconds: note.seconds,
+            label: note.label,
+            note: note.note || null,
+          })),
+        } : undefined,
       },
       include: {
         user: true,
+        notes: true,
         _count: {
           select: { likes: true, reposts: true },
         },
       },
     });
+
+    // If notes were created, set the first one as featured by default
+    if (review.notes && review.notes.length > 0 && !review.featuredNoteId) {
+      await prisma.review.update({
+        where: { id: review.id },
+        data: { featuredNoteId: review.notes[0].id },
+      });
+    }
 
     return NextResponse.json({ review }, { status: 201 });
   } catch (error) {

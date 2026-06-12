@@ -22,6 +22,9 @@ export async function GET(
         reposts: {
           include: { user: true },
         },
+        notes: {
+          orderBy: { createdAt: 'asc' },
+        },
         _count: {
           select: { likes: true, reposts: true },
         },
@@ -51,6 +54,14 @@ export async function GET(
         seconds: review.momentSeconds,
         label: review.momentLabel || undefined,
       } : undefined,
+      notes: review.notes.map(note => ({
+        id: note.id,
+        seconds: note.seconds,
+        label: note.label,
+        note: note.note || undefined,
+        createdAt: note.createdAt.toISOString(),
+      })),
+      featuredNoteId: review.featuredNoteId || undefined,
       createdAt: review.createdAt.toISOString(),
       likeCount: review._count.likes,
       repostCount: review._count.reposts,
