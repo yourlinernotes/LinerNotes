@@ -46,9 +46,10 @@ model Review {
 
   // Review content
   rating        Float    // 0.5 to 5.0
-  take          String?  // Optional one-liner
-  momentSeconds Float?   // Optional moment timestamp
-  momentLabel   String?  // Optional moment label
+  take          String?  // Optional longer review text
+  momentSeconds Float?   // DEPRECATED: Use notes relation instead
+  momentLabel   String?  // DEPRECATED: Use notes relation instead
+  featuredNoteId String? // Which note to feature on the share card
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -56,9 +57,24 @@ model Review {
   // Relations
   likes         Like[]
   reposts       Repost[]
+  notes         Note[]   // Multiple timestamped notes
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  seconds   Float    // Timestamp in seconds
+  label     String   // Label for the moment (e.g., "best bit", "intro")
+  note      String?  // Optional longer note/commentary
+
+  createdAt DateTime @default(now())
+
+  @@index([reviewId])
 }
 
 model Friendship {
