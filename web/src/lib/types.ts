@@ -92,6 +92,8 @@ export type AlbumFeedItem = {
   at: string;
 };
 
+export type UnifiedFeedItem = FeedItem | AlbumFeedItem;
+
 export type Friendship = {
   id: string;
   requesterId: string;

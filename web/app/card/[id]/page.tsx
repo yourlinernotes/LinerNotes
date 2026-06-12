@@ -98,39 +98,57 @@ export default function CardPage() {
 
       const { toPng } = await import('html-to-image');
 
+      // Wait a bit to ensure all images and styles are loaded
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Convert card to image with transparent background
+      // Use cacheBust to avoid CORS issues with cached images
       const dataUrl = await toPng(cardElement as HTMLElement, {
         quality: 1,
         pixelRatio: 2, // Higher quality for Instagram
         backgroundColor: 'transparent', // Transparent background for sticker
+        cacheBust: true, // Force reload images to avoid CORS issues
+        skipFonts: false, // Include fonts
+        filter: (node) => {
+          // Include all nodes
+          return true;
+        },
       });
 
       // Convert data URL to blob
       const response = await fetch(dataUrl);
       const blob = await response.blob();
 
-      // Try Instagram's native sharing API first (mobile only)
-      const isInstagramAvailable = /Instagram/i.test(navigator.userAgent);
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-      if (isMobile && isInstagramAvailable) {
-        // Use Instagram's sticker layer format
-        // This works when sharing from Instagram's in-app browser
-        const stickerFile = new File([blob], 'sticker.png', { type: 'image/png' });
+      // Try Web Share API first (works on mobile and saves to Photos on iOS)
+      if (navigator.share && isMobile) {
+        try {
+          const shareFile = new File([blob], 'linernotes-review.png', { type: 'image/png' });
+          const shareData = {
+            files: [shareFile],
+            title: `${review.track.name} review`,
+            text: `Check out my review on LinerNotes: ${url}`,
+          };
 
-        const shareData = {
-          files: [stickerFile],
-          title: `${review.track.name} review`,
-          text: url, // The link will be available to paste
-        };
-
-        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-          await navigator.share(shareData);
-          return;
+          if (navigator.canShare && navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+            // On iOS, user can save to Photos from the share sheet
+            if (isIOS) {
+              alert(
+                "✅ Link copied!\n\n" +
+                "💡 Tip: Select 'Save Image' to add to Photos, then open Instagram to add it to your story!"
+              );
+            }
+            return;
+          }
+        } catch (shareError) {
+          console.log("Share API not fully supported, falling back:", shareError);
         }
       }
 
-      // Fallback: Download and provide instructions
+      // Fallback: Download
       const link = document.createElement('a');
       link.href = dataUrl;
       link.download = 'linernotes-review.png';
@@ -141,14 +159,14 @@ export default function CardPage() {
         "📸 To share to Instagram Story:\n" +
         "1. Open Instagram\n" +
         "2. Create a new story with any background\n" +
-        "3. Tap the sticker icon → Camera Roll\n" +
+        "3. Tap the sticker icon → Camera Roll/Photos\n" +
         "4. Select the downloaded review card\n" +
         "5. Add a link sticker → paste the copied link\n" +
         "6. Position the review card over the link to hide it"
       );
     } catch (error) {
       console.error("Failed to share:", error);
-      alert("Failed to prepare story. Try the 'Copy Link' button instead.");
+      alert("Failed to prepare story. Try the 'Copy Link' button instead.\n\nError: " + (error as Error).message);
     }
   };
 

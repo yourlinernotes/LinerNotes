@@ -301,8 +301,11 @@ export default function ProfilePage() {
                             </span>
                           )}
                         </div>
-                        <div className="text-sm mb-2" style={{ color: "var(--ln-ink-soft)" }}>
+                        <div className="text-sm mb-1" style={{ color: "var(--ln-ink-soft)" }}>
                           {albumReview.album.artist}
+                        </div>
+                        <div className="text-xs mb-2" style={{ color: "var(--ln-ink-soft)", opacity: 0.75 }}>
+                          {new Date(albumReview.createdAt).toLocaleDateString()}
                         </div>
                         {albumReview.take && (
                           <p className="text-sm italic line-clamp-2" style={{ color: "var(--ln-ink)" }}>

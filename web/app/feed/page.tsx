@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { FeedList } from "@/components/feed";
 import { UserNav } from "@/components/UserNav";
 import { getReviews, checkAuth, toggleLike, toggleRepost } from "@/lib/api";
-import type { FeedItem, Review } from "@/lib/types";
+import type { UnifiedFeedItem, Review, AlbumReview } from "@/lib/types";
 import Link from "next/link";
 
 export default function FeedPage() {
-  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const [feedItems, setFeedItems] = useState<UnifiedFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
@@ -24,13 +24,18 @@ export default function FeedPage() {
           return;
         }
 
-        // Get friends' reviews
+        // Get friends' track reviews
         const reviews = await getReviews({ feed: "friends" });
 
-        // Transform reviews into feed items
-        // If a review has reposts, create multiple feed items
-        const items: FeedItem[] = [];
+        // Get friends' album reviews
+        const albumReviewsRes = await fetch("/api/album-reviews?feed=friends");
+        const albumReviewsData = await albumReviewsRes.json();
+        const albumReviews: AlbumReview[] = albumReviewsData.albumReviews || [];
 
+        // Transform reviews into feed items
+        const items: UnifiedFeedItem[] = [];
+
+        // Add track reviews
         for (const review of reviews) {
           // Add original review
           items.push({
@@ -52,10 +57,32 @@ export default function FeedPage() {
           }
         }
 
+        // Add album reviews
+        for (const albumReview of albumReviews) {
+          // Add original album review
+          items.push({
+            kind: "album_review",
+            albumReview,
+            at: albumReview.createdAt,
+          });
+
+          // Add album repost entries
+          if ((albumReview as any).reposts) {
+            for (const repost of (albumReview as any).reposts) {
+              items.push({
+                kind: "album_repost",
+                albumReview,
+                repostedBy: repost.user,
+                at: repost.createdAt,
+              });
+            }
+          }
+        }
+
         // Sort by creation time (most recent first)
         items.sort((a, b) => {
-          const aTime = new Date(a.review.createdAt).getTime();
-          const bTime = new Date(b.review.createdAt).getTime();
+          const aTime = new Date(a.at).getTime();
+          const bTime = new Date(b.at).getTime();
           return bTime - aTime;
         });
 
@@ -77,15 +104,17 @@ export default function FeedPage() {
       // Update feed items with new like count and status
       setFeedItems((items) =>
         items.map((item) =>
-          item.review.id === reviewId
-            ? {
-                ...item,
-                review: {
-                  ...item.review,
-                  likeCount: result.likeCount,
-                  likedByMe: result.liked,
-                },
-              }
+          item.kind === "review" || item.kind === "repost"
+            ? item.review.id === reviewId
+              ? {
+                  ...item,
+                  review: {
+                    ...item.review,
+                    likeCount: result.likeCount,
+                    likedByMe: result.liked,
+                  },
+                }
+              : item
             : item
         )
       );
@@ -101,20 +130,80 @@ export default function FeedPage() {
       // Update feed items with new repost count and status
       setFeedItems((items) =>
         items.map((item) =>
-          item.review.id === reviewId
-            ? {
-                ...item,
-                review: {
-                  ...item.review,
-                  repostCount: result.repostCount,
-                  repostedByMe: result.reposted,
-                },
-              }
+          item.kind === "review" || item.kind === "repost"
+            ? item.review.id === reviewId
+              ? {
+                  ...item,
+                  review: {
+                    ...item.review,
+                    repostCount: result.repostCount,
+                    repostedByMe: result.reposted,
+                  },
+                }
+              : item
             : item
         )
       );
     } catch (error) {
       console.error("Failed to toggle repost:", error);
+    }
+  };
+
+  const handleAlbumLike = async (albumReviewId: string) => {
+    try {
+      const result = await fetch(`/api/album-reviews/${albumReviewId}/like`, {
+        method: "POST",
+      });
+      const data = await result.json();
+
+      // Update feed items with new like count and status
+      setFeedItems((items) =>
+        items.map((item) =>
+          item.kind === "album_review" || item.kind === "album_repost"
+            ? item.albumReview.id === albumReviewId
+              ? {
+                  ...item,
+                  albumReview: {
+                    ...item.albumReview,
+                    likeCount: data.likeCount,
+                    likedByMe: data.liked,
+                  },
+                }
+              : item
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("Failed to toggle album like:", error);
+    }
+  };
+
+  const handleAlbumRepost = async (albumReviewId: string) => {
+    try {
+      const result = await fetch(`/api/album-reviews/${albumReviewId}/repost`, {
+        method: "POST",
+      });
+      const data = await result.json();
+
+      // Update feed items with new repost count and status
+      setFeedItems((items) =>
+        items.map((item) =>
+          item.kind === "album_review" || item.kind === "album_repost"
+            ? item.albumReview.id === albumReviewId
+              ? {
+                  ...item,
+                  albumReview: {
+                    ...item.albumReview,
+                    repostCount: data.repostCount,
+                    repostedByMe: data.reposted,
+                  },
+                }
+              : item
+            : item
+        )
+      );
+    } catch (error) {
+      console.error("Failed to toggle album repost:", error);
     }
   };
 
@@ -164,7 +253,13 @@ export default function FeedPage() {
 
         {/* Feed */}
         {!loading && authenticated && (
-          <FeedList items={feedItems} onLike={handleLike} onRepost={handleRepost} />
+          <FeedList
+            items={feedItems}
+            onLike={handleLike}
+            onRepost={handleRepost}
+            onAlbumLike={handleAlbumLike}
+            onAlbumRepost={handleAlbumRepost}
+          />
         )}
       </div>
     </div>

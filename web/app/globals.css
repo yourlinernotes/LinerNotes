@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  /* LinerNotes palette — peach + magenta-purple */
+  /* LinerNotes palette — peach + magenta-purple (v0) */
   --ln-bg: #FFF6F0;
   --ln-surface: #FFEADD;
   --ln-ink: #3A1E30;
@@ -11,6 +11,11 @@
   --ln-peach: #F58A6B;
   --ln-line: #F0D6C8;
 
+  /* Beta palette — near-black / cream / gold */
+  --ln-black: #0A0A0A;
+  --ln-cream: #F5F1E8;
+  --ln-gold: #D4AF37;
+
   /* Compat with Tailwind theme */
   --background: var(--ln-bg);
   --foreground: var(--ln-ink);
@@ -19,6 +24,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-black: var(--ln-black);
+  --color-cream: var(--ln-cream);
+  --color-gold: var(--ln-gold);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

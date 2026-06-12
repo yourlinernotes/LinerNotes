@@ -14,6 +14,109 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
+    const feed = searchParams.get("feed");
+
+    // Get friends' album reviews (feed)
+    if (feed === "friends") {
+      if (!session.userId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      // Get accepted friendships
+      const friendships = await prisma.friendship.findMany({
+        where: {
+          OR: [
+            { requesterId: session.userId, status: "ACCEPTED" },
+            { addresseeId: session.userId, status: "ACCEPTED" },
+          ],
+        },
+      });
+
+      const friendIds = friendships.map((f) =>
+        f.requesterId === session.userId ? f.addresseeId : f.requesterId
+      );
+
+      // Include own album reviews too
+      const allUserIds = [session.userId, ...friendIds];
+
+      const albumReviews = await prisma.albumReview.findMany({
+        where: { userId: { in: allUserIds } },
+        include: {
+          user: true,
+          trackReviews: {
+            include: {
+              notes: {
+                orderBy: { createdAt: 'asc' },
+              },
+            },
+            orderBy: { trackNumber: 'asc' },
+          },
+          likes: {
+            where: { userId: session.userId },
+          },
+          reposts: {
+            include: { user: true },
+          },
+          _count: {
+            select: { likes: true, reposts: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const transformedAlbumReviews = albumReviews.map((albumReview) => ({
+        id: albumReview.id,
+        userId: albumReview.userId,
+        user: albumReview.user,
+        album: {
+          albumId: albumReview.albumId,
+          name: albumReview.albumName,
+          artist: albumReview.albumArtist,
+          artworkUrl: albumReview.artworkUrl,
+          releaseDate: albumReview.releaseDate || undefined,
+          totalTracks: albumReview.totalTracks || undefined,
+        },
+        overallRating: albumReview.overallRating || undefined,
+        take: albumReview.take || undefined,
+        trackReviews: albumReview.trackReviews.map(review => ({
+          id: review.id,
+          userId: review.userId,
+          track: {
+            trackId: review.trackId,
+            name: review.trackName,
+            artist: review.trackArtist,
+            album: review.trackAlbum,
+            artworkUrl: review.artworkUrl,
+            previewUrl: review.previewUrl || undefined,
+          },
+          rating: review.rating,
+          take: review.take || undefined,
+          reaction: review.reaction || undefined,
+          trackNumber: review.trackNumber || undefined,
+          notes: review.notes.map(note => ({
+            id: note.id,
+            seconds: note.seconds,
+            label: note.label,
+            note: note.note || undefined,
+            createdAt: note.createdAt.toISOString(),
+          })),
+          featuredNoteId: review.featuredNoteId || undefined,
+          createdAt: review.createdAt.toISOString(),
+        })),
+        createdAt: albumReview.createdAt.toISOString(),
+        likeCount: albumReview._count.likes,
+        repostCount: albumReview._count.reposts,
+        likedByMe: albumReview.likes.length > 0,
+        repostedByMe: albumReview.reposts.some(r => r.userId === session.userId),
+        reposts: albumReview.reposts.map(r => ({
+          id: r.id,
+          user: r.user,
+          createdAt: r.createdAt.toISOString(),
+        })),
+      }));
+
+      return NextResponse.json({ albumReviews: transformedAlbumReviews });
+    }
 
     // Get specific user's album reviews (public)
     if (userId) {

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,15 +7,10 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const user = await requireAuth();
 
-    if (!session.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
+    const fullUser = await prisma.user.findUnique({
+      where: { id: user.id },
       select: {
         id: true,
         handle: true,
@@ -29,13 +22,16 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!user) {
+    if (!fullUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ user });
+    return NextResponse.json({ user: fullUser });
   } catch (error) {
     console.error("Get current user error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { error: "Failed to fetch user" },
       { status: 500 }
@@ -48,12 +44,7 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-
-    if (!session.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const user = await requireAuth();
 
     const body = await request.json();
     const { displayName, bio, avatarUrl, handle } = body;
@@ -104,7 +95,7 @@ export async function PATCH(request: NextRequest) {
         where: { handle: trimmedHandle },
       });
 
-      if (existingUser && existingUser.id !== session.userId) {
+      if (existingUser && existingUser.id !== user.id) {
         return NextResponse.json(
           { error: "Handle is already taken" },
           { status: 400 }
@@ -114,7 +105,7 @@ export async function PATCH(request: NextRequest) {
 
     // Update user
     const updatedUser = await prisma.user.update({
-      where: { id: session.userId },
+      where: { id: user.id },
       data: {
         ...(displayName !== undefined && { displayName: displayName.trim() }),
         ...(bio !== undefined && { bio: bio.trim() || null }),
@@ -131,15 +122,12 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
-    // Update session if handle changed
-    if (handle !== undefined) {
-      session.userHandle = updatedUser.handle;
-      await session.save();
-    }
-
     return NextResponse.json({ user: updatedUser });
   } catch (error) {
     console.error("Update user error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { error: "Failed to update user" },
       { status: 500 }

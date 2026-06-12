@@ -32,10 +32,16 @@ export function ReviewCard({ review, className = "", hideLinks = false }: Review
     const fac = new FastAverageColor();
     const img = imgRef.current;
 
-    img.crossOrigin = "Anonymous";
-
     const extractColors = async () => {
       try {
+        // Only set crossOrigin if needed for color extraction
+        // This might fail due to CORS, so we have a fallback
+        try {
+          img.crossOrigin = "Anonymous";
+        } catch (e) {
+          console.log("CORS not available for image");
+        }
+
         const avgColor = await fac.getColorAsync(img);
         const isDark = avgColor.isDark;
 
@@ -45,7 +51,8 @@ export function ReviewCard({ review, className = "", hideLinks = false }: Review
           accent: isDark ? "#ffffff" : avgColor.hex,
         });
       } catch (error) {
-        console.error("Color extraction failed:", error);
+        console.error("Color extraction failed, using defaults:", error);
+        // Keep default colors if extraction fails
       }
     };
 

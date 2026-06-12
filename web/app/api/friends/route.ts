@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,12 +7,7 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
-
-    if (!session.userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const user = await requireAuth();
 
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get("type"); // "requests", "sent", or null (all friends)
@@ -23,7 +16,7 @@ export async function GET(request: NextRequest) {
       // Get pending friend requests received
       const requests = await prisma.friendship.findMany({
         where: {
-          addresseeId: session.userId,
+          addresseeId: user.id,
           status: "PENDING",
         },
         include: {
@@ -38,7 +31,7 @@ export async function GET(request: NextRequest) {
       // Get pending friend requests sent
       const requests = await prisma.friendship.findMany({
         where: {
-          requesterId: session.userId,
+          requesterId: user.id,
           status: "PENDING",
         },
         include: {
@@ -53,8 +46,8 @@ export async function GET(request: NextRequest) {
     const friendships = await prisma.friendship.findMany({
       where: {
         OR: [
-          { requesterId: session.userId, status: "ACCEPTED" },
-          { addresseeId: session.userId, status: "ACCEPTED" },
+          { requesterId: user.id, status: "ACCEPTED" },
+          { addresseeId: user.id, status: "ACCEPTED" },
         ],
       },
       include: {
@@ -64,12 +57,15 @@ export async function GET(request: NextRequest) {
     });
 
     const friends = friendships.map((f) =>
-      f.requesterId === session.userId ? f.addressee : f.requester
+      f.requesterId === user.id ? f.addressee : f.requester
     );
 
     return NextResponse.json({ friends });
   } catch (error) {
     console.error("Get friends error:", error);
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return NextResponse.json(
       { error: "Failed to fetch friends" },
       { status: 500 }

@@ -60,6 +60,15 @@ export default function AlbumCardPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   const getReactionEmoji = (reaction?: string) => {
     switch (reaction) {
       case "flame": return "🔥";
@@ -204,11 +213,16 @@ export default function AlbumCardPage() {
           )}
 
           {/* Footer */}
-          <div className="pt-4 border-t flex items-center justify-between text-sm opacity-60"
+          <div className="pt-4 border-t space-y-2 text-sm opacity-60"
             style={{ borderColor: "rgba(255,255,255,0.1)" }}
           >
-            <span>made on LinerNotes</span>
-            {albumReview.user && <span>@{albumReview.user.handle}</span>}
+            <div className="flex items-center justify-between">
+              <span>made on LinerNotes</span>
+              {albumReview.user && <span>@{albumReview.user.handle}</span>}
+            </div>
+            <div className="text-xs opacity-75">
+              {formatDate(albumReview.createdAt)}
+            </div>
           </div>
         </div>
       </div>
