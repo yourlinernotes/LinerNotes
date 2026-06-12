@@ -1,10 +1,11 @@
-import { Track } from "./types";
+import { Track, Album } from "./types";
 
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 
 interface SpotifyTrack {
   id: string;
   name: string;
+  track_number?: number;
   artists: { name: string }[];
   album: {
     name: string;
@@ -13,9 +14,24 @@ interface SpotifyTrack {
   preview_url: string | null;
 }
 
-interface SpotifySearchResponse {
-  tracks: {
+interface SpotifyAlbum {
+  id: string;
+  name: string;
+  artists: { name: string }[];
+  images: { url: string; height: number; width: number }[];
+  release_date: string;
+  total_tracks: number;
+  tracks?: {
     items: SpotifyTrack[];
+  };
+}
+
+interface SpotifySearchResponse {
+  tracks?: {
+    items: SpotifyTrack[];
+  };
+  albums?: {
+    items: SpotifyAlbum[];
   };
 }
 
@@ -30,6 +46,30 @@ function convertSpotifyTrack(spotifyTrack: SpotifyTrack): Track {
     album: spotifyTrack.album.name,
     artworkUrl: spotifyTrack.album.images[0]?.url || "",
     previewUrl: spotifyTrack.preview_url || undefined,
+  };
+}
+
+/**
+ * Convert Spotify album to our Album type
+ */
+function convertSpotifyAlbum(spotifyAlbum: SpotifyAlbum): Album {
+  return {
+    albumId: spotifyAlbum.id,
+    name: spotifyAlbum.name,
+    artist: spotifyAlbum.artists.map((a) => a.name).join(", "),
+    artworkUrl: spotifyAlbum.images[0]?.url || "",
+    releaseDate: spotifyAlbum.release_date,
+    totalTracks: spotifyAlbum.total_tracks,
+    tracks: spotifyAlbum.tracks
+      ? spotifyAlbum.tracks.items.map((track, index) => ({
+          trackId: track.id,
+          name: track.name,
+          artist: track.artists.map((a) => a.name).join(", "),
+          album: spotifyAlbum.name,
+          artworkUrl: spotifyAlbum.images[0]?.url || "",
+          previewUrl: track.preview_url || undefined,
+        }))
+      : undefined,
   };
 }
 
@@ -85,7 +125,34 @@ export async function searchTracks(
   }
 
   const data: SpotifySearchResponse = await response.json();
-  return data.tracks.items.map(convertSpotifyTrack);
+  return data.tracks!.items.map(convertSpotifyTrack);
+}
+
+/**
+ * Search for albums on Spotify
+ */
+export async function searchAlbums(
+  query: string,
+  accessToken: string
+): Promise<Album[]> {
+  const params = new URLSearchParams({
+    q: query,
+    type: "album",
+    limit: "10",
+  });
+
+  const response = await fetch(`${SPOTIFY_API_BASE}/search?${params}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Spotify API error: ${response.status}`);
+  }
+
+  const data: SpotifySearchResponse = await response.json();
+  return data.albums!.items.map(convertSpotifyAlbum);
 }
 
 /**
@@ -107,6 +174,27 @@ export async function getTrack(
 
   const data: SpotifyTrack = await response.json();
   return convertSpotifyTrack(data);
+}
+
+/**
+ * Get album details by ID (including full track listing)
+ */
+export async function getAlbum(
+  albumId: string,
+  accessToken: string
+): Promise<Album> {
+  const response = await fetch(`${SPOTIFY_API_BASE}/albums/${albumId}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Spotify API error: ${response.status}`);
+  }
+
+  const data: SpotifyAlbum = await response.json();
+  return convertSpotifyAlbum(data);
 }
 
 /**
