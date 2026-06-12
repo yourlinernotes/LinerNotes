@@ -2,21 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
 import { sessionOptions, SessionData } from "@/lib/session";
-import { searchTracks, searchAlbums, refreshAccessToken } from "@/lib/spotify";
+import { getAlbum, refreshAccessToken } from "@/lib/spotify";
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const query = searchParams.get("q");
-  const type = searchParams.get("type") || "track"; // "track" or "album"
-
-  if (!query || query.trim().length < 2) {
-    return NextResponse.json(
-      { error: "Query must be at least 2 characters" },
-      { status: 400 }
-    );
-  }
-
+/**
+ * GET /api/albums/[id] - Get album details with full tracklist
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params;
+
     const cookieStore = await cookies();
     const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
 
@@ -45,18 +42,14 @@ export async function GET(request: NextRequest) {
       await session.save();
     }
 
-    // Search using Spotify API
-    if (type === "album") {
-      const albums = await searchAlbums(query, accessToken);
-      return NextResponse.json({ albums });
-    } else {
-      const tracks = await searchTracks(query, accessToken);
-      return NextResponse.json({ tracks });
-    }
+    // Get album details using Spotify API
+    const album = await getAlbum(id, accessToken);
+
+    return NextResponse.json({ album });
   } catch (error) {
-    console.error("Search error:", error);
+    console.error("Get album error:", error);
     return NextResponse.json(
-      { error: `Failed to search ${type}s` },
+      { error: "Failed to fetch album" },
       { status: 500 }
     );
   }
