@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen } from './src/screens';
+import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScreen } from './src/screens';
 import { MenuIcon, PlusIcon } from './src/components/atoms';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { tokens } from '@linernotes/core';
 import { MOCK_REVIEWS } from './src/data/mockData';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function App() {
+function AppContent() {
+  const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
   const [activeReview, setActiveReview] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -21,6 +23,26 @@ export default function App() {
   const closeReview = () => {
     setActiveReview(null);
   };
+
+  // Show loading spinner while checking auth
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <StatusBar style="light" />
+        <ActivityIndicator size="large" color={tokens.colors.cream} />
+      </View>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <LoginScreen />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -250,4 +272,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 30,
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
