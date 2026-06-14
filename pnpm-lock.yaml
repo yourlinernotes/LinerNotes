@@ -212,6 +212,9 @@ importers:
       expo:
         specifier: ~54.0.0
         version: 54.0.35(@babel/core@7.29.7)(react-native@0.81.5)(react@19.1.0)(typescript@5.9.3)
+      expo-application:
+        specifier: ^56.0.3
+        version: 56.0.3(expo@54.0.35)
       expo-asset:
         specifier: ^12.0.13
         version: 12.0.13(expo@54.0.35)(react-native@0.81.5)(react@19.1.0)(typescript@5.9.3)
@@ -221,6 +224,9 @@ importers:
       expo-constants:
         specifier: ^18.0.13
         version: 18.0.13(expo@54.0.35)(react-native@0.81.5)
+      expo-crypto:
+        specifier: ^56.0.4
+        version: 56.0.4(expo@54.0.35)
       expo-file-system:
         specifier: ^56.0.8
         version: 56.0.8(expo@54.0.35)(react-native@0.81.5)
@@ -233,6 +239,9 @@ importers:
       expo-modules-core:
         specifier: ~3.0.30
         version: 3.0.30(react-native@0.81.5)(react@19.1.0)
+      expo-random:
+        specifier: ^14.0.1
+        version: 14.0.1(expo@54.0.35)
       expo-sharing:
         specifier: ~14.0.8
         version: 14.0.8(expo@54.0.35)
@@ -6967,6 +6976,16 @@ packages:
       invariant: 2.2.4
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
+    dev: false
+
+  /expo-random@14.0.1(expo@54.0.35):
+    resolution: {integrity: sha512-gX2mtR9o+WelX21YizXUCD/y+a4ZL+RDthDmFkHxaYbdzjSYTn8u/igoje/l3WEO+/RYspmqUFa8w/ckNbt6Vg==}
+    deprecated: This package is now deprecated in favor of expo-crypto, which provides the same functionality. To migrate, replace all imports from expo-random with imports from expo-crypto.
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      base64-js: 1.5.1
+      expo: 54.0.35(@babel/core@7.29.7)(react-native@0.81.5)(react@19.1.0)(typescript@5.9.3)
     dev: false
 
   /expo-server@1.0.7:
