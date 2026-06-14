@@ -180,4 +180,6 @@ export const authOptions: NextAuthOptions = {
 /**
  * Export NextAuth instance for server-side usage
  */
-export const { auth, signIn, signOut } = NextAuth(authOptions);
+const nextAuthInstance = NextAuth(authOptions);
+
+export const { auth, signIn, signOut, handlers } = nextAuthInstance;
