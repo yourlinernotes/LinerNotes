@@ -51,6 +51,7 @@
     "react-devtools-core": "^7.0.1",
     "react-is": "18.3.1",
     "react-native": "0.81.5",
+    "react-native-safe-area-context": "^5.8.0",
     "react-native-svg": "15.12.1",
     "react-native-view-shot": "4.0.3",
     "react-refresh": "^0.18.0",
