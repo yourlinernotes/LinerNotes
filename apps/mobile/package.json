@@ -28,6 +28,7 @@
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
     "flow-enums-runtime": "^0.0.6",
+    "ieee754": "^1.2.1",
     "invariant": "^2.2.4",
     "memoize-one": "^6.0.0",
     "metro-runtime": "0.83.1",
