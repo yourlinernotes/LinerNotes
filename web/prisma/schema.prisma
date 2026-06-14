@@ -13,8 +13,8 @@ model User {
   id            String    @id @default(cuid())
   email         String    @unique
   emailVerified DateTime?
-  handle        String    @unique
-  displayName   String
+  handle        String?   @unique
+  displayName   String?
   avatarUrl     String?
   bio           String?
   passwordHash  String?   // For email/password auth
