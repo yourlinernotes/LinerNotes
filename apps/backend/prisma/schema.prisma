@@ -1,0 +1,276 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?   // NextAuth standard field
+  image         String?   // NextAuth standard field
+  handle        String?   @unique
+  displayName   String?
+  avatarUrl     String?
+  bio           String?
+  passwordHash  String?   // For email/password auth
+
+  // Legacy Spotify ID (nullable for migration from old auth)
+  spotifyId     String?   @unique
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts               Account[]
+  sessions               Session[]
+  musicConnections       MusicConnection[]
+  reviews                Review[]
+  albumReviews           AlbumReview[]
+  likes                  Like[]
+  reposts                Repost[]
+  albumLikes             AlbumLike[]
+  albumReposts           AlbumRepost[]
+  friendRequestsSent     Friendship[] @relation("FriendRequestsSent")
+  friendRequestsReceived Friendship[] @relation("FriendRequestsReceived")
+
+  @@index([handle])
+  @@index([spotifyId])
+}
+
+// NextAuth.js models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Music service connections (Spotify, Last.fm) - optional, post-login
+model MusicConnection {
+  id              String    @id @default(cuid())
+  userId          String
+  service         String    // "spotify" | "lastfm"
+
+  // Service-specific identifiers
+  serviceUserId   String?
+  serviceUsername String?
+
+  // API tokens
+  accessToken     String?   @db.Text
+  refreshToken    String?   @db.Text
+  expiresAt       DateTime?
+
+  // Last.fm specific
+  sessionKey      String?   @db.Text
+
+  connectedAt     DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, service])
+  @@index([userId])
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Track metadata (stored to avoid Spotify API calls)
+  trackId       String
+  trackName     String
+  trackArtist   String
+  trackAlbum    String
+  artworkUrl    String
+  previewUrl    String?
+
+  // Review content
+  rating        Float    // 0.5 to 5.0
+  take          String?  // Optional longer review text
+  momentSeconds Float?   // DEPRECATED: Use notes relation instead
+  momentLabel   String?  // DEPRECATED: Use notes relation instead
+  featuredNoteId String? // Which note to feature on the share card
+
+  // Album review relation (optional - for per-track reviews within an album)
+  albumReviewId String?
+  albumReview   AlbumReview? @relation(fields: [albumReviewId], references: [id], onDelete: Cascade)
+  trackNumber   Int?         // Position in album tracklist
+
+  // Quick reaction for mobile sharing (flame/love/skip)
+  reaction      String?      // "flame" | "love" | "skip"
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  likes         Like[]
+  reposts       Repost[]
+  notes         Note[]   // Multiple timestamped notes
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([albumReviewId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  reviewId  String
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  seconds   Float    // Timestamp in seconds
+  label     String   // Label for the moment (e.g., "best bit", "intro")
+  note      String?  // Optional longer note/commentary
+
+  createdAt DateTime @default(now())
+
+  @@index([reviewId])
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester   User @relation("FriendRequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User @relation("FriendRequestsReceived", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId])
+  @@index([addresseeId])
+  @@index([status])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  reviewId  String
+  createdAt DateTime @default(now())
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review    Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([userId])
+  @@index([reviewId])
+}
+
+model Repost {
+  id        String   @id @default(cuid())
+  userId    String
+  reviewId  String
+  createdAt DateTime @default(now())
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review    Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([userId])
+  @@index([reviewId])
+  @@index([createdAt])
+}
+
+model AlbumReview {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Album metadata (stored to avoid Spotify API calls)
+  albumId       String
+  albumName     String
+  albumArtist   String
+  artworkUrl    String
+  releaseDate   String?
+  totalTracks   Int?
+
+  // Album review content
+  overallRating Float?   // Manual override or auto-calculated from track ratings
+  take          String?  // Optional review of the album as a whole
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  trackReviews  Review[]
+  likes         AlbumLike[]
+  reposts       AlbumRepost[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AlbumLike {
+  id            String      @id @default(cuid())
+  userId        String
+  albumReviewId String
+  createdAt     DateTime    @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  albumReview   AlbumReview @relation(fields: [albumReviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, albumReviewId])
+  @@index([userId])
+  @@index([albumReviewId])
+}
+
+model AlbumRepost {
+  id            String      @id @default(cuid())
+  userId        String
+  albumReviewId String
+  createdAt     DateTime    @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  albumReview   AlbumReview @relation(fields: [albumReviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, albumReviewId])
+  @@index([userId])
+  @@index([albumReviewId])
+  @@index([createdAt])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
