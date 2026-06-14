@@ -35,12 +35,12 @@ export const authOptions: NextAuthConfig = {
         action: { label: "Action", type: "text" }, // "login" or "signup"
         displayName: { label: "Display Name", type: "text" },
       },
-      async authorize(credentials) {
+      async authorize(credentials): Promise<any> {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Email and password required");
         }
 
-        const email = credentials.email.toLowerCase();
+        const email = (credentials.email as string).toLowerCase();
 
         // Sign up
         if (credentials.action === "signup") {
@@ -58,14 +58,14 @@ export const authOptions: NextAuthConfig = {
           }
 
           // Hash password
-          const passwordHash = await bcrypt.hash(credentials.password, 10);
+          const passwordHash = await bcrypt.hash(credentials.password as string, 10);
 
           // Create user
-          const handle = generateHandle(credentials.displayName);
+          const handle = generateHandle(credentials.displayName as string);
           const user = await prisma.user.create({
             data: {
               email,
-              displayName: credentials.displayName,
+              displayName: credentials.displayName as string,
               handle,
               passwordHash,
             },
@@ -88,7 +88,7 @@ export const authOptions: NextAuthConfig = {
           throw new Error("Invalid email or password");
         }
 
-        const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+        const isValid = await bcrypt.compare(credentials.password as string, user.passwordHash);
 
         if (!isValid) {
           throw new Error("Invalid email or password");
