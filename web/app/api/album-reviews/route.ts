@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,8 +7,8 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
@@ -18,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     // Get friends' album reviews (feed)
     if (feed === "friends") {
-      if (!session.userId) {
+      if (!currentUserId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
@@ -26,18 +24,18 @@ export async function GET(request: NextRequest) {
       const friendships = await prisma.friendship.findMany({
         where: {
           OR: [
-            { requesterId: session.userId, status: "ACCEPTED" },
-            { addresseeId: session.userId, status: "ACCEPTED" },
+            { requesterId: currentUserId, status: "ACCEPTED" },
+            { addresseeId: currentUserId, status: "ACCEPTED" },
           ],
         },
       });
 
       const friendIds = friendships.map((f) =>
-        f.requesterId === session.userId ? f.addresseeId : f.requesterId
+        f.requesterId === currentUserId ? f.addresseeId : f.requesterId
       );
 
       // Include own album reviews too
-      const allUserIds = [session.userId, ...friendIds];
+      const allUserIds = [currentUserId, ...friendIds];
 
       const albumReviews = await prisma.albumReview.findMany({
         where: { userId: { in: allUserIds } },
@@ -52,7 +50,7 @@ export async function GET(request: NextRequest) {
             orderBy: { trackNumber: 'asc' },
           },
           likes: {
-            where: { userId: session.userId },
+            where: { userId: currentUserId },
           },
           reposts: {
             include: { user: true },
@@ -107,7 +105,7 @@ export async function GET(request: NextRequest) {
         likeCount: albumReview._count.likes,
         repostCount: albumReview._count.reposts,
         likedByMe: albumReview.likes.length > 0,
-        repostedByMe: albumReview.reposts.some(r => r.userId === session.userId),
+        repostedByMe: albumReview.reposts.some(r => r.userId === currentUserId),
         reposts: albumReview.reposts.map(r => ({
           id: r.id,
           user: r.user,
@@ -190,12 +188,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current user's album reviews (requires auth)
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const albumReviews = await prisma.albumReview.findMany({
-      where: { userId: session.userId },
+      where: { userId: currentUserId },
       include: {
         user: true,
         trackReviews: {
@@ -275,10 +273,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -314,7 +312,7 @@ export async function POST(request: NextRequest) {
     // Create album review with track reviews
     const albumReview = await prisma.albumReview.create({
       data: {
-        userId: session.userId,
+        userId: currentUserId,
         albumId,
         albumName,
         albumArtist,
@@ -325,7 +323,7 @@ export async function POST(request: NextRequest) {
         take: take || null,
         trackReviews: trackReviews && trackReviews.length > 0 ? {
           create: trackReviews.map((tr: any) => ({
-            userId: session.userId,
+            userId: currentUserId,
             trackId: tr.trackId,
             trackName: tr.trackName,
             trackArtist: tr.trackArtist,

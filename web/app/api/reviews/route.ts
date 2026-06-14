@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -9,8 +7,8 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
@@ -18,21 +16,21 @@ export async function GET(request: NextRequest) {
 
     // Friends feed requires authentication
     if (feedType === "friends") {
-      if (!session.userId) {
+      if (!currentUserId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       // Get reviews from accepted friends
       const friendships = await prisma.friendship.findMany({
         where: {
           OR: [
-            { requesterId: session.userId, status: "ACCEPTED" },
-            { addresseeId: session.userId, status: "ACCEPTED" },
+            { requesterId: currentUserId, status: "ACCEPTED" },
+            { addresseeId: currentUserId, status: "ACCEPTED" },
           ],
         },
       });
 
       const friendIds = friendships.map((f) =>
-        f.requesterId === session.userId ? f.addresseeId : f.requesterId
+        f.requesterId === currentUserId ? f.addresseeId : f.requesterId
       );
 
       const reviews = await prisma.review.findMany({
@@ -145,12 +143,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current user's reviews (requires auth)
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const reviews = await prisma.review.findMany({
-      where: { userId: session.userId },
+      where: { userId: currentUserId },
       include: {
         user: true,
         likes: true,
@@ -212,10 +210,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -260,7 +258,7 @@ export async function POST(request: NextRequest) {
     // Create review with notes
     const review = await prisma.review.create({
       data: {
-        userId: session.userId,
+        userId: currentUserId,
         trackId,
         trackName,
         trackArtist,

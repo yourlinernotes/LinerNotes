@@ -11,7 +11,7 @@ export async function searchTracks(query: string): Promise<Track[]> {
   if (!response.ok) {
     const data = await response.json();
     if (data.requiresAuth) {
-      window.location.href = "/api/auth/spotify/login";
+      window.location.href = "/login";
       throw new Error("Authentication required");
     }
     throw new Error(data.error || "Search failed");
@@ -19,28 +19,6 @@ export async function searchTracks(query: string): Promise<Track[]> {
 
   const data = await response.json();
   return data.tracks;
-}
-
-/**
- * Check if user is authenticated
- */
-export async function checkAuth(): Promise<{
-  authenticated: boolean;
-  hasRefreshToken?: boolean;
-  isExpired?: boolean;
-  userHandle?: string;
-  userId?: string;
-}> {
-  const response = await fetch("/api/auth/me");
-  return response.json();
-}
-
-/**
- * Logout user
- */
-export async function logout(): Promise<void> {
-  await fetch("/api/auth/me", { method: "DELETE" });
-  window.location.href = "/";
 }
 
 /**

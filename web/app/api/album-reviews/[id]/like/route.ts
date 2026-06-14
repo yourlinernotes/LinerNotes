@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
@@ -9,10 +7,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -31,7 +29,7 @@ export async function POST(
     const existingLike = await prisma.albumLike.findFirst({
       where: {
         albumReviewId: id,
-        userId: session.userId,
+        userId: currentUserId,
       },
     });
 
@@ -52,7 +50,7 @@ export async function POST(
       await prisma.albumLike.create({
         data: {
           albumReviewId: id,
-          userId: session.userId,
+          userId: currentUserId,
         },
       });
 

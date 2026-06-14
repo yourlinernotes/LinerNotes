@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -12,10 +10,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -31,7 +29,7 @@ export async function POST(
     }
 
     // Can't repost your own review
-    if (review.userId === session.userId) {
+    if (review.userId === currentUserId) {
       return NextResponse.json(
         { error: "Cannot repost your own review" },
         { status: 400 }
@@ -42,7 +40,7 @@ export async function POST(
     const existingRepost = await prisma.repost.findUnique({
       where: {
         userId_reviewId: {
-          userId: session.userId,
+          userId: currentUserId,
           reviewId,
         },
       },
@@ -66,7 +64,7 @@ export async function POST(
       // Repost
       await prisma.repost.create({
         data: {
-          userId: session.userId,
+          userId: currentUserId,
           reviewId,
         },
       });

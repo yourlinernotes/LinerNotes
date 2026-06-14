@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { cookies } from "next/headers";
-import { sessionOptions, SessionData } from "@/lib/session";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -12,17 +10,17 @@ export async function POST(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { userId: addresseeId } = await params;
 
     // Can't friend yourself
-    if (addresseeId === session.userId) {
+    if (addresseeId === currentUserId) {
       return NextResponse.json(
         { error: "Cannot send friend request to yourself" },
         { status: 400 }
@@ -42,8 +40,8 @@ export async function POST(
     const existing = await prisma.friendship.findFirst({
       where: {
         OR: [
-          { requesterId: session.userId, addresseeId },
-          { requesterId: addresseeId, addresseeId: session.userId },
+          { requesterId: currentUserId, addresseeId },
+          { requesterId: addresseeId, addresseeId: currentUserId },
         ],
       },
     });
@@ -58,7 +56,7 @@ export async function POST(
     // Create friend request
     const friendship = await prisma.friendship.create({
       data: {
-        requesterId: session.userId,
+        requesterId: currentUserId,
         addresseeId,
         status: "PENDING",
       },
@@ -85,10 +83,10 @@ export async function PUT(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -104,7 +102,7 @@ export async function PUT(
     const friendship = await prisma.friendship.findFirst({
       where: {
         requesterId,
-        addresseeId: session.userId,
+        addresseeId: currentUserId,
         status: "PENDING",
       },
     });
@@ -145,10 +143,10 @@ export async function DELETE(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await auth();
+    const currentUserId = session?.user?.id;
 
-    if (!session.userId) {
+    if (!currentUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -158,8 +156,8 @@ export async function DELETE(
     const friendship = await prisma.friendship.findFirst({
       where: {
         OR: [
-          { requesterId: session.userId, addresseeId: friendId },
-          { requesterId: friendId, addresseeId: session.userId },
+          { requesterId: currentUserId, addresseeId: friendId },
+          { requesterId: friendId, addresseeId: currentUserId },
         ],
       },
     });
