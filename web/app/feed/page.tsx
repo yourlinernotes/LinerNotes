@@ -1,25 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { FeedList } from "@/components/feed";
 import { UserNav } from "@/components/UserNav";
-import { getReviews, checkAuth, toggleLike, toggleRepost } from "@/lib/api";
+import { getReviews, toggleLike, toggleRepost } from "@/lib/api";
 import type { UnifiedFeedItem, Review, AlbumReview } from "@/lib/types";
 import Link from "next/link";
 
 export default function FeedPage() {
+  const { data: session, status } = useSession();
   const [feedItems, setFeedItems] = useState<UnifiedFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
+    // Wait for session to load
+    if (status === "loading") {
+      return;
+    }
+
     // Check auth and load feed
     const loadFeed = async () => {
       try {
-        const authStatus = await checkAuth();
-        setAuthenticated(authStatus.authenticated);
-
-        if (!authStatus.authenticated) {
+        if (!session) {
           setLoading(false);
           return;
         }
@@ -95,7 +98,7 @@ export default function FeedPage() {
     };
 
     loadFeed();
-  }, []);
+  }, [session, status]);
 
   const handleLike = async (reviewId: string) => {
     try {
@@ -219,7 +222,7 @@ export default function FeedPage() {
         </div>
 
         {/* Not authenticated */}
-        {!loading && !authenticated && (
+        {!loading && !session && (
           <div
             className="p-8 rounded-lg text-center"
             style={{
@@ -227,17 +230,17 @@ export default function FeedPage() {
               color: "var(--ln-ink)",
             }}
           >
-            <p className="text-lg mb-4">Login with Spotify to see your friends' reviews</p>
-            <a
-              href="/api/auth/spotify/login"
+            <p className="text-lg mb-4">Login to see your friends' reviews</p>
+            <Link
+              href="/login"
               className="inline-block px-6 py-3 rounded-lg font-medium transition-opacity hover:opacity-80"
               style={{
                 backgroundColor: "var(--ln-accent)",
                 color: "white",
               }}
             >
-              Login with Spotify
-            </a>
+              Login
+            </Link>
           </div>
         )}
 
@@ -252,7 +255,7 @@ export default function FeedPage() {
         )}
 
         {/* Feed */}
-        {!loading && authenticated && (
+        {!loading && session && (
           <FeedList
             items={feedItems}
             onLike={handleLike}

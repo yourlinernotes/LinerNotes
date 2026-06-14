@@ -1,28 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { UserNav } from "@/components/UserNav";
 import {
   getFriends,
   updateFriendRequest,
-  checkAuth,
 } from "@/lib/api";
 import type { User } from "@/lib/types";
 import Link from "next/link";
 
 export default function FriendsPage() {
+  const { data: session, status } = useSession();
   const [friends, setFriends] = useState<User[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
+    // Wait for session to load
+    if (status === "loading") {
+      return;
+    }
+
     const loadFriends = async () => {
       try {
-        const authStatus = await checkAuth();
-        setAuthenticated(authStatus.authenticated);
-
-        if (!authStatus.authenticated) {
+        if (!session) {
           setLoading(false);
           return;
         }
@@ -43,7 +45,7 @@ export default function FriendsPage() {
     };
 
     loadFriends();
-  }, []);
+  }, [session, status]);
 
   const handleAccept = async (userId: string) => {
     try {
@@ -81,7 +83,7 @@ export default function FriendsPage() {
         </div>
 
         {/* Not authenticated */}
-        {!loading && !authenticated && (
+        {!loading && !session && (
           <div
             className="p-8 rounded-lg text-center"
             style={{
@@ -89,17 +91,17 @@ export default function FriendsPage() {
               color: "var(--ln-ink)",
             }}
           >
-            <p className="text-lg mb-4">Login with Spotify to manage friends</p>
-            <a
-              href="/api/auth/spotify/login"
+            <p className="text-lg mb-4">Login to manage friends</p>
+            <Link
+              href="/login"
               className="inline-block px-6 py-3 rounded-lg font-medium transition-opacity hover:opacity-80"
               style={{
                 backgroundColor: "var(--ln-accent)",
                 color: "white",
               }}
             >
-              Login with Spotify
-            </a>
+              Login
+            </Link>
           </div>
         )}
 
@@ -114,7 +116,7 @@ export default function FriendsPage() {
         )}
 
         {/* Friend Requests */}
-        {!loading && authenticated && requests.length > 0 && (
+        {!loading && session && requests.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-xl font-bold" style={{ color: "var(--ln-ink)" }}>
               Friend Requests
@@ -172,7 +174,7 @@ export default function FriendsPage() {
         )}
 
         {/* Friends List */}
-        {!loading && authenticated && (
+        {!loading && session && (
           <div className="space-y-3">
             <h2 className="text-xl font-bold" style={{ color: "var(--ln-ink)" }}>
               Your Friends ({friends.length})

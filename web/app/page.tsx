@@ -161,14 +161,14 @@ export default function Home() {
           </p>
           <div className="pt-6">
             <a
-              href="/api/auth/spotify/login"
+              href="/login"
               className="inline-block px-10 py-5 rounded-lg text-xl font-medium transition-opacity hover:opacity-80"
               style={{
                 backgroundColor: "var(--ln-accent)",
                 color: "white",
               }}
             >
-              Login with Spotify
+              Get Started
             </a>
           </div>
         </div>
