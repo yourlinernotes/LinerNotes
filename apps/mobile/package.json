@@ -55,6 +55,7 @@
     "use-subscription": "^1.12.0",
     "use-sync-external-store": "^1.6.0",
     "warn-once": "0.1.1",
+    "webidl-conversions": "5.0.0",
     "whatwg-fetch": "^3.6.20",
     "whatwg-url-without-unicode": "8.0.0-3",
     "ws": "^8.21.0",
