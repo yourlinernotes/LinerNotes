@@ -112,23 +112,33 @@ export const authOptions: NextAuthConfig = {
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      // For Google OAuth, ensure user has a handle
-      if (account?.provider === "google") {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-        });
-
-        if (existingUser && !existingUser.handle) {
-          // Update user with generated handle if missing
-          const handle = generateHandle(user.name || user.email!);
-          await prisma.user.update({
-            where: { id: existingUser.id },
-            data: { handle },
+      try {
+        // For Google OAuth, ensure user has a handle
+        if (account?.provider === "google") {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email! },
           });
-        }
-      }
 
-      return true;
+          if (existingUser && !existingUser.handle) {
+            // Update user with generated handle if missing
+            const handle = generateHandle(user.name || user.email!);
+            const displayName = user.name || user.email!.split('@')[0];
+
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: {
+                handle,
+                displayName,
+              },
+            });
+          }
+        }
+
+        return true;
+      } catch (error) {
+        console.error("SignIn callback error:", error);
+        return false;
+      }
     },
     async session({ session, token }) {
       if (token && session.user) {
@@ -162,17 +172,26 @@ export const authOptions: NextAuthConfig = {
   },
   events: {
     async createUser({ user }) {
-      // Ensure new Google users have a handle
-      const dbUser = await prisma.user.findUnique({
-        where: { id: user.id },
-      });
-
-      if (dbUser && !dbUser.handle) {
-        const handle = generateHandle(user.name || user.email!);
-        await prisma.user.update({
+      try {
+        // Ensure new Google users have a handle and displayName
+        const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          data: { handle },
         });
+
+        if (dbUser && (!dbUser.handle || !dbUser.displayName)) {
+          const handle = generateHandle(user.name || user.email!);
+          const displayName = user.name || user.email!.split('@')[0];
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              handle: dbUser.handle || handle,
+              displayName: dbUser.displayName || displayName,
+            },
+          });
+        }
+      } catch (error) {
+        console.error("CreateUser event error:", error);
       }
     },
   },
