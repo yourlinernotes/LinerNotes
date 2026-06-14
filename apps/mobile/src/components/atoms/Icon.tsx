@@ -95,6 +95,20 @@ export function Icon({ name, size = 22, color = 'currentColor', filled = false }
     );
   }
 
+  if (name === 'share') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M12 16V4M12 4l-4 4M12 4l4 4M5 14v4a2 2 0 002 2h10a2 2 0 002-2v-4"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+
   return null;
 }
 
