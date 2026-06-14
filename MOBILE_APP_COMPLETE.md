@@ -119,21 +119,36 @@ Every detail from your Claude Design handoff:
 - ✅ **Expandable track moments**
 - ✅ **Calm, generous spacing**
 
-## To Run
+## To Run on Your iPhone with Expo Go
+
+**Open a new Terminal and run:**
 
 ```bash
-# Install dependencies
-cd /Users/anusha/Documents/LinerNotes
-pnpm install
-
-# Start the app
-cd apps/mobile
+cd /Users/anusha/Documents/LinerNotes/apps/mobile
 pnpm dev
+```
 
-# Then:
-# - Press 'i' for iOS simulator
-# - Press 'a' for Android
-# - Scan QR with Expo Go
+**Wait for:**
+- Metro Bundler to fully start (may take 1-2 minutes first time)
+- QR code to appear in the terminal
+
+**Then:**
+1. Open **Expo Go** app on your iPhone
+2. Tap **"Scan QR code"**
+3. Point camera at the QR code in Terminal
+4. App will load on your phone!
+
+**If it hangs on "Waiting on http://localhost:8081":**
+- Press Ctrl+C to stop
+- Run: `rm -rf .expo && pnpm dev`
+- Wait for Metro to rebuild cache (this is normal)
+
+**For iOS Simulator (requires Xcode):**
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+xcodebuild -runFirstLaunch
+cd /Users/anusha/Documents/LinerNotes/apps/mobile
+pnpm ios
 ```
 
 ## What You'll See
