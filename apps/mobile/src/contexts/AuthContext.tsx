@@ -35,14 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (userData) {
         // Verify session is still valid
-        const response = await api.getMe();
-        if (response.authenticated) {
-          setUser(response.user);
-        } else {
-          // Session expired
-          await api.clearAuth();
-          setUser(null);
-        }
+        const user = await api.getCurrentUser();
+        setUser(user);
+        await api.setUserData(user);
       }
     } catch (error) {
       console.error('Auth check failed:', error);

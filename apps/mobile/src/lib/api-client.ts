@@ -7,7 +7,7 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000' // Development: local Next.js server
+  ? 'http://localhost:3001' // Development: local NestJS backend
   : 'https://linernotes.app'; // Production: deployed app
 
 const AUTH_TOKEN_KEY = '@linernotes:auth_token';
@@ -135,6 +135,15 @@ class APIClient {
     return data;
   }
 
+  async getFeedReviews(params?: { cursor?: string; limit?: number }) {
+    const query = new URLSearchParams();
+    if (params?.cursor) query.set('cursor', params.cursor);
+    if (params?.limit) query.set('limit', params.limit.toString());
+
+    const { data } = await this.client.get(`/reviews/feed?${query}`);
+    return data;
+  }
+
   async getReview(id: string) {
     const { data } = await this.client.get(`/reviews/${id}`);
     return data;
@@ -209,7 +218,7 @@ class APIClient {
   // ─────────────────────────────────────────────────────────────
 
   async getCurrentUser() {
-    const { data } = await this.client.get('/users/me');
+    const { data } = await this.client.get('/auth/me');
     return data;
   }
 
@@ -234,7 +243,7 @@ class APIClient {
   }
 
   async sendFriendRequest(userId: string) {
-    const { data } = await this.client.post('/friends', { addresseeId: userId });
+    const { data } = await this.client.post('/friends/request', { addresseeId: userId });
     return data;
   }
 
@@ -249,18 +258,45 @@ class APIClient {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SEARCH ENDPOINTS
+  // MUSIC SEARCH ENDPOINTS
   // ─────────────────────────────────────────────────────────────
 
-  async search(query: string, type: 'track' | 'album' | 'artist' = 'track') {
-    const { data } = await this.client.get('/search', {
-      params: { q: query, type }
+  async searchTracks(query: string, limit = 20) {
+    const params = new URLSearchParams({ q: query, limit: limit.toString() });
+    const { data } = await this.client.get(`/music/search/tracks?${params}`);
+    return data;
+  }
+
+  async searchAlbums(query: string, limit = 20) {
+    const params = new URLSearchParams({ q: query, limit: limit.toString() });
+    const { data } = await this.client.get(`/music/search/albums?${params}`);
+    return data;
+  }
+
+  async getAlbumTracks(albumId: string) {
+    const { data } = await this.client.get(`/music/albums/${albumId}/tracks`);
+    return data;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // MUSIC CONNECTIONS ENDPOINTS
+  // ─────────────────────────────────────────────────────────────
+
+  async connectLastFm(username: string, password: string) {
+    const { data } = await this.client.post('/music/lastfm/connect', {
+      username,
+      password,
     });
     return data;
   }
 
-  async getAlbum(id: string) {
-    const { data } = await this.client.get(`/albums/${id}`);
+  async disconnectService(service: 'spotify' | 'lastfm') {
+    const { data } = await this.client.delete(`/music/${service}/disconnect`);
+    return data;
+  }
+
+  async getMusicConnections() {
+    const { data } = await this.client.get('/music/connections');
     return data;
   }
 }
