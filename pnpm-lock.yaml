@@ -97,6 +97,9 @@ importers:
       whatwg-fetch:
         specifier: ^3.6.20
         version: 3.6.20
+      whatwg-url-without-unicode:
+        specifier: 8.0.0-3
+        version: 8.0.0-3
     devDependencies:
       '@types/react':
         specifier: ~19.1.17
