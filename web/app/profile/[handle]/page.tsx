@@ -2,32 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ReviewItem } from "@/components/feed";
 import { ReviewCard } from "@/components/card";
 import { UserNav } from "@/components/UserNav";
 import type { User, Review, AlbumReview } from "@/lib/types";
 import Link from "next/link";
-import { checkAuth } from "@/lib/api";
 
 export default function ProfilePage() {
   const params = useParams();
   const handle = params.handle as string;
+  const { data: session } = useSession();
 
   const [user, setUser] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [albumReviews, setAlbumReviews] = useState<AlbumReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const isOwnProfile = session?.user?.handle === handle;
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
         console.log("Loading profile for handle:", handle);
-
-        // Check if this is the current user's profile
-        const authStatus = await checkAuth();
-        setIsOwnProfile(authStatus.userHandle === handle);
 
         // Fetch user
         const userResponse = await fetch(`/api/users/${handle}`);
@@ -79,7 +76,7 @@ export default function ProfilePage() {
     if (handle) {
       loadProfile();
     }
-  }, [handle]);
+  }, [handle, session]);
 
   if (loading) {
     return (

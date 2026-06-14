@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { AuthButton } from "@/components/AuthButton";
-import { checkAuth } from "@/lib/api";
 import Link from "next/link";
 
 export default function Home() {
-  const [authenticated, setAuthenticated] = useState(false);
+  const { data: session, status } = useSession();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,13 +46,11 @@ export default function Home() {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
-    checkAuth()
-      .then((status) => setAuthenticated(status.authenticated))
-      .catch(() => setAuthenticated(false))
-      .finally(() => setLoading(false));
-  }, []);
+    // Set loading based on session status
+    setLoading(status === "loading");
+  }, [status]);
 
-  if (loading) {
+  if (loading || status === "loading") {
     return (
       <main
         className="min-h-screen p-8 flex items-center justify-center"
@@ -67,7 +65,7 @@ export default function Home() {
   }
 
   // If authenticated, redirect to feed
-  if (authenticated) {
+  if (session) {
     return (
       <main className="min-h-screen p-8" style={{ backgroundColor: "var(--ln-bg)" }}>
         <div className="max-w-4xl mx-auto space-y-8">

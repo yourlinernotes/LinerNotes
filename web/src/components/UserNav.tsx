@@ -1,32 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { checkAuth } from "@/lib/api";
+import { useSession } from "next-auth/react";
 import { AuthButton } from "./AuthButton";
 import Link from "next/link";
 
 export function UserNav() {
-  const [userHandle, setUserHandle] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, status } = useSession();
 
-  useEffect(() => {
-    checkAuth()
-      .then((status) => {
-        if (status.authenticated && status.userHandle) {
-          setUserHandle(status.userHandle);
-        }
-      })
-      .catch(() => {
-        setUserHandle(null);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, []);
-
-  if (loading) {
+  if (status === "loading") {
     return <AuthButton />;
   }
+
+  const userHandle = session?.user?.handle;
 
   return (
     <div className="flex gap-4 items-center">
