@@ -44,142 +44,167 @@ export function AlbumReviewItem({
   ) || [];
 
   return (
-    <Link href={`/album-card/${albumReview.id}`}>
-      <div
-        className="p-4 rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
-        style={{ backgroundColor: "var(--ln-surface)" }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            {albumReview.user?.avatarUrl && (
-              <img
-                src={albumReview.user.avatarUrl}
-                alt={albumReview.user.displayName}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            )}
-            <div>
-              <div className="flex items-center gap-2">
-                <Link
-                  href={`/profile/${albumReview.user?.handle}`}
-                  className="font-medium hover:underline"
-                  style={{ color: "var(--ln-ink)" }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {albumReview.user?.displayName || "Unknown User"}
-                </Link>
-                <span className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-                  @{albumReview.user?.handle}
-                </span>
-                <span className="mx-1" style={{ color: "var(--ln-ink-soft)" }}>
-                  •
-                </span>
-                <span className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-                  {formatDate(albumReview.createdAt)}
-                </span>
-              </div>
-            </div>
-          </div>
-          <Link
-            href={`/album-card/${albumReview.id}`}
-            className="text-sm px-3 py-1 rounded hover:opacity-80"
-            style={{
-              backgroundColor: "var(--ln-line)",
-              color: "var(--ln-ink-soft)",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            Share
+    <div
+      className="p-5 rounded-xl space-y-4 transition-all hover:shadow-lg border"
+      style={{
+        backgroundColor: "var(--ln-surface)",
+        borderColor: "rgba(217, 178, 90, 0.1)",
+      }}
+    >
+      {/* User Info */}
+      <div className="flex items-center gap-3">
+        {albumReview.user?.avatarUrl && (
+          <Link href={`/profile/${albumReview.user?.handle}`}>
+            <img
+              src={albumReview.user.avatarUrl}
+              alt={albumReview.user.displayName}
+              className="w-10 h-10 rounded-full ring-2 ring-offset-2 hover:opacity-90 transition-opacity"
+              style={{
+                ringColor: "var(--ln-accent)",
+                ringOffsetColor: "var(--ln-surface)",
+              }}
+            />
           </Link>
+        )}
+        <div className="flex-1 min-w-0">
+          <Link
+            href={`/profile/${albumReview.user?.handle}`}
+            className="font-semibold hover:opacity-80 transition-opacity block truncate"
+            style={{ color: "var(--ln-ink)" }}
+          >
+            {albumReview.user?.displayName || "Unknown User"}
+          </Link>
+          <span className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
+            {formatDate(albumReview.createdAt)}
+          </span>
         </div>
+        <Link
+          href={`/album-card/${albumReview.id}`}
+          className="text-sm px-4 py-2 rounded-lg hover:opacity-90 transition-all font-medium shadow-sm"
+          style={{
+            backgroundColor: "var(--ln-accent)",
+            color: "var(--ln-bg)",
+          }}
+        >
+          View
+        </Link>
+      </div>
 
-        {/* Album Content */}
+      {/* Album Content - Clickable */}
+      <Link
+        href={`/album-card/${albumReview.id}`}
+        className="block group cursor-pointer"
+      >
         <div className="flex gap-4">
           <img
             src={albumReview.album.artworkUrl}
             alt={albumReview.album.name}
-            className="w-24 h-24 rounded object-cover flex-shrink-0"
+            className="w-24 h-24 rounded-lg object-cover shadow-md group-hover:shadow-xl transition-shadow flex-shrink-0"
           />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-bold truncate" style={{ color: "var(--ln-ink)" }}>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex items-center gap-2">
+              <span
+                className="font-bold text-lg leading-tight truncate group-hover:opacity-80 transition-opacity"
+                style={{ color: "var(--ln-ink)" }}
+              >
                 {albumReview.album.name}
               </span>
               {albumReview.overallRating && (
-                <span className="text-sm flex-shrink-0" style={{ color: "var(--ln-accent)" }}>
+                <span className="text-sm font-semibold flex-shrink-0" style={{ color: "var(--ln-accent)" }}>
                   ⭐ {albumReview.overallRating.toFixed(1)}
                 </span>
               )}
             </div>
-            <div className="text-sm mb-2 truncate" style={{ color: "var(--ln-ink-soft)" }}>
+            <div className="text-sm truncate" style={{ color: "var(--ln-ink-soft)" }}>
               {albumReview.album.artist}
             </div>
 
             {/* Album Take */}
             {albumReview.take && (
-              <p className="text-sm italic line-clamp-2 mb-2" style={{ color: "var(--ln-ink)" }}>
+              <p
+                className="italic pl-4 border-l-3 leading-relaxed line-clamp-2"
+                style={{
+                  color: "var(--ln-ink)",
+                  borderColor: "var(--ln-accent)",
+                  borderLeftWidth: "3px",
+                }}
+              >
                 "{albumReview.take}"
               </p>
             )}
 
             {/* Reactions Preview */}
             {reactedTracks.length > 0 && (
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>
-                  {reactedTracks.length} track{reactedTracks.length !== 1 ? "s" : ""} stood out:
+              <div
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full"
+                style={{
+                  backgroundColor: "rgba(217, 178, 90, 0.1)",
+                  color: "var(--ln-accent)",
+                }}
+              >
+                <span className="text-xs font-medium">
+                  {reactedTracks.length} track{reactedTracks.length !== 1 ? "s" : ""} stood out
                 </span>
                 <div className="flex gap-1">
-                  {reactedTracks.slice(0, 8).map((tr) =>
+                  {reactedTracks.slice(0, 5).map((tr) =>
                     tr.reaction ? (
                       <span key={tr.id} className="text-sm">
                         {getReactionEmoji(tr.reaction)}
                       </span>
                     ) : null
                   )}
-                  {reactedTracks.length > 8 && (
-                    <span className="text-xs opacity-75">
-                      +{reactedTracks.length - 8}
+                  {reactedTracks.length > 5 && (
+                    <span className="text-xs font-medium">
+                      +{reactedTracks.length - 5}
                     </span>
                   )}
                 </div>
               </div>
             )}
-
-            {/* Footer Stats */}
-            <div className="flex items-center gap-4 mt-2 text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onLike?.(albumReview.id);
-                }}
-                className="flex items-center gap-1 hover:opacity-70"
-              >
-                <span>{albumReview.likedByMe ? "❤️" : "🤍"}</span>
-                <span>{albumReview.likeCount || 0}</span>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onRepost?.(albumReview.id);
-                }}
-                className="flex items-center gap-1 hover:opacity-70"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill={albumReview.repostedByMe ? "var(--ln-peach)" : "currentColor"}
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-                </svg>
-                <span>{albumReview.repostCount || 0}</span>
-              </button>
-            </div>
           </div>
         </div>
+      </Link>
+
+      {/* Actions */}
+      <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: "rgba(217, 178, 90, 0.1)" }}>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            onLike?.(albumReview.id);
+          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg hover:scale-105 transition-all font-medium shadow-sm"
+          style={{
+            backgroundColor: albumReview.likedByMe ? "var(--ln-accent)" : "var(--ln-line)",
+            color: albumReview.likedByMe ? "white" : "var(--ln-ink)",
+          }}
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="text-sm">{albumReview.likeCount || 0}</span>
+        </button>
+
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            onRepost?.(albumReview.id);
+          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg hover:scale-105 transition-all font-medium shadow-sm"
+          style={{
+            backgroundColor: albumReview.repostedByMe ? "var(--ln-peach)" : "var(--ln-line)",
+            color: albumReview.repostedByMe ? "white" : "var(--ln-ink)",
+          }}
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" />
+          </svg>
+          <span className="text-sm">{albumReview.repostCount || 0}</span>
+        </button>
       </div>
-    </Link>
+    </div>
   );
 }

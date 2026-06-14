@@ -90,94 +90,120 @@ export function ReviewItem({ review, onLike, onRepost }: ReviewItemProps) {
 
   return (
     <div
-      className="p-4 rounded-lg space-y-3"
-      style={{ backgroundColor: "var(--ln-surface)" }}
+      className="p-5 rounded-xl space-y-4 transition-all hover:shadow-lg border"
+      style={{
+        backgroundColor: "var(--ln-surface)",
+        borderColor: "rgba(217, 178, 90, 0.1)",
+      }}
     >
       {/* User Info */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {review.user?.avatarUrl && (
-          <img
-            src={review.user.avatarUrl}
-            alt={review.user.displayName}
-            className="w-8 h-8 rounded-full"
-          />
+          <Link href={`/profile/${review.user?.handle}`}>
+            <img
+              src={review.user.avatarUrl}
+              alt={review.user.displayName}
+              className="w-10 h-10 rounded-full ring-2 ring-offset-2 hover:opacity-90 transition-opacity"
+              style={{
+                ringColor: "var(--ln-accent)",
+                ringOffsetColor: "var(--ln-surface)",
+              }}
+            />
+          </Link>
         )}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <Link
             href={`/profile/${review.user?.handle}`}
-            className="font-medium hover:opacity-80"
+            className="font-semibold hover:opacity-80 transition-opacity block truncate"
             style={{ color: "var(--ln-ink)" }}
           >
             {review.user?.displayName || "Unknown User"}
           </Link>
-          <span className="mx-2" style={{ color: "var(--ln-ink-soft)" }}>
-            •
-          </span>
           <span className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
             {formatDate(review.createdAt)}
           </span>
         </div>
         <Link
           href={`/card/${review.id}`}
-          className="text-sm px-3 py-1 rounded hover:opacity-80"
+          className="text-sm px-4 py-2 rounded-lg hover:opacity-90 transition-all font-medium shadow-sm"
           style={{
-            backgroundColor: "var(--ln-line)",
-            color: "var(--ln-ink-soft)",
+            backgroundColor: "var(--ln-accent)",
+            color: "var(--ln-bg)",
           }}
         >
-          Share
+          View
         </Link>
       </div>
 
-      {/* Track + Review */}
-      <div className="flex gap-3">
-        <img
-          src={review.track.artworkUrl}
-          alt={review.track.album}
-          className="w-20 h-20 rounded object-cover"
-        />
-        <div className="flex-1 space-y-1">
-          <div className="font-bold" style={{ color: "var(--ln-ink)" }}>
-            {review.track.name}
-          </div>
-          <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-            {review.track.artist}
-          </div>
-          <div className="flex items-center gap-1">
-            <StarDisplay rating={review.rating} />
-            <span className="text-sm font-medium" style={{ color: "var(--ln-accent)" }}>
-              {review.rating.toFixed(1)}
-            </span>
+      {/* Track + Review - Clickable */}
+      <Link
+        href={`/card/${review.id}`}
+        className="block group cursor-pointer"
+      >
+        <div className="flex gap-4">
+          <img
+            src={review.track.artworkUrl}
+            alt={review.track.album}
+            className="w-24 h-24 rounded-lg object-cover shadow-md group-hover:shadow-xl transition-shadow"
+          />
+          <div className="flex-1 space-y-2 min-w-0">
+            <div
+              className="font-bold text-lg leading-tight truncate group-hover:opacity-80 transition-opacity"
+              style={{ color: "var(--ln-ink)" }}
+            >
+              {review.track.name}
+            </div>
+            <div className="text-sm truncate" style={{ color: "var(--ln-ink-soft)" }}>
+              {review.track.artist}
+            </div>
+            <div className="flex items-center gap-2">
+              <StarDisplay rating={review.rating} />
+              <span
+                className="text-sm font-semibold"
+                style={{ color: "var(--ln-accent)" }}
+              >
+                {review.rating.toFixed(1)}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Take */}
-      {review.take && (
-        <div
-          className="italic pl-4 border-l-2"
-          style={{
-            color: "var(--ln-ink)",
-            borderColor: "var(--ln-accent)",
-          }}
-        >
-          "{review.take}"
-        </div>
-      )}
+        {/* Take */}
+        {review.take && (
+          <div
+            className="mt-3 italic pl-4 border-l-3 leading-relaxed"
+            style={{
+              color: "var(--ln-ink)",
+              borderColor: "var(--ln-accent)",
+              borderLeftWidth: "3px",
+            }}
+          >
+            "{review.take}"
+          </div>
+        )}
 
-      {/* Moment */}
-      {review.moment && (
-        <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-          {formatTime(review.moment.seconds)} • {review.moment.label}
-        </div>
-      )}
+        {/* Moment */}
+        {review.moment && (
+          <div
+            className="mt-2 text-sm inline-block px-3 py-1 rounded-full"
+            style={{
+              color: "var(--ln-accent)",
+              backgroundColor: "rgba(217, 178, 90, 0.1)",
+            }}
+          >
+            <span className="font-medium">{formatTime(review.moment.seconds)}</span>
+            <span className="mx-2">•</span>
+            <span>{review.moment.label}</span>
+          </div>
+        )}
+      </Link>
 
       {/* Actions */}
-      <div className="flex items-center gap-4 pt-2">
+      <div className="flex items-center gap-3 pt-2 border-t" style={{ borderColor: "rgba(217, 178, 90, 0.1)" }}>
         <button
           onClick={handleLike}
           disabled={loading}
-          className="flex items-center gap-2 px-3 py-1 rounded hover:opacity-80 transition-opacity disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg hover:scale-105 transition-all disabled:opacity-50 font-medium shadow-sm"
           style={{
             backgroundColor: likedByMe ? "var(--ln-accent)" : "var(--ln-line)",
             color: likedByMe ? "white" : "var(--ln-ink)",
@@ -190,13 +216,13 @@ export function ReviewItem({ review, onLike, onRepost }: ReviewItemProps) {
               clipRule="evenodd"
             />
           </svg>
-          <span className="text-sm font-medium">{likeCount}</span>
+          <span className="text-sm">{likeCount}</span>
         </button>
 
         <button
           onClick={handleRepost}
           disabled={loading}
-          className="flex items-center gap-2 px-3 py-1 rounded hover:opacity-80 transition-opacity disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg hover:scale-105 transition-all disabled:opacity-50 font-medium shadow-sm"
           style={{
             backgroundColor: repostedByMe ? "var(--ln-peach)" : "var(--ln-line)",
             color: repostedByMe ? "white" : "var(--ln-ink)",
@@ -205,7 +231,7 @@ export function ReviewItem({ review, onLike, onRepost }: ReviewItemProps) {
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" />
           </svg>
-          <span className="text-sm font-medium">{repostCount}</span>
+          <span className="text-sm">{repostCount}</span>
         </button>
       </div>
     </div>
