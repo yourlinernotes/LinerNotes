@@ -1,21 +1,41 @@
+/**
+ * LinerNotes Experience Screen
+ * Immersive read-along with album-color background
+ * Based on Claude Design handoff: experience.jsx
+ */
+
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlbumArt, Stars, ChevronDownIcon, PlayIcon, SaveIcon } from '../components/atoms';
+import { Icon, Stars } from '../components/atoms/Icon';
 import { tokens } from '@linernotes/core';
-import { formatTime } from '../utils/time';
-import type { FeedReview } from '../data/mockData';
+import { formatTimestamp } from '../lib/time-utils';
+import type { Review } from '@linernotes/core';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface ExperienceScreenProps {
-  review: FeedReview;
+  review: any; // TODO: Use proper Review type with extended properties
   onClose: () => void;
 }
 
+interface Palette {
+  deep: string;
+  mid: string;
+  lo: string;
+  accent: string;
+  glow: string;
+}
+
 export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
-  const { album, rating } = review;
-  const p = album.palette;
+  const { track, album, rating } = review;
+  const p: Palette = album?.palette || track?.palette || {
+    deep: '#23160a',
+    mid: '#7a4a16',
+    lo: '#3a1d0a',
+    accent: '#d9b25a',
+    glow: '#c97a1f',
+  };
   const gold = p.accent;
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [spotifyOpening, setSpotifyOpening] = useState(false);
@@ -73,7 +93,7 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
         {/* Top bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <ChevronDownIcon size={20} color="#f1ebe0" />
+            <Icon name="chevdown" size={20} color="#f1ebe0" />
           </TouchableOpacity>
           <Text style={styles.experienceLabel}>the experience</Text>
           <View style={{ width: 38 }} />
@@ -82,7 +102,9 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
         <View style={styles.contentContainer}>
           {/* Sharp cover */}
           <TouchableOpacity onPress={openSpotify} style={styles.cover}>
-            <AlbumArt palette={p} label={album.title.toLowerCase()} radius={12} noTag />
+            <View style={styles.coverPlaceholder}>
+              <Text style={styles.coverLabel}>{(album?.title || track?.name)?.toLowerCase()}</Text>
+            </View>
           </TouchableOpacity>
 
           {/* Title + artist */}
@@ -99,7 +121,7 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
           {/* Open in Spotify */}
           <TouchableOpacity onPress={openSpotify} style={styles.spotifyButton}>
             <View style={styles.spotifyIcon}>
-              <PlayIcon size={8} color="#fff" />
+              <Icon name="play" size={8} color="#fff" />
             </View>
             <Text style={styles.spotifyText}>Open in Spotify</Text>
           </TouchableOpacity>
@@ -156,7 +178,7 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
                       ]}
                     >
                       <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
-                        <Text style={styles.momentTimeText}>{formatTime(m.sec)}</Text>
+                        <Text style={styles.momentTimeText}>{formatTimestamp(m.seconds)}</Text>
                       </View>
                       <Text style={styles.momentNoteText} numberOfLines={2}>
                         {m.note}
@@ -241,7 +263,7 @@ function AlbumTrackStrip({
                       ]}
                     >
                       <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
-                        <Text style={styles.momentTimeText}>{formatTime(m.sec)}</Text>
+                        <Text style={styles.momentTimeText}>{formatTimestamp(m.seconds)}</Text>
                       </View>
                       <Text style={styles.trackMomentText} numberOfLines={2}>
                         {m.note}
@@ -312,6 +334,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.85,
     shadowRadius: 40,
     elevation: 20,
+  },
+  coverPlaceholder: {
+    width: 168,
+    height: 168,
+    backgroundColor: 'rgba(241,235,224,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coverLabel: {
+    fontFamily: tokens.typography.fonts.mono,
+    fontSize: 10,
+    color: 'rgba(241,235,224,0.4)',
+    textAlign: 'center',
+    padding: 12,
   },
   title: {
     marginTop: 18,
