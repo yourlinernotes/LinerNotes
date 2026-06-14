@@ -147,8 +147,8 @@ export const authOptions: NextAuthConfig = {
         });
 
         if (user) {
-          session.user.handle = user.handle;
-          session.user.displayName = user.displayName;
+          session.user.handle = user.handle || undefined;
+          session.user.displayName = user.displayName || undefined;
         }
       }
       return session;
