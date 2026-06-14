@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@babel/runtime": "^7.25.0",
+    "@jest/schemas": "29.6.3",
     "@linernotes/core": "workspace:*",
     "@react-native/assets": "^1.0.0",
     "@react-native/assets-registry": "0.81.5",
@@ -16,6 +17,7 @@
     "abort-controller": "^3.0.0",
     "anser": "^2.3.5",
     "ansi-regex": "^6.2.2",
+    "ansi-styles": "5.2.0",
     "base64-js": "^1.5.1",
     "buffer": "^6.0.3",
     "commander": "^15.0.0",
@@ -41,6 +43,7 @@
     "punycode": "^2.3.1",
     "react": "19.1.0",
     "react-devtools-core": "^7.0.1",
+    "react-is": "18.3.1",
     "react-native": "0.81.5",
     "react-native-svg": "15.12.1",
     "react-native-view-shot": "4.0.3",

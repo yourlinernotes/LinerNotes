@@ -13,6 +13,9 @@ importers:
       '@babel/runtime':
         specifier: ^7.25.0
         version: 7.29.7
+      '@jest/schemas':
+        specifier: 29.6.3
+        version: 29.6.3
       '@linernotes/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -49,6 +52,9 @@ importers:
       ansi-regex:
         specifier: ^6.2.2
         version: 6.2.2
+      ansi-styles:
+        specifier: 5.2.0
+        version: 5.2.0
       base64-js:
         specifier: ^1.5.1
         version: 1.5.1
@@ -124,6 +130,9 @@ importers:
       react-devtools-core:
         specifier: ^7.0.1
         version: 7.0.1
+      react-is:
+        specifier: 18.3.1
+        version: 18.3.1
       react-native:
         specifier: 0.81.5
         version: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
