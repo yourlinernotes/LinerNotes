@@ -14,3 +14,13 @@ export function formatRelativeTime(isoString: string): string {
   if (days === 1) return 'yesterday';
   return `${days}d`;
 }
+
+/**
+ * Format seconds to m:ss timestamp
+ * Based on Claude Design handoff lnFmt function
+ */
+export function formatTimestamp(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
