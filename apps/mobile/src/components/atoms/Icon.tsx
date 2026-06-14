@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { View, Text } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 interface IconProps {
@@ -177,4 +178,39 @@ export function Stars({ rating, size = 13, color = '#d9b25a', showNum = true }: 
   }
 
   return <>{stars}</>;
+}
+
+interface AvatarProps {
+  name: string;
+  tint: string;
+  size?: number;
+}
+
+export function Avatar({ name, tint, size = 30 }: AvatarProps) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: `${tint}1f`,
+        borderWidth: 1,
+        borderColor: `${tint}55`,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text
+        style={{
+          color: tint,
+          fontFamily: 'System',
+          fontWeight: '600',
+          fontSize: size * 0.42,
+          letterSpacing: 0.01,
+        }}
+      >
+        {name[0]}
+      </Text>
+    </View>
+  );
 }

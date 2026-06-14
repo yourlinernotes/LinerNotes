@@ -1,77 +1,162 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../components/ReviewCard';
-import { Avatar, RepostIcon, SaveIcon, LikeIcon } from '../components/atoms';
+import { Icon, Avatar } from '../components/atoms/Icon';
 import { tokens } from '@linernotes/core';
-import { formatRelative } from '../utils/time';
-import type { FeedReview } from '../data/mockData';
+import { formatRelativeTime } from '../lib/time-utils';
+import { api } from '../lib/api-client';
+import { useAuth } from '../contexts/AuthContext';
+import type { Review } from '@linernotes/core';
 
-interface FeedScreenProps {
-  reviews: FeedReview[];
-  onOpenReview: (review: FeedReview) => void;
+interface FeedItemData {
+  id: string;
+  review: Review;
+  user: {
+    id: string;
+    displayName: string;
+    handle: string;
+    tint: string;
+  };
+  likeCount: number;
+  repostCount: number;
+  saved: boolean;
+  via?: { name: string; handle: string };
+  createdAt: string;
 }
 
-export function FeedScreen({ reviews, onOpenReview }: FeedScreenProps) {
+export function FeedScreen() {
+  const [feedItems, setFeedItems] = useState<FeedItemData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  async function loadFeed() {
+    try {
+      setIsLoading(true);
+      const data = await api.getReviews({ limit: 20 });
+      // Map to feed items with mock social data
+      const items: FeedItemData[] = (data as any).map((review: any) => ({
+        id: review.id,
+        review,
+        user: {
+          id: review.userId,
+          displayName: 'User Name', // TODO: Get from backend
+          handle: 'username',
+          tint: '#d9b25a',
+        },
+        likeCount: 0,
+        repostCount: 0,
+        saved: false,
+        createdAt: review.createdAt,
+      }));
+      setFeedItems(items);
+    } catch (error) {
+      console.error('Failed to load feed:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleRefresh() {
+    setIsRefreshing(true);
+    await loadFeed();
+    setIsRefreshing(false);
+  }
+
+  useEffect(() => {
+    loadFeed();
+  }, []);
+
+  function handleOpenReview(review: Review) {
+    // TODO: Navigate to Experience screen
+    console.log('Open review:', review.id);
+  }
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={tokens.colors.cream} />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Sticky header handled by parent */}
-      <View style={styles.feed}>
-        {reviews.map((review) => (
-          <FeedItem
-            key={review.id}
-            review={review}
-            onOpen={() => onOpenReview(review)}
-          />
-        ))}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>LinerNotes</Text>
       </View>
 
-      <View style={styles.endMessage}>
-        <Text style={styles.endText}>you're all caught up · breathe</Text>
-      </View>
-    </ScrollView>
+      <FlatList
+        data={feedItems}
+        renderItem={({ item }) => (
+          <FeedItem item={item} onOpen={() => handleOpenReview(item.review)} />
+        )}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={tokens.colors.cream}
+          />
+        }
+        ListFooterComponent={
+          <View style={styles.endMessage}>
+            <Text style={styles.endText}>you're all caught up · breathe</Text>
+          </View>
+        }
+      />
+    </SafeAreaView>
   );
 }
 
-function FeedItem({ review, onOpen }: { review: FeedReview; onOpen: () => void }) {
-  const [like, setLike] = useState({ on: false, n: review.likeCount });
-  const [save, setSave] = useState(review.saved);
-  const [repost, setRepost] = useState({ on: false, n: review.repostCount });
+function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) {
+  const [like, setLike] = useState({ on: false, n: item.likeCount });
+  const [save, setSave] = useState(item.saved);
+  const [repost, setRepost] = useState({ on: false, n: item.repostCount });
   const [follow, setFollow] = useState(false);
 
   const toggleLike = () => setLike((s) => ({ on: !s.on, n: s.n + (s.on ? -1 : 1) }));
   const toggleSave = () => setSave((s) => !s);
   const toggleRepost = () => setRepost((s) => ({ on: !s.on, n: s.n + (s.on ? -1 : 1) }));
 
+  // Determine depth based on review content
+  const depth = !item.review.take ? 'floor' : item.review.take && item.review.notes.length > 0 ? 'full' : 'caption';
+
   return (
     <View style={styles.feedItem}>
       {/* Poster row */}
       <View style={styles.poster}>
-        <Avatar user={review.user} size={30} />
+        <Avatar name={item.user.displayName} tint={item.user.tint} size={30} />
         <View style={styles.posterInfo}>
-          <Text style={styles.userName}>{review.user.name}</Text>
+          <Text style={styles.userName}>{item.user.displayName}</Text>
           <Text style={styles.userHandle}>
-            @{review.user.handle} · {formatRelative(review.at)}
+            @{item.user.handle} · {formatRelativeTime(item.createdAt)}
           </Text>
-          {review.via && (
+          {item.via && (
             <View style={styles.via}>
-              <RepostIcon size={11} color={`rgba(${tokens.colors.fgRgb}, 0.42)`} />
-              <Text style={styles.viaText}>via {review.via.name}</Text>
+              <Icon name="repost" size={11} color="rgba(241,235,224,0.42)" />
+              <Text style={styles.viaText}>via {item.via.name}</Text>
             </View>
           )}
         </View>
 
-        {review.via ? (
+        {item.via ? (
           <TouchableOpacity
             onPress={() => setFollow((f) => !f)}
             style={[
               styles.followButton,
               {
-                borderColor: follow ? `rgba(${tokens.colors.fgRgb}, 0.22)` : tokens.colors.gold,
-                backgroundColor: follow ? 'transparent' : tokens.colors.gold,
+                borderColor: follow ? 'rgba(241,235,224,0.22)' : '#d9b25a',
+                backgroundColor: follow ? 'transparent' : '#d9b25a',
               },
             ]}
           >
@@ -79,14 +164,14 @@ function FeedItem({ review, onOpen }: { review: FeedReview; onOpen: () => void }
               style={[
                 styles.followText,
                 {
-                  color: follow ? `rgba(${tokens.colors.fgRgb}, 0.7)` : tokens.colors.bg,
+                  color: follow ? 'rgba(241,235,224,0.7)' : tokens.colors.nearBlack,
                 },
               ]}
             >
               {follow ? 'following' : '+ follow'}
             </Text>
           </TouchableOpacity>
-        ) : review.depth === 'floor' ? (
+        ) : depth === 'floor' ? (
           <View style={styles.tapRatedBadge}>
             <Text style={styles.tapRatedText}>tap-rated</Text>
           </View>
@@ -95,9 +180,10 @@ function FeedItem({ review, onOpen }: { review: FeedReview; onOpen: () => void }
 
       {/* The card */}
       <ReviewCard
-        review={review}
-        accent={tokens.colors.gold}
+        review={item.review}
+        accent="#d9b25a"
         onPress={onOpen}
+        context="feed"
       />
 
       {/* Action row */}
@@ -105,21 +191,21 @@ function FeedItem({ review, onOpen }: { review: FeedReview; onOpen: () => void }
         <ActionButton
           icon="repost"
           active={repost.on}
-          activeColor={tokens.colors.love}
+          activeColor="#d98aa0"
           count={repost.n}
           onPress={toggleRepost}
         />
         <ActionButton
           icon="save"
           active={save}
-          activeColor={tokens.colors.goldBright}
+          activeColor="#c8a45c"
           onPress={toggleSave}
         />
         <View style={{ flex: 1 }} />
         <ActionButton
           icon="like"
           active={like.on}
-          activeColor={tokens.colors.flame}
+          activeColor="#e0762f"
           count={like.n}
           onPress={toggleLike}
         />
@@ -141,13 +227,11 @@ function ActionButton({
   count?: number;
   onPress: () => void;
 }) {
-  const color = active ? activeColor : `rgba(${tokens.colors.fgRgb}, 0.62)`;
-
-  const IconComponent = icon === 'repost' ? RepostIcon : icon === 'save' ? SaveIcon : LikeIcon;
+  const color = active ? activeColor : 'rgba(241,235,224,0.62)';
 
   return (
     <TouchableOpacity onPress={onPress} style={styles.actionButton}>
-      <IconComponent size={20} filled={active} color={color} />
+      <Icon name={icon} size={20} filled={active} color={color} />
       {typeof count === 'number' && (
         <Text style={[styles.actionCount, { color }]}>{count}</Text>
       )}
@@ -158,15 +242,26 @@ function ActionButton({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.bg,
+    backgroundColor: tokens.colors.nearBlack,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(241,235,224,0.08)',
+  },
+  headerTitle: {
+    fontFamily: 'System',
+    fontSize: 17,
+    fontWeight: '600',
+    color: tokens.colors.cream,
+    letterSpacing: -0.17,
   },
   content: {
-    paddingHorizontal: tokens.layout.feedPadding,
-    paddingTop: 6,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 110,
-  },
-  feed: {
-    gap: tokens.layout.feedGap,
+    gap: 28,
   },
   feedItem: {
     gap: 11,
@@ -179,20 +274,20 @@ const styles = StyleSheet.create({
   },
   posterInfo: {
     flex: 1,
-    gap: 1,
+    gap: 2,
     minWidth: 0,
   },
   userName: {
-    fontFamily: tokens.typography.fonts.body,
-    fontSize: tokens.typography.sizes.userName,
-    fontWeight: tokens.typography.weights.semibold,
-    color: tokens.colors.fg,
+    fontFamily: 'System',
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: tokens.colors.cream,
   },
   userHandle: {
-    fontFamily: tokens.typography.fonts.mono,
-    fontSize: tokens.typography.sizes.userHandle,
-    color: `rgba(${tokens.colors.fgRgb}, 0.45)`,
-    letterSpacing: 0.2,
+    fontFamily: 'Menlo',
+    fontSize: 10.5,
+    color: 'rgba(241,235,224,0.45)',
+    letterSpacing: 0.21,
   },
   via: {
     flexDirection: 'row',
@@ -201,10 +296,10 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   viaText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 9.5,
-    letterSpacing: 0.3,
-    color: `rgba(${tokens.colors.fgRgb}, 0.5)`,
+    letterSpacing: 0.29,
+    color: 'rgba(241,235,224,0.5)',
   },
   followButton: {
     paddingHorizontal: 12,
@@ -214,24 +309,24 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   followText: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 11.5,
-    fontWeight: tokens.typography.weights.semibold,
-    letterSpacing: 0.1,
+    fontWeight: '600',
+    letterSpacing: 0.12,
   },
   tapRatedBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: `rgba(${tokens.colors.fgRgb}, 0.12)`,
+    borderColor: 'rgba(241,235,224,0.12)',
     borderRadius: 999,
     flexShrink: 0,
   },
   tapRatedText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 9.5,
-    letterSpacing: 0.5,
-    color: `rgba(${tokens.colors.fgRgb}, 0.4)`,
+    letterSpacing: 0.48,
+    color: 'rgba(241,235,224,0.4)',
   },
   actions: {
     flexDirection: 'row',
@@ -248,18 +343,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   actionCount: {
-    fontFamily: tokens.typography.fonts.mono,
-    fontSize: tokens.typography.sizes.actionButton,
+    fontFamily: 'Menlo',
+    fontSize: 12,
     minWidth: 12,
   },
   endMessage: {
     alignItems: 'center',
     marginTop: 26,
+    paddingBottom: 20,
   },
   endText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10.5,
     letterSpacing: 0.6,
-    color: `rgba(${tokens.colors.fgRgb}, 0.3)`,
+    color: 'rgba(241,235,224,0.3)',
   },
 });
