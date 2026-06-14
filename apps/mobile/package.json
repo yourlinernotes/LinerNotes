@@ -31,6 +31,7 @@
     "expo-auth-session": "^56.0.14",
     "expo-constants": "^18.0.13",
     "expo-file-system": "^56.0.8",
+    "expo-image-picker": "^56.0.17",
     "expo-linear-gradient": "~15.0.8",
     "expo-modules-core": "~3.0.30",
     "expo-sharing": "~14.0.8",

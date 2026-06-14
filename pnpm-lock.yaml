@@ -94,6 +94,9 @@ importers:
       expo-file-system:
         specifier: ^56.0.8
         version: 56.0.8(expo@54.0.35)(react-native@0.81.5)
+      expo-image-picker:
+        specifier: ^56.0.17
+        version: 56.0.17(expo@54.0.35)
       expo-linear-gradient:
         specifier: ~15.0.8
         version: 15.0.8(expo@54.0.35)(react-native@0.81.5)(react@19.1.0)
@@ -5210,6 +5213,23 @@ packages:
       fontfaceobserver: 2.3.0
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
+    dev: false
+
+  /expo-image-loader@56.0.3(expo@54.0.35):
+    resolution: {integrity: sha512-JgUo4fUeU1ZC+z8iBFj8v7yoGQnZrLbOVPyNE+DWVrld55F2F6R1ck+rmdm/8TNWLz1LhNQfD7c3XYP1ZikxXA==}
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      expo: 54.0.35(@babel/core@7.29.7)(react-native@0.81.5)(react@19.1.0)(typescript@5.9.3)
+    dev: false
+
+  /expo-image-picker@56.0.17(expo@54.0.35):
+    resolution: {integrity: sha512-/RojW1ptyQNV89hEeDdaoHCkn38+546MqakMyB0acFf0HLh5ZI7wxQCHkxr16qjuQMy11M+96GlX9Z6vgXF7Nw==}
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      expo: 54.0.35(@babel/core@7.29.7)(react-native@0.81.5)(react@19.1.0)(typescript@5.9.3)
+      expo-image-loader: 56.0.3(expo@54.0.35)
     dev: false
 
   /expo-keep-awake@15.0.8(expo@54.0.35)(react@19.1.0):
