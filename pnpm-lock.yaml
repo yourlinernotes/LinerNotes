@@ -16,6 +16,18 @@ importers:
       '@linernotes/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@react-native/assets':
+        specifier: ^1.0.0
+        version: 1.0.0
+      '@react-native/js-polyfills':
+        specifier: ^0.86.0
+        version: 0.86.0
+      '@react-native/normalize-colors':
+        specifier: ^0.86.0
+        version: 0.86.0
+      '@react-native/polyfills':
+        specifier: ^2.0.0
+        version: 2.0.0
       '@react-native/virtualized-lists':
         specifier: ^0.81.5
         version: 0.81.5(@types/react@19.1.17)(react-native@0.81.5)(react@19.1.0)
@@ -2504,6 +2516,10 @@ packages:
     engines: {node: '>= 20.19.4'}
     dev: false
 
+  /@react-native/assets@1.0.0:
+    resolution: {integrity: sha512-KrwSpS1tKI70wuKl68DwJZYEvXktDHdZMG0k2AXD/rJVSlB23/X2CB2cutVR0HwNMJIal9HOUOBB2rVfa6UGtQ==}
+    dev: false
+
   /@react-native/babel-plugin-codegen@0.81.5(@babel/core@7.29.7):
     resolution: {integrity: sha512-oF71cIH6je3fSLi6VPjjC3Sgyyn57JLHXs+mHWc9MoCiJJcM4nqsS5J38zv1XQ8d3zOW2JtHro+LF0tagj2bfQ==}
     engines: {node: '>= 20.19.4'}
@@ -2646,8 +2662,21 @@ packages:
     engines: {node: '>= 20.19.4'}
     dev: false
 
+  /@react-native/js-polyfills@0.86.0:
+    resolution: {integrity: sha512-zYy/Cjd1VTnZ2iCNaG9bDF9C3l2ntESiPRscjIlI5FKugu6aeTwsDSv1aI8Bc4Kp3vEdoVg+UQhLAhE4svREaQ==}
+    engines: {node: ^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0}
+    dev: false
+
   /@react-native/normalize-colors@0.81.5:
     resolution: {integrity: sha512-0HuJ8YtqlTVRXGZuGeBejLE04wSQsibpTI+RGOyVqxZvgtlLLC/Ssw0UmbHhT4lYMp2fhdtvKZSs5emWB1zR/g==}
+    dev: false
+
+  /@react-native/normalize-colors@0.86.0:
+    resolution: {integrity: sha512-kG0wfCGghUKlfxkJyyHCDVutWVYWK7/DG58ojA/4v9EfulgF+osuSQmlbNb3rcKX58qutm7JcldSeVLgGFha9g==}
+    dev: false
+
+  /@react-native/polyfills@2.0.0:
+    resolution: {integrity: sha512-K0aGNn1TjalKj+65D7ycc1//H9roAQ51GJVk5ZJQFb2teECGmzd86bYDC0aYdbRf7gtovescq4Zt6FR0tgXiHQ==}
     dev: false
 
   /@react-native/virtualized-lists@0.81.5(@types/react@19.1.17)(react-native@0.81.5)(react@19.1.0):
