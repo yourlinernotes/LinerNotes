@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { searchTracks, searchAlbums, refreshAccessToken } from "@/lib/spotify";
 
+/**
+ * GET /api/search - Search for tracks or albums
+ *
+ * TODO: Implement open API stack (iTunes/Deezer/MusicBrainz)
+ * Spotify OAuth is removed in favor of open APIs for beta
+ */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q");
@@ -18,38 +23,17 @@ export async function GET(request: NextRequest) {
     const session = await auth();
     const currentUserId = session?.user?.id;
 
-    // Check if user is authenticated
-    if (!session?.spotifyAccessToken) {
+    if (!currentUserId) {
       return NextResponse.json(
         { error: "Not authenticated", requiresAuth: true },
         { status: 401 }
       );
     }
 
-    // Check if token is expired and refresh if needed
-    let accessToken = session.spotifyAccessToken;
-    if (session.spotifyExpiresAt && Date.now() >= session.spotifyExpiresAt) {
-      if (!session.spotifyRefreshToken) {
-        return NextResponse.json(
-          { error: "Session expired", requiresAuth: true },
-          { status: 401 }
-        );
-      }
-
-      const tokenData = await refreshAccessToken(session.spotifyRefreshToken);
-      accessToken = tokenData.access_token;
-      // Note: NextAuth session update would need to be implemented differently
-      // This is a simplified version - actual implementation may need session update logic
-    }
-
-    // Search using Spotify API
-    if (type === "album") {
-      const albums = await searchAlbums(query, accessToken);
-      return NextResponse.json({ albums });
-    } else {
-      const tracks = await searchTracks(query, accessToken);
-      return NextResponse.json({ tracks });
-    }
+    return NextResponse.json(
+      { error: "Search not yet implemented - open API stack pending" },
+      { status: 501 }
+    );
   } catch (error) {
     console.error("Search error:", error);
     return NextResponse.json(
