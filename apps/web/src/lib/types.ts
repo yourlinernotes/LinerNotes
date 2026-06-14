@@ -78,6 +78,30 @@ export type AlbumReview = {
   repostedByMe?: boolean;
 };
 
+export type PlaylistTrack = {
+  id: string;
+  trackId: string;
+  name: string;
+  artist: string;
+  artworkUrl: string;
+  note?: string; // Why this track is in the playlist
+  order: number;
+};
+
+export type Playlist = {
+  id: string;
+  userId: string;
+  user?: User;
+  title: string;
+  description?: string; // The story/theme of the playlist
+  tracks: PlaylistTrack[];
+  createdAt: string; // ISO
+  likeCount: number;
+  repostCount: number;
+  likedByMe?: boolean;
+  repostedByMe?: boolean;
+};
+
 export type FeedItem = {
   kind: "review" | "repost";
   review: Review;
@@ -92,7 +116,14 @@ export type AlbumFeedItem = {
   at: string;
 };
 
-export type UnifiedFeedItem = FeedItem | AlbumFeedItem;
+export type PlaylistFeedItem = {
+  kind: "playlist" | "playlist_repost";
+  playlist: Playlist;
+  repostedBy?: User;
+  at: string;
+};
+
+export type UnifiedFeedItem = FeedItem | AlbumFeedItem | PlaylistFeedItem;
 
 export type Friendship = {
   id: string;
