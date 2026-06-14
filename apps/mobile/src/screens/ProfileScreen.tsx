@@ -4,7 +4,7 @@
  * Based on Claude Design handoff: profile.jsx
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { tokens } from '@linernotes/core';
 import { formatRelativeTime } from '../lib/time-utils';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
+import { shareCard } from '../lib/share-utils';
 import type { Review } from '@linernotes/core';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -266,6 +267,16 @@ function ProfileNote({
   const [like, setLike] = useState({ on: false, n: 0 });
   const [save, setSave] = useState(kind === 'saved');
   const [repost, setRepost] = useState({ on: kind === 'repost', n: 0 });
+  const cardRef = useRef(null);
+
+  const handleShare = async () => {
+    if (cardRef.current) {
+      await shareCard(cardRef.current, {
+        title: 'Share LinerNote',
+        message: `Check out this review on LinerNotes!`,
+      });
+    }
+  };
 
   return (
     <View style={styles.profileNote}>
@@ -287,7 +298,9 @@ function ProfileNote({
         </View>
       )}
 
-      <ReviewCard review={review} accent={gold} context="feed" />
+      <View ref={cardRef} collapsable={false}>
+        <ReviewCard review={review} accent={gold} context="share" />
+      </View>
 
       <View style={styles.actions}>
         <ActionButton
@@ -313,6 +326,7 @@ function ProfileNote({
         <View style={{ flex: 1 }} />
         {kind === 'own' && (
           <TouchableOpacity
+            onPress={handleShare}
             style={[styles.shareNoteButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
           >
             <Icon name="share" size={14} color={gold} />

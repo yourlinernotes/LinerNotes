@@ -91,6 +91,9 @@ importers:
       expo-constants:
         specifier: ^18.0.13
         version: 18.0.13(expo@54.0.35)(react-native@0.81.5)
+      expo-file-system:
+        specifier: ^56.0.8
+        version: 56.0.8(expo@54.0.35)(react-native@0.81.5)
       expo-linear-gradient:
         specifier: ~15.0.8
         version: 15.0.8(expo@54.0.35)(react-native@0.81.5)(react@19.1.0)
@@ -5178,6 +5181,16 @@ packages:
 
   /expo-file-system@19.0.23(expo@54.0.35)(react-native@0.81.5):
     resolution: {integrity: sha512-MeGkid9OeNILfT/qonaXHp4f2c15xaB28U/bcN7pqZej0Kx0+6+V7e9ZIXpPHm07zVatxA+QkMTPQEGfmvVOxA==}
+    peerDependencies:
+      expo: '*'
+      react-native: '*'
+    dependencies:
+      expo: 54.0.35(@babel/core@7.29.7)(react-native@0.81.5)(react@19.1.0)(typescript@5.9.3)
+      react-native: 0.81.5(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0)
+    dev: false
+
+  /expo-file-system@56.0.8(expo@54.0.35)(react-native@0.81.5):
+    resolution: {integrity: sha512-NrH41/8snGIBSbYicwVLB4txPdgCATd7ZYhMAGS3YJZ9GbnduhlAoV4/YCbGayjrbpE9bJb/6wegPL/zmvRMnQ==}
     peerDependencies:
       expo: '*'
       react-native: '*'
