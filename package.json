@@ -1,0 +1,16 @@
+{
+  "name": "linernotes-monorepo",
+  "version": "0.2.0",
+  "private": true,
+  "description": "LinerNotes - A diary of the felt, in-the-moment listening experience",
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "build": "pnpm -r build",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

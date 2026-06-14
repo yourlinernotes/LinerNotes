@@ -1,0 +1,29 @@
+{
+  "name": "@linernotes/mobile",
+  "version": "0.2.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@linernotes/core": "workspace:*",
+    "expo": "~56.0.11",
+    "expo-linear-gradient": "~14.0.1",
+    "expo-sharing": "~14.0.0",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-svg": "15.11.0",
+    "react-native-view-shot": "4.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "dev": "expo start",
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "clean": "rm -rf node_modules .expo"
+  },
+  "private": true
+}

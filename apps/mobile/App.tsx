@@ -1,0 +1,253 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen } from './src/screens';
+import { MenuIcon, PlusIcon } from './src/components/atoms';
+import { tokens } from '@linernotes/core';
+import { MOCK_REVIEWS } from './src/data/mockData';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
+  const [activeReview, setActiveReview] = useState(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+
+  const openReview = (review: any) => {
+    setActiveReview(review);
+  };
+
+  const closeReview = () => {
+    setActiveReview(null);
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+
+      {/* Background gradient */}
+      <LinearGradient
+        colors={['#221f1b', '#161412', '#0e0d0c']}
+        locations={[0, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Main content */}
+      <View style={styles.main}>
+        {/* Sticky header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.branding}>
+              <Text style={styles.appTitle}>LinerNotes</Text>
+              <View style={styles.betaBadge}>
+                <Text style={styles.betaText}>beta</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.menuButton}>
+              <MenuIcon size={20} color={tokens.colors.fg} />
+              <View style={styles.notificationDot} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Tab content */}
+        {activeTab === 'feed' && (
+          <FeedScreen reviews={MOCK_REVIEWS} onOpenReview={openReview} />
+        )}
+        {activeTab === 'profile' && <ProfileScreen />}
+
+        {/* Bottom tab bar */}
+        <View style={styles.tabBar}>
+          <TabButton
+            label="feed"
+            active={activeTab === 'feed'}
+            onPress={() => setActiveTab('feed')}
+          />
+          <LogButton onPress={() => setComposerOpen(true)} />
+          <TabButton
+            label="you"
+            active={activeTab === 'profile'}
+            onPress={() => setActiveTab('profile')}
+          />
+        </View>
+      </View>
+
+      {/* Experience overlay (hero expand) */}
+      {activeReview && (
+        <View style={styles.experienceOverlay}>
+          <ExperienceScreen review={activeReview} onClose={closeReview} />
+        </View>
+      )}
+
+      {/* Composer sheet */}
+      {composerOpen && (
+        <View style={styles.composerOverlay}>
+          <ComposerScreen onClose={() => setComposerOpen(false)} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+function TabButton({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.tab}>
+      <Text
+        style={[
+          styles.tabLabel,
+          {
+            color: active ? tokens.colors.fg : `rgba(${tokens.colors.fgRgb}, 0.4)`,
+            borderTopColor: active ? tokens.colors.gold : 'transparent',
+          },
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function LogButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.logButton}>
+      <PlusIcon size={20} color={tokens.colors.bg} />
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: tokens.colors.bg,
+    paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
+  },
+  main: {
+    flex: 1,
+    position: 'relative',
+  },
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 6,
+    paddingTop: 54,
+    paddingHorizontal: 18,
+    paddingBottom: 12,
+    minHeight: 104,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  branding: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  appTitle: {
+    fontFamily: tokens.typography.fonts.display,
+    fontWeight: tokens.typography.weights.semibold,
+    fontSize: tokens.typography.sizes.appTitle,
+    color: tokens.colors.fg,
+    letterSpacing: -0.2,
+    lineHeight: tokens.typography.sizes.appTitle,
+  },
+  betaBadge: {
+    borderWidth: 1,
+    borderColor: `${tokens.colors.gold}55`,
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    position: 'relative',
+    top: -4,
+  },
+  betaText: {
+    fontFamily: tokens.typography.fonts.mono,
+    fontSize: tokens.typography.sizes.betaBadge,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    fontWeight: tokens.typography.weights.bold,
+    color: tokens.colors.gold,
+  },
+  menuButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: `rgba(${tokens.colors.lineRgb}, 0.14)`,
+    backgroundColor: tokens.colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 6,
+    right: 7,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: tokens.colors.gold,
+    borderWidth: 1.5,
+    borderColor: tokens.colors.bg,
+  },
+  tabBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 7,
+    paddingBottom: 26,
+    paddingTop: 11,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  tab: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  tabLabel: {
+    fontFamily: tokens.typography.fonts.mono,
+    fontSize: 11.5,
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+    fontWeight: tokens.typography.weights.semibold,
+    borderTopWidth: 1.5,
+    paddingTop: 2,
+  },
+  logButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: tokens.colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: tokens.colors.gold,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.7,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  experienceOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+  },
+  composerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 30,
+  },
+});
