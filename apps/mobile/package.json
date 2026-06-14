@@ -17,6 +17,7 @@
     "anser": "^2.3.5",
     "ansi-regex": "^6.2.2",
     "base64-js": "^1.5.1",
+    "buffer": "^6.0.3",
     "commander": "^15.0.0",
     "event-target-shim": "^6.0.2",
     "expo": "~54.0.0",
