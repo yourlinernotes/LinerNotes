@@ -12,12 +12,15 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon, Reaction, Stars } from '../components/atoms/Icon';
 import { ReviewCard } from '../components/ReviewCard';
 import { formatTimestamp } from '../lib/time-utils';
+import { api } from '../lib/api-client';
 import { tokens } from '@linernotes/core';
 import type { Moment, ReactionType } from '@linernotes/core';
 
@@ -49,6 +52,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const [rating, setRating] = useState(0);
   const [take, setTake] = useState('');
   const [soloMoments, setSoloMoments] = useState<Moment[]>([]);
+  const [isPosting, setIsPosting] = useState(false);
 
   // Album/Playlist track management
   const [tracks, setTracks] = useState<Record<number, TrackData>>({});
@@ -64,10 +68,33 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
   const canPost = mode === 'track' ? rating > 0 : mode === 'album' ? rating > 0 : true;
 
-  function handlePost() {
-    // TODO: Submit review to API
-    console.log('Post review:', { mode, rating, take, soloMoments, tracks });
-    onClose();
+  async function handlePost() {
+    if (isPosting) return;
+
+    setIsPosting(true);
+
+    try {
+      const reviewData = {
+        rating,
+        take: preview || null,
+        body: hasBody ? lines.slice(1).join('\n') : null,
+        notes: soloMoments.length > 0 ? soloMoments : [],
+        // TODO: Add track/album metadata from search/selection
+      };
+
+      if (mode === 'album') {
+        await api.createAlbumReview(reviewData);
+      } else {
+        await api.createReview(reviewData);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Failed to post review:', error);
+      Alert.alert('Error', 'Failed to post review. Please try again.');
+    } finally {
+      setIsPosting(false);
+    }
   }
 
   return (
@@ -150,17 +177,21 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
           {/* Post Button */}
           <TouchableOpacity
-            style={[styles.postButton, !canPost && styles.postButtonDisabled]}
+            style={[styles.postButton, (!canPost || isPosting) && styles.postButtonDisabled]}
             onPress={handlePost}
-            disabled={!canPost}
+            disabled={!canPost || isPosting}
           >
-            <Text style={styles.postButtonText}>
-              {mode === 'playlist' ? 'Post playlist' :
-               mode === 'track' && depth === 'full' ? 'Post track note' :
-               mode === 'track' && depth === 'caption' ? 'Post' :
-               mode === 'track' && depth === 'floor' ? 'Post rating' :
-               rating > 0 ? 'Post' : 'Add a rating to post'}
-            </Text>
+            {isPosting ? (
+              <ActivityIndicator size="small" color={tokens.colors.nearBlack} />
+            ) : (
+              <Text style={styles.postButtonText}>
+                {mode === 'playlist' ? 'Post playlist' :
+                 mode === 'track' && depth === 'full' ? 'Post track note' :
+                 mode === 'track' && depth === 'caption' ? 'Post' :
+                 mode === 'track' && depth === 'floor' ? 'Post rating' :
+                 rating > 0 ? 'Post' : 'Add a rating to post'}
+              </Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>

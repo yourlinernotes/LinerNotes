@@ -124,9 +124,46 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) 
   const [repost, setRepost] = useState({ on: false, n: item.repostCount });
   const [follow, setFollow] = useState(false);
 
-  const toggleLike = () => setLike((s) => ({ on: !s.on, n: s.n + (s.on ? -1 : 1) }));
-  const toggleSave = () => setSave((s) => !s);
-  const toggleRepost = () => setRepost((s) => ({ on: !s.on, n: s.n + (s.on ? -1 : 1) }));
+  const toggleLike = async () => {
+    const newState = !like.on;
+    const newCount = like.n + (like.on ? -1 : 1);
+    setLike({ on: newState, n: newCount });
+
+    try {
+      await api.likeReview(item.review.id);
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+      // Revert on error
+      setLike({ on: !newState, n: like.n });
+    }
+  };
+
+  const toggleSave = async () => {
+    const newState = !save;
+    setSave(newState);
+
+    try {
+      // TODO: Add save/unsave endpoint when available
+      console.log('Save toggled:', newState);
+    } catch (error) {
+      console.error('Failed to toggle save:', error);
+      setSave(!newState);
+    }
+  };
+
+  const toggleRepost = async () => {
+    const newState = !repost.on;
+    const newCount = repost.n + (repost.on ? -1 : 1);
+    setRepost({ on: newState, n: newCount });
+
+    try {
+      await api.repostReview(item.review.id);
+    } catch (error) {
+      console.error('Failed to toggle repost:', error);
+      // Revert on error
+      setRepost({ on: !newState, n: repost.n });
+    }
+  };
 
   // Determine depth based on review content
   const depth = !item.review.take ? 'floor' : item.review.take && item.review.notes.length > 0 ? 'full' : 'caption';
