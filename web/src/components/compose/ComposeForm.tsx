@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import type { Track, Review, Note } from "@/lib/types";
 import { TrackSearch } from "./TrackSearch";
 import { RatingSelector } from "./RatingSelector";
@@ -18,6 +19,7 @@ interface NoteInput {
 }
 
 export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps) {
+  const { data: session } = useSession();
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
   const [rating, setRating] = useState(3.5);
   const [take, setTake] = useState("");
@@ -77,10 +79,8 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
       setNotes([{ time: "", label: "", note: "" }]);
 
       // Redirect to profile to see the review
-      const { checkAuth } = await import("@/lib/api");
-      const authStatus = await checkAuth();
-      if (authStatus.userHandle) {
-        window.location.href = `/profile/${authStatus.userHandle}`;
+      if (session?.user?.handle) {
+        window.location.href = `/profile/${session.user.handle}`;
       } else {
         alert("Review submitted successfully!");
       }
