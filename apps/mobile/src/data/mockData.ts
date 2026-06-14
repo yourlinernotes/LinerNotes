@@ -103,7 +103,7 @@ export const MOCK_REVIEWS: FeedReview[] = [
     rating: 4.5,
     at: '2026-06-13T08:10:00Z',
     take: 'make some noise for the desi boys!!!!',
-    body: 'The desi boys came to play. This is a victory lap of an album — every track struts. The production is glossy but never sterile, and when the dhol kicks in you feel it in your chest.',
+    body: 'The desi boys came to play. This is a victory lap of an album - every track struts. The production is glossy but never sterile, and when the dhol kicks in you feel it in your chest.',
     notes: [
       { sec: 0, label: 'holy intro', note: 'holy intro, really sets the tone for the rest of the album' },
       { sec: 72, label: 'the dhol', note: 'the dhol comes in and the whole thing levels up' },
@@ -136,7 +136,7 @@ export const MOCK_REVIEWS: FeedReview[] = [
     rating: 5.0,
     at: '2026-06-12T23:05:00Z',
     take: 'i put this on to fall asleep and stayed awake for all of it',
-    body: 'Thirty years old and still from the future. SAW is less an album than a room you walk into — the synths don't play melodies so much as weather.',
+    body: 'Thirty years old and still from the future. SAW is less an album than a room you walk into - the synths don\'t play melodies so much as weather.',
     notes: [
       { sec: 210, label: 'xtal', note: 'the pads just breathe here. i had to sit down.' },
       { sec: 730, label: 'tha', note: 'low end you feel in your teeth' },
