@@ -106,6 +106,9 @@ importers:
       promise:
         specifier: ^8.3.0
         version: 8.3.0
+      punycode:
+        specifier: ^2.3.1
+        version: 2.3.1
       react:
         specifier: 19.1.0
         version: 19.1.0
