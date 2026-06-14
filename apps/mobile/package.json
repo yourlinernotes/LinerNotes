@@ -34,7 +34,7 @@
     "metro-runtime": "0.83.1",
     "metro-source-map": "0.83.1",
     "nullthrows": "^1.1.1",
-    "pretty-format": "^30.4.1",
+    "pretty-format": "29.7.0",
     "promise": "^8.3.0",
     "punycode": "^2.3.1",
     "react": "19.1.0",
