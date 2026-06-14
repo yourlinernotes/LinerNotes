@@ -1,12 +1,13 @@
 {
   "name": "@linernotes/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types.ts",
-    "./tokens": "./src/tokens.ts"
+    "./tokens": "./src/tokens.ts",
+    "./api-client": "./src/api-client.ts"
   },
   "scripts": {
     "clean": "rm -rf node_modules"
