@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScreen } from './src/screens';
+import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScreen, OnboardingScreen } from './src/screens';
 import { MenuIcon, PlusIcon } from './src/components/atoms';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { tokens } from './src/lib/tokens';
@@ -12,7 +12,7 @@ import { notificationService } from './src/services/notifications';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 function AppContent() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, needsOnboarding, completeOnboarding } = useAuth();
   const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
   const [activeReview, setActiveReview] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -70,6 +70,16 @@ function AppContent() {
       <View style={styles.container}>
         <StatusBar style="light" />
         <LoginScreen />
+      </View>
+    );
+  }
+
+  // Show onboarding for new users who need to complete profile setup
+  if (needsOnboarding) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <OnboardingScreen onComplete={completeOnboarding} />
       </View>
     );
   }

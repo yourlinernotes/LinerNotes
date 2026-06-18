@@ -11,11 +11,13 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  needsOnboarding: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  loginWithGoogle: (token: string, isAccessToken?: boolean) => Promise<void>;
   signup: (email: string, password: string, handle: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  completeOnboarding: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,6 +25,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -60,11 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function loginWithGoogle(idToken: string) {
+  async function loginWithGoogle(token: string, isAccessToken = false) {
     try {
-      const response = await api.loginWithGoogle(idToken);
+      const response = await api.loginWithGoogle(token, isAccessToken);
       api.setAuthToken(response.token);
       setUser(response.user);
+
+      // Check if user needs onboarding (new Google users won't have handle/displayName set)
+      const needsSetup = !response.user.handle || !response.user.displayName;
+      setNeedsOnboarding(needsSetup);
     } catch (error) {
       console.error('Google login failed:', error);
       throw error;
@@ -108,15 +115,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function completeOnboarding() {
+    setNeedsOnboarding(false);
+  }
+
   const value: AuthContextType = {
     user,
     isLoading,
     isAuthenticated: !!user,
+    needsOnboarding,
     loginWithGoogle,
     login,
     signup,
     logout,
     refreshUser,
+    completeOnboarding,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
