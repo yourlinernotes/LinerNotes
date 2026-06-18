@@ -18,6 +18,12 @@ export async function POST(req: NextRequest) {
     const { idToken, accessToken } = await req.json();
     const token = idToken || accessToken;
 
+    console.log('[Mobile Google Auth] Request received:', {
+      hasIdToken: !!idToken,
+      hasAccessToken: !!accessToken,
+      tokenPreview: token?.substring(0, 50),
+    });
+
     if (!token) {
       return NextResponse.json(
         { error: 'ID token or access token is required' },
