@@ -19,9 +19,25 @@ const config: ExpoConfig = {
   android: {
     package: 'com.anusha.linernotes',
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
+      foregroundImage: './assets/android-icon-foreground.png',
+      backgroundImage: './assets/android-icon-background.png',
+      monochromeImage: './assets/android-icon-monochrome.png',
       backgroundColor: '#0A0A0A',
     },
+    // Custom-URI-scheme redirect for Google Sign-In (expo-auth-session uses the
+    // reversed Android OAuth client id as the redirect scheme).
+    intentFilters: [
+      {
+        action: 'VIEW',
+        category: ['DEFAULT', 'BROWSABLE'],
+        data: [
+          {
+            scheme:
+              'com.googleusercontent.apps.985992092131-19g5d3fsgmb4riepda7a9s4eu133r8oj',
+          },
+        ],
+      },
+    ],
   },
   web: {
     favicon: './assets/favicon.png',
@@ -37,7 +53,7 @@ const config: ExpoConfig = {
     [
       'expo-splash-screen',
       {
-        image: './assets/splash.png',
+        image: './assets/splash-icon.png',
         resizeMode: 'contain',
         backgroundColor: '#0A0A0A',
       },
