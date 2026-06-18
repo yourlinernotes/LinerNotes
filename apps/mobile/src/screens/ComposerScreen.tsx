@@ -226,16 +226,13 @@ interface StarsInputProps {
 function StarsInput({ rating, onChange, size = 34 }: StarsInputProps) {
   return (
     <View style={styles.starsContainer}>
-      {[0, 1, 2, 3, 4].map(i => (
-        <TouchableOpacity
-          key={i}
-          onPress={() => onChange(i + 1)}
-          onLongPress={() => onChange(i + 0.5)}
-          style={styles.star}
-        >
-          <Stars rating={rating >= i + 1 ? 1 : rating >= i + 0.5 ? 0.5 : 0} size={size} />
-        </TouchableOpacity>
-      ))}
+      <Stars
+        rating={rating}
+        size={size}
+        interactive
+        onRatingChange={onChange}
+        showNum={false}
+      />
     </View>
   );
 }

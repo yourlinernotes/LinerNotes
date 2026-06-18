@@ -117,7 +117,14 @@ class LastFmService {
         },
       });
 
-      return data.recenttracks?.track || [];
+      // Normalize: Last.fm returns artist/album as objects ({ '#text' }); the
+      // rest of the app expects plain strings.
+      return (data.recenttracks?.track || []).map((t: any) => ({
+        ...t,
+        artist:
+          typeof t.artist === 'string' ? t.artist : t.artist?.['#text'] || t.artist?.name || '',
+        album: typeof t.album === 'string' ? t.album : t.album?.['#text'] || '',
+      }));
     } catch (error) {
       console.error('Failed to get recent tracks:', error);
       throw error;

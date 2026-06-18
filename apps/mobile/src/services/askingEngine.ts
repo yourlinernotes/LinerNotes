@@ -161,15 +161,18 @@ class AskingEngineService {
       // Heavy plays but unrated (20+ plays)
       for (const topTrack of topTracksWeek.slice(0, 10)) {
         const playCount = parseInt((topTrack as any).playcount || '0', 10);
+        // Last.fm top-tracks artist is an object ({ name }); guard for strings too.
+        const artistName =
+          typeof topTrack.artist === 'string' ? topTrack.artist : topTrack.artist?.name || '';
         if (playCount >= 20) {
-          const triggerId = `heavy-unrated:${topTrack.artist.name}:${topTrack.name}`;
+          const triggerId = `heavy-unrated:${artistName}:${topTrack.name}`;
 
           if (!this.dismissedPrompts.has(triggerId)) {
             allTriggers.push({
               id: triggerId,
               type: 'heavy-unrated',
               priority: 2,
-              artist: topTrack.artist.name || topTrack.artist,
+              artist: artistName,
               track: topTrack.name,
               playCount,
               prompt: `${playCount} plays, no rating. verdict?`,
@@ -180,6 +183,9 @@ class AskingEngineService {
         }
       }
 
+      // TODO (later): "deep dive" prompts — detect heavy play across an artist's
+      // discography (many distinct tracks/albums from one artist) or repeated
+      // full-discography listens, and prompt the user to write about the artist.
     } catch (error) {
       console.error('Failed to generate asking engine prompts:', error);
     }
