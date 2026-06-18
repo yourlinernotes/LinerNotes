@@ -16,6 +16,7 @@ import {
   Platform,
   Animated,
   Alert,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -76,7 +77,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 1,
@@ -270,10 +271,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                   <View style={styles.avatar}>
                     <View style={[styles.avatarCircle, { borderColor: `${COLORS.gold}66` }]}>
                       {avatarUri ? (
-                        <View style={styles.avatarImage}>
-                          {/* Would use Image component here */}
-                          <Text style={{ color: COLORS.gold }}>IMG</Text>
-                        </View>
+                        <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
                       ) : displayName.trim() ? (
                         <Text style={styles.avatarMonogram}>
                           {displayName.trim()[0].toUpperCase()}
