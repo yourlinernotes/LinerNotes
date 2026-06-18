@@ -1,306 +1,294 @@
 /**
- * LinerNotes Mobile API Client
- * Handles all HTTP requests to the backend API
+ * @linernotes/core/api-client
+ *
+ * Shared API client for both mobile and web apps.
+ * Points to the NestJS backend.
  */
 
-import axios, { AxiosInstance, AxiosError } from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import type {
+  User,
+  Review,
+  AlbumReview,
+  Friendship,
+  ReviewAction,
+  MusicConnection,
+} from './types';
 
-const API_BASE_URL = __DEV__
-  ? 'http://localhost:3001' // Development: local NestJS backend
-  : 'https://linernotes.app'; // Production: deployed app
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
 
-const AUTH_TOKEN_KEY = '@linernotes:auth_token';
-const USER_DATA_KEY = '@linernotes:user_data';
+/** API base URL - hardcoded for now to avoid React Native env issues */
+export const API_BASE_URL = 'https://beta-linernotes.vercel.app/api';
 
-/**
- * API Client singleton
- */
+// ============================================================================
+// HTTP CLIENT
+// ============================================================================
+
+interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT';
+  body?: any;
+  headers?: Record<string, string>;
+}
+
 class APIClient {
-  private client: AxiosInstance;
+  private baseURL: string;
   private authToken: string | null = null;
 
-  constructor() {
-    this.client = axios.create({
-      baseURL: `${API_BASE_URL}/api`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      timeout: 15000,
-    });
-
-    // Request interceptor to add auth token
-    this.client.interceptors.request.use(
-      async (config) => {
-        if (!this.authToken) {
-          // Try to load from storage
-          this.authToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-        }
-
-        if (this.authToken) {
-          config.headers.Authorization = `Bearer ${this.authToken}`;
-        }
-
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // Response interceptor for error handling
-    this.client.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          // Unauthorized - clear auth and redirect to login
-          await this.clearAuth();
-        }
-        return Promise.reject(error);
-      }
-    );
+  constructor(baseURL: string = API_BASE_URL) {
+    this.baseURL = baseURL;
   }
 
-  /**
-   * Set authentication token
-   */
-  async setAuthToken(token: string) {
+  setAuthToken(token: string | null) {
     this.authToken = token;
-    await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
   }
 
-  /**
-   * Clear authentication
-   */
-  async clearAuth() {
-    this.authToken = null;
-    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, USER_DATA_KEY]);
-  }
+  private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+    const { method = 'GET', body, headers = {} } = options;
 
-  /**
-   * Get stored user data
-   */
-  async getUserData() {
-    const userData = await AsyncStorage.getItem(USER_DATA_KEY);
-    return userData ? JSON.parse(userData) : null;
-  }
+    const url = `${this.baseURL}${endpoint}`;
 
-  /**
-   * Store user data
-   */
-  async setUserData(userData: any) {
-    await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
-  }
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...headers,
+    };
 
-  // ─────────────────────────────────────────────────────────────
-  // AUTH ENDPOINTS
-  // ─────────────────────────────────────────────────────────────
-
-  async getMe() {
-    const { data } = await this.client.get('/auth/me');
-    return data;
-  }
-
-  async loginWithEmail(email: string, password: string) {
-    const { data } = await this.client.post('/auth/login', { email, password });
-    if (data.token) {
-      await this.setAuthToken(data.token);
-      await this.setUserData(data.user);
+    if (this.authToken) {
+      requestHeaders['Authorization'] = `Bearer ${this.authToken}`;
     }
-    return data;
-  }
 
-  async signupWithEmail(email: string, password: string, handle: string, displayName: string) {
-    const { data } = await this.client.post('/auth/signup', {
-      email,
-      password,
-      handle,
-      displayName
+    const response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: body ? JSON.stringify(body) : undefined,
     });
-    if (data.token) {
-      await this.setAuthToken(data.token);
-      await this.setUserData(data.user);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      throw new Error(error.message || `HTTP ${response.status}`);
     }
-    return data;
+
+    return response.json();
   }
 
-  async logout() {
-    await this.clearAuth();
+  // ==========================================================================
+  // AUTH
+  // ==========================================================================
+
+  async signup(data: {
+    email: string;
+    password: string;
+    handle: string;
+    displayName: string;
+  }): Promise<{ user: User; token: string }> {
+    return this.request('/auth/signup', {
+      method: 'POST',
+      body: data,
+    });
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // REVIEWS ENDPOINTS
-  // ─────────────────────────────────────────────────────────────
-
-  async getReviews(params?: { userId?: string; limit?: number; offset?: number }) {
-    const { data } = await this.client.get('/reviews', { params });
-    return data;
+  async login(data: {
+    email: string;
+    password: string;
+  }): Promise<{ user: User; token: string }> {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: data,
+    });
   }
 
-  async getFeedReviews(params?: { cursor?: string; limit?: number }) {
+  async loginWithGoogle(idToken: string): Promise<{ user: User; token: string }> {
+    // For mobile, we need to exchange the Google ID token for a session
+    // This calls the Next.js API which uses NextAuth
+    return this.request('/auth/mobile/google', {
+      method: 'POST',
+      body: { idToken },
+    });
+  }
+
+  async getCurrentUser(): Promise<User> {
+    return this.request('/auth/me');
+  }
+
+  // ==========================================================================
+  // USERS
+  // ==========================================================================
+
+  async getUser(handle: string): Promise<User> {
+    return this.request(`/users/${handle}`);
+  }
+
+  async updateUser(data: Partial<User>): Promise<User> {
+    return this.request('/users/me', {
+      method: 'PATCH',
+      body: data,
+    });
+  }
+
+  // ==========================================================================
+  // REVIEWS
+  // ==========================================================================
+
+  async createReview(data: Omit<Review, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<Review> {
+    return this.request('/reviews', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async getReview(id: string): Promise<Review> {
+    return this.request(`/reviews/${id}`);
+  }
+
+  async updateReview(id: string, data: Partial<Review>): Promise<Review> {
+    return this.request(`/reviews/${id}`, {
+      method: 'PATCH',
+      body: data,
+    });
+  }
+
+  async deleteReview(id: string): Promise<void> {
+    return this.request(`/reviews/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getFeedReviews(params?: { cursor?: string; limit?: number }): Promise<{
+    reviews: Review[];
+    nextCursor?: string;
+  }> {
     const query = new URLSearchParams();
     if (params?.cursor) query.set('cursor', params.cursor);
     if (params?.limit) query.set('limit', params.limit.toString());
 
-    const { data } = await this.client.get(`/reviews/feed?${query}`);
-    return data;
+    return this.request(`/reviews/feed?${query}`);
   }
 
-  async getReview(id: string) {
-    const { data } = await this.client.get(`/reviews/${id}`);
-    return data;
+  async getUserReviews(userId: string): Promise<Review[]> {
+    return this.request(`/reviews/user/${userId}`);
   }
 
-  async createReview(reviewData: any) {
-    const { data } = await this.client.post('/reviews', reviewData);
-    return data;
-  }
+  // ==========================================================================
+  // ALBUM REVIEWS
+  // ==========================================================================
 
-  async updateReview(id: string, reviewData: any) {
-    const { data } = await this.client.patch(`/reviews/${id}`, reviewData);
-    return data;
-  }
-
-  async deleteReview(id: string) {
-    const { data } = await this.client.delete(`/reviews/${id}`);
-    return data;
-  }
-
-  async likeReview(id: string) {
-    const { data } = await this.client.post(`/reviews/${id}/like`);
-    return data;
-  }
-
-  async repostReview(id: string) {
-    const { data } = await this.client.post(`/reviews/${id}/repost`);
-    return data;
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // ALBUM REVIEWS ENDPOINTS
-  // ─────────────────────────────────────────────────────────────
-
-  async getAlbumReviews(params?: { userId?: string; limit?: number; offset?: number }) {
-    const { data } = await this.client.get('/album-reviews', { params });
-    return data;
-  }
-
-  async getAlbumReview(id: string) {
-    const { data } = await this.client.get(`/album-reviews/${id}`);
-    return data;
-  }
-
-  async createAlbumReview(reviewData: any) {
-    const { data } = await this.client.post('/album-reviews', reviewData);
-    return data;
-  }
-
-  async updateAlbumReview(id: string, reviewData: any) {
-    const { data } = await this.client.patch(`/album-reviews/${id}`, reviewData);
-    return data;
-  }
-
-  async deleteAlbumReview(id: string) {
-    const { data } = await this.client.delete(`/album-reviews/${id}`);
-    return data;
-  }
-
-  async likeAlbumReview(id: string) {
-    const { data } = await this.client.post(`/album-reviews/${id}/like`);
-    return data;
-  }
-
-  async repostAlbumReview(id: string) {
-    const { data } = await this.client.post(`/album-reviews/${id}/repost`);
-    return data;
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // USERS ENDPOINTS
-  // ─────────────────────────────────────────────────────────────
-
-  async getCurrentUser() {
-    const { data } = await this.client.get('/auth/me');
-    return data;
-  }
-
-  async updateCurrentUser(userData: any) {
-    const { data } = await this.client.patch('/users/me', userData);
-    await this.setUserData(data);
-    return data;
-  }
-
-  async getUserByHandle(handle: string) {
-    const { data } = await this.client.get(`/users/${handle}`);
-    return data;
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // FRIENDS ENDPOINTS
-  // ─────────────────────────────────────────────────────────────
-
-  async getFriends() {
-    const { data } = await this.client.get('/friends');
-    return data;
-  }
-
-  async sendFriendRequest(userId: string) {
-    const { data } = await this.client.post('/friends/request', { addresseeId: userId });
-    return data;
-  }
-
-  async respondToFriendRequest(userId: string, status: 'ACCEPTED' | 'REJECTED') {
-    const { data } = await this.client.patch(`/friends/${userId}`, { status });
-    return data;
-  }
-
-  async removeFriend(userId: string) {
-    const { data } = await this.client.delete(`/friends/${userId}`);
-    return data;
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // MUSIC SEARCH ENDPOINTS
-  // ─────────────────────────────────────────────────────────────
-
-  async searchTracks(query: string, limit = 20) {
-    const params = new URLSearchParams({ q: query, limit: limit.toString() });
-    const { data } = await this.client.get(`/music/search/tracks?${params}`);
-    return data;
-  }
-
-  async searchAlbums(query: string, limit = 20) {
-    const params = new URLSearchParams({ q: query, limit: limit.toString() });
-    const { data } = await this.client.get(`/music/search/albums?${params}`);
-    return data;
-  }
-
-  async getAlbumTracks(albumId: string) {
-    const { data } = await this.client.get(`/music/albums/${albumId}/tracks`);
-    return data;
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // MUSIC CONNECTIONS ENDPOINTS
-  // ─────────────────────────────────────────────────────────────
-
-  async connectLastFm(username: string, password: string) {
-    const { data } = await this.client.post('/music/lastfm/connect', {
-      username,
-      password,
+  async createAlbumReview(data: Omit<AlbumReview, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<AlbumReview> {
+    return this.request('/album-reviews', {
+      method: 'POST',
+      body: data,
     });
-    return data;
   }
 
-  async disconnectService(service: 'spotify' | 'lastfm') {
-    const { data } = await this.client.delete(`/music/${service}/disconnect`);
-    return data;
+  async getAlbumReview(id: string): Promise<AlbumReview> {
+    return this.request(`/album-reviews/${id}`);
   }
 
-  async getMusicConnections() {
-    const { data } = await this.client.get('/music/connections');
-    return data;
+  async updateAlbumReview(id: string, data: Partial<AlbumReview>): Promise<AlbumReview> {
+    return this.request(`/album-reviews/${id}`, {
+      method: 'PATCH',
+      body: data,
+    });
+  }
+
+  async deleteAlbumReview(id: string): Promise<void> {
+    return this.request(`/album-reviews/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
+  // SOCIAL ACTIONS
+  // ==========================================================================
+
+  async toggleAction(reviewId: string, action: 'like' | 'save' | 'repost'): Promise<ReviewAction> {
+    return this.request(`/reviews/${reviewId}/${action}`, {
+      method: 'POST',
+    });
+  }
+
+  async getSavedReviews(): Promise<Review[]> {
+    return this.request('/reviews/saved');
+  }
+
+  // ==========================================================================
+  // FRIENDS
+  // ==========================================================================
+
+  async sendFriendRequest(addresseeId: string): Promise<Friendship> {
+    return this.request('/friends/request', {
+      method: 'POST',
+      body: { addresseeId },
+    });
+  }
+
+  async respondToFriendRequest(
+    friendshipId: string,
+    accept: boolean
+  ): Promise<Friendship> {
+    return this.request(`/friends/${friendshipId}`, {
+      method: 'PATCH',
+      body: { status: accept ? 'ACCEPTED' : 'REJECTED' },
+    });
+  }
+
+  async getFriends(): Promise<User[]> {
+    return this.request('/friends');
+  }
+
+  async getPendingRequests(): Promise<Friendship[]> {
+    return this.request('/friends/pending');
+  }
+
+  async removeFriend(friendshipId: string): Promise<void> {
+    return this.request(`/friends/${friendshipId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ==========================================================================
+  // MUSIC CONNECTIONS
+  // ==========================================================================
+
+  async connectLastFm(username: string, password: string): Promise<MusicConnection> {
+    return this.request('/music/lastfm/connect', {
+      method: 'POST',
+      body: { username, password },
+    });
+  }
+
+  async disconnectService(service: 'spotify' | 'lastfm'): Promise<void> {
+    return this.request(`/music/${service}/disconnect`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getMusicConnections(): Promise<MusicConnection[]> {
+    return this.request('/music/connections');
+  }
+
+  // ==========================================================================
+  // MUSIC SEARCH
+  // ==========================================================================
+
+  async searchTracks(query: string, limit = 20): Promise<any[]> {
+    const params = new URLSearchParams({ q: query, limit: limit.toString() });
+    return this.request(`/music/search/tracks?${params}`);
+  }
+
+  async searchAlbums(query: string, limit = 20): Promise<any[]> {
+    const params = new URLSearchParams({ q: query, limit: limit.toString() });
+    return this.request(`/music/search/albums?${params}`);
+  }
+
+  async getAlbumTracks(albumId: string): Promise<any[]> {
+    return this.request(`/music/albums/${albumId}/tracks`);
   }
 }
 
-// Export singleton instance
-export const api = new APIClient();
-export default api;
+// ============================================================================
+// SINGLETON EXPORT
+// ============================================================================
+
+export const apiClient = new APIClient();
+export const api = apiClient; // Alias for mobile app compatibility
+export default apiClient;
