@@ -25,6 +25,7 @@ export const API_BASE_URL = 'https://beta-linernotes.vercel.app/api';
 /** AsyncStorage keys for persisted auth state */
 const TOKEN_STORAGE_KEY = '@linernotes:auth_token';
 const USER_STORAGE_KEY = '@linernotes:user_data';
+const ONBOARDED_STORAGE_KEY = '@linernotes:onboarded';
 
 // ============================================================================
 // HTTP CLIENT
@@ -78,6 +79,16 @@ class APIClient {
   async clearAuth(): Promise<void> {
     this.authToken = null;
     await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_STORAGE_KEY]);
+  }
+
+  /** Whether this device has completed onboarding (local flag). */
+  async isOnboarded(): Promise<boolean> {
+    return (await AsyncStorage.getItem(ONBOARDED_STORAGE_KEY)) === 'true';
+  }
+
+  /** Mark onboarding complete on this device. */
+  async setOnboarded(): Promise<void> {
+    await AsyncStorage.setItem(ONBOARDED_STORAGE_KEY, 'true');
   }
 
   /** Log out locally. The backend uses stateless JWTs, so there is no server call. */
@@ -195,15 +206,12 @@ class APIClient {
     });
   }
 
-  async getFeedReviews(params?: { cursor?: string; limit?: number }): Promise<{
+  async getFeedReviews(_params?: { cursor?: string; limit?: number }): Promise<{
     reviews: Review[];
     nextCursor?: string;
   }> {
-    const query = new URLSearchParams();
-    if (params?.cursor) query.set('cursor', params.cursor);
-    if (params?.limit) query.set('limit', params.limit.toString());
-
-    return this.request(`/reviews/feed?${query}`);
+    // Deployed backend serves the friends feed at GET /reviews?feed=friends.
+    return this.request(`/reviews?feed=friends`);
   }
 
   async getUserReviews(userId: string): Promise<Review[]> {

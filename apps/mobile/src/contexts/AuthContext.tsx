@@ -69,9 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.setAuthToken(response.token);
       setUser(response.user);
 
-      // Check if user needs onboarding (new Google users won't have handle/displayName set)
-      const needsSetup = !response.user.handle || !response.user.displayName;
-      setNeedsOnboarding(needsSetup);
+      // The backend auto-generates a handle/displayName for new Google users, so
+      // those fields can't distinguish a first sign-in. Use a local onboarding
+      // flag instead: onboard until this device has completed it once.
+      const onboarded = await api.isOnboarded();
+      setNeedsOnboarding(!onboarded);
     } catch (error) {
       console.error('Google login failed:', error);
       throw error;
@@ -115,7 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function completeOnboarding() {
+  async function completeOnboarding() {
+    await api.setOnboarded();
     setNeedsOnboarding(false);
   }
 
