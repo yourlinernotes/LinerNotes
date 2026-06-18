@@ -41,7 +41,7 @@ const COLORS = {
   bg: tokens.colors.nearBlack,
 };
 
-type OnboardingStep = 1 | 2;
+type OnboardingStep = 1 | 2 | 3;
 type LastFmStatus = 'idle' | 'linking' | 'linked';
 
 interface OnboardingScreenProps {
@@ -57,7 +57,17 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [lastFmStatus, setLastFmStatus] = useState<LastFmStatus>('idle');
   const [lastFmUsername, setLastFmUsername] = useState('');
+  const [top4, setTop4] = useState<Array<{ title: string; artist: string }>>([
+    { title: '', artist: '' },
+    { title: '', artist: '' },
+    { title: '', artist: '' },
+    { title: '', artist: '' },
+  ]);
   const [isSaving, setIsSaving] = useState(false);
+
+  const updateTop4 = (index: number, field: 'title' | 'artist', value: string) => {
+    setTop4((prev) => prev.map((a, i) => (i === index ? { ...a, [field]: value } : a)));
+  };
 
   // Handle validation
   const handleClean = handle.replace(/[^a-z0-9._]/gi, '').toLowerCase();
@@ -153,6 +163,28 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     );
   };
 
+  // Persist any filled-in Top 4 albums, then finish. Always completes onboarding
+  // even if saving fails — favourites are optional and editable later.
+  const saveFavouritesAndFinish = async () => {
+    const albums = top4
+      .map((a) => ({ title: a.title.trim(), artist: a.artist.trim() }))
+      .filter((a) => a.title && a.artist)
+      .map((a, i) => ({ id: `fav-${i}`, name: a.title, artist: a.artist, artworkUrl: '' }));
+
+    try {
+      setIsSaving(true);
+      if (albums.length > 0) {
+        await api.updateUser({ favourites: { albums } });
+        await refreshUser();
+      }
+    } catch (error) {
+      console.error('Failed to save favourites:', error);
+    } finally {
+      setIsSaving(false);
+      onComplete();
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Warm flood background */}
@@ -179,8 +211,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       {/* Header - brand + back button */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => step === 2 && setStep(1)}
-          style={[styles.backButton, { opacity: step === 2 ? 1 : 0 }]}
+          onPress={() => setStep((s) => (s > 1 ? ((s - 1) as OnboardingStep) : s))}
+          style={[styles.backButton, { opacity: step > 1 ? 1 : 0 }]}
           disabled={step === 1}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -199,7 +231,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
       {/* Progress bar */}
       <View style={styles.progressContainer}>
-        {[1, 2].map((s) => (
+        {[1, 2, 3].map((s) => (
           <View
             key={s}
             style={[
@@ -223,7 +255,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           {step === 1 && (
             <View style={styles.stepContainer}>
               <View>
-                <Text style={styles.stepLabel}>SET UP · 1 OF 2</Text>
+                <Text style={styles.stepLabel}>SET UP · 1 OF 3</Text>
                 <Text style={styles.heading}>
                   make yourself{'\n'}at home
                 </Text>
@@ -371,7 +403,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           {step === 2 && (
             <View style={styles.stepContainer}>
               <View>
-                <Text style={styles.stepLabel}>SET UP · 2 OF 2</Text>
+                <Text style={styles.stepLabel}>SET UP · 2 OF 3</Text>
                 <Text style={styles.heading}>
                   connect your{'\n'}listening
                 </Text>
@@ -445,7 +477,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                   </Text>
 
                   <TouchableOpacity
-                    onPress={lastFmStatus === 'linked' ? onComplete : connectLastFm}
+                    onPress={lastFmStatus === 'linked' ? () => setStep(3) : connectLastFm}
                     disabled={lastFmStatus === 'linking'}
                     style={[
                       styles.lastFmButton,
@@ -466,7 +498,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                       ]}
                     >
                       {lastFmStatus === 'linked'
-                        ? 'Enter LinerNotes'
+                        ? 'Continue'
                         : lastFmStatus === 'linking'
                           ? 'Connecting…'
                           : 'Connect Last.fm'}
@@ -478,7 +510,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               {/* Skip button */}
               {lastFmStatus !== 'linked' && (
                 <View style={styles.skipContainer}>
-                  <TouchableOpacity onPress={onComplete} activeOpacity={0.8}>
+                  <TouchableOpacity onPress={() => setStep(3)} activeOpacity={0.8}>
                     <Text style={styles.skipButton}>I'll connect later</Text>
                   </TouchableOpacity>
                   <Text style={styles.skipDescription}>
@@ -486,6 +518,74 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                   </Text>
                 </View>
               )}
+            </View>
+          )}
+
+          {/* STEP 3 - Top 4 favourites */}
+          {step === 3 && (
+            <View style={styles.stepContainer}>
+              <View>
+                <Text style={styles.stepLabel}>SET UP · 3 OF 3</Text>
+                <Text style={styles.heading}>
+                  your top{'\n'}four
+                </Text>
+                <Text style={styles.description}>
+                  four albums that are you — we'll nudge you to write about them. skip it and add
+                  them anytime from your profile.
+                </Text>
+              </View>
+
+              <View style={styles.top4List}>
+                {top4.map((album, i) => (
+                  <View key={i} style={styles.top4Row}>
+                    <Text style={styles.top4Number}>{i + 1}</Text>
+                    <View style={styles.top4Inputs}>
+                      <TextInput
+                        value={album.title}
+                        onChangeText={(t) => updateTop4(i, 'title', t)}
+                        placeholder="album"
+                        placeholderTextColor="rgba(241,235,224,0.3)"
+                        style={[styles.input, styles.top4Input]}
+                      />
+                      <TextInput
+                        value={album.artist}
+                        onChangeText={(t) => updateTop4(i, 'artist', t)}
+                        placeholder="artist"
+                        placeholderTextColor="rgba(241,235,224,0.3)"
+                        style={[styles.input, styles.top4Input]}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                onPress={saveFavouritesAndFinish}
+                disabled={isSaving}
+                style={[
+                  styles.continueButton,
+                  { backgroundColor: isSaving ? 'rgba(241,235,224,0.12)' : COLORS.gold },
+                ]}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.continueButtonText,
+                    { color: isSaving ? 'rgba(241,235,224,0.4)' : COLORS.bg },
+                  ]}
+                >
+                  {isSaving ? 'Saving…' : 'Finish'}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.skipContainer}>
+                <TouchableOpacity onPress={onComplete} activeOpacity={0.8} disabled={isSaving}>
+                  <Text style={styles.skipButton}>I'll add later</Text>
+                </TouchableOpacity>
+                <Text style={styles.skipDescription}>
+                  top four prompts only show up once you've filled them in.
+                </Text>
+              </View>
             </View>
           )}
         </ScrollView>
@@ -700,6 +800,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     fontFamily: 'System',
     fontSize: 15,
+  },
+  top4List: {
+    gap: 12,
+  },
+  top4Row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  top4Number: {
+    fontFamily: 'Space Mono',
+    fontSize: 16,
+    color: COLORS.gold,
+    width: 16,
+    textAlign: 'center',
+  },
+  top4Inputs: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  top4Input: {
+    flex: 1,
+    paddingVertical: 11,
+    fontSize: 14,
   },
   handleInputContainer: {
     position: 'relative',
