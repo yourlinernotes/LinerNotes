@@ -5,6 +5,7 @@
  * Points to the NestJS backend.
  */
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   User,
   Review,
@@ -20,6 +21,10 @@ import type {
 
 /** API base URL - hardcoded for now to avoid React Native env issues */
 export const API_BASE_URL = 'https://beta-linernotes.vercel.app/api';
+
+/** AsyncStorage keys for persisted auth state */
+const TOKEN_STORAGE_KEY = '@linernotes:auth_token';
+const USER_STORAGE_KEY = '@linernotes:user_data';
 
 // ============================================================================
 // HTTP CLIENT
@@ -41,6 +46,43 @@ class APIClient {
 
   setAuthToken(token: string | null) {
     this.authToken = token;
+    // Persist (fire-and-forget) so the session survives app restarts.
+    if (token) {
+      AsyncStorage.setItem(TOKEN_STORAGE_KEY, token).catch(() => {});
+    } else {
+      AsyncStorage.removeItem(TOKEN_STORAGE_KEY).catch(() => {});
+    }
+  }
+
+  /**
+   * Restore the persisted user (if any) and rehydrate the in-memory auth token
+   * so subsequent requests are authenticated after an app restart.
+   */
+  async getUserData(): Promise<User | null> {
+    const [token, userJson] = await Promise.all([
+      AsyncStorage.getItem(TOKEN_STORAGE_KEY),
+      AsyncStorage.getItem(USER_STORAGE_KEY),
+    ]);
+    if (token) {
+      this.authToken = token;
+    }
+    return userJson ? (JSON.parse(userJson) as User) : null;
+  }
+
+  /** Persist the current user for fast cold-start hydration. */
+  async setUserData(user: User): Promise<void> {
+    await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  }
+
+  /** Clear all persisted auth state (token + cached user). */
+  async clearAuth(): Promise<void> {
+    this.authToken = null;
+    await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_STORAGE_KEY]);
+  }
+
+  /** Log out locally. The backend uses stateless JWTs, so there is no server call. */
+  async logout(): Promise<void> {
+    await this.clearAuth();
   }
 
   private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {

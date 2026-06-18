@@ -23,6 +23,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { lastfm } from '../services/lastfm';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
+import { tokens } from '../lib/tokens';
 
 // Warm gradient colors for auth screens
 const AUTH_COLORS = {
