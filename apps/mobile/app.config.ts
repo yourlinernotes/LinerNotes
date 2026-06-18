@@ -24,18 +24,14 @@ const config: ExpoConfig = {
       monochromeImage: './assets/android-icon-monochrome.png',
       backgroundColor: '#0A0A0A',
     },
-    // Custom-URI-scheme redirect for Google Sign-In (expo-auth-session uses the
-    // reversed Android OAuth client id as the redirect scheme).
+    // Custom-URI-scheme redirect for Google Sign-In. expo-auth-session's Google
+    // provider redirects to `${applicationId}:/oauthredirect`, so the scheme is
+    // the package name.
     intentFilters: [
       {
         action: 'VIEW',
         category: ['DEFAULT', 'BROWSABLE'],
-        data: [
-          {
-            scheme:
-              'com.googleusercontent.apps.985992092131-19g5d3fsgmb4riepda7a9s4eu133r8oj',
-          },
-        ],
+        data: [{ scheme: 'com.anusha.linernotes' }],
       },
     ],
   },
