@@ -66,26 +66,37 @@ export function ProfileScreen() {
   }, []);
 
   async function loadProfile() {
-    // TODO: Load real profile data from API
-    // Mock data for now
-    const mockProfile: ProfileData = {
-      user: {
-        id: user?.id || '1',
-        name: user?.displayName || 'Music Lover',
-        handle: user?.handle || 'musiclover',
-        tint: '#d9b25a',
-      },
-      bio: 'lover of good music and better liner notes',
-      reviewCount: 47,
-      friends: 23,
-      joined: '2025',
-      top4: [],
-      thisWeek: [],
-      reviews: [],
-      reposted: [],
-      saved: [],
-    };
-    setProfile(mockProfile);
+    if (!user) return;
+
+    try {
+      // Load user reviews
+      const reviews = await api.getUserReviews(user.id);
+
+      // Load saved reviews
+      const saved = await api.getSavedReviews();
+
+      const profileData: ProfileData = {
+        user: {
+          id: user.id,
+          name: user.displayName || user.name || 'User',
+          handle: user.handle || 'user',
+          tint: '#d9b25a',
+        },
+        bio: user.bio || '',
+        reviewCount: reviews.length,
+        friends: 0, // Will be populated when friends feature is implemented
+        joined: new Date(user.createdAt || Date.now()).getFullYear().toString(),
+        top4: [], // Will be populated when top albums feature is implemented
+        thisWeek: [], // Will be populated when this week feature is implemented
+        reviews,
+        reposted: [], // Will be populated when reposts feature is implemented
+        saved,
+      };
+
+      setProfile(profileData);
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+    }
   }
 
   const handleShareTop4 = async () => {
@@ -311,7 +322,7 @@ function ProfileNote({
   const regularCardRef = useRef(null); // For TikTok/Twitter (no space)
 
   const handleShare = async () => {
-    const reviewUrl = `https://linernotes.app/review/${review.id}`; // TODO: Update with actual URL
+    const reviewUrl = `https://beta-linernotes.vercel.app/review/${review.id}`;
 
     // Show share options matching Claude Design: Camera Roll, Instagram, TikTok
     Alert.alert(

@@ -21,6 +21,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { lastfm } from '../services/lastfm';
+import { api } from '../lib/api-client';
+import { useAuth } from '../contexts/AuthContext';
 
 // Warm gradient colors for auth screens
 const AUTH_COLORS = {
@@ -46,6 +48,7 @@ interface OnboardingScreenProps {
 }
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+  const { refreshUser } = useAuth();
   const [step, setStep] = useState<OnboardingStep>(1);
   const [displayName, setDisplayName] = useState('');
   const [handle, setHandle] = useState('');
@@ -53,6 +56,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [lastFmStatus, setLastFmStatus] = useState<LastFmStatus>('idle');
   const [lastFmUsername, setLastFmUsername] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Handle validation
   const handleClean = handle.replace(/[^a-z0-9._]/gi, '').toLowerCase();
@@ -69,6 +73,34 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
     if (!result.canceled) {
       setAvatarUri(result.assets[0].uri);
+    }
+  };
+
+  const saveProfileData = async () => {
+    try {
+      setIsSaving(true);
+
+      // Update user profile on backend
+      await api.updateUser({
+        handle: handleClean,
+        displayName: displayName.trim(),
+        bio: bio.trim() || undefined,
+        // TODO: Upload avatar image if provided
+      });
+
+      // Refresh user data in context
+      await refreshUser();
+
+      // Move to Last.fm connection step
+      setStep(2);
+    } catch (error: any) {
+      console.error('Failed to save profile:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to save profile. Please try again.'
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -312,12 +344,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               </View>
 
               <TouchableOpacity
-                onPress={() => canContinue && setStep(2)}
-                disabled={!canContinue}
+                onPress={saveProfileData}
+                disabled={!canContinue || isSaving}
                 style={[
                   styles.continueButton,
                   {
-                    backgroundColor: canContinue ? COLORS.gold : 'rgba(241,235,224,0.12)',
+                    backgroundColor: (canContinue && !isSaving) ? COLORS.gold : 'rgba(241,235,224,0.12)',
                   },
                 ]}
                 activeOpacity={0.8}
@@ -325,10 +357,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 <Text
                   style={[
                     styles.continueButtonText,
-                    { color: canContinue ? COLORS.bg : 'rgba(241,235,224,0.4)' },
+                    { color: (canContinue && !isSaving) ? COLORS.bg : 'rgba(241,235,224,0.4)' },
                   ]}
                 >
-                  Continue
+                  {isSaving ? 'Saving...' : 'Continue'}
                 </Text>
               </TouchableOpacity>
             </View>

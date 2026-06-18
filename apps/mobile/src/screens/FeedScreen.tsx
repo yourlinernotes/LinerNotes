@@ -53,20 +53,23 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
     try {
       setIsLoading(true);
 
-      // Load feed items
-      const data = await api.getReviews({ limit: 20 });
-      const items: FeedItemData[] = (data as any).map((review: any) => ({
+      // Load feed items from API
+      const data = await api.getFeedReviews({ limit: 20 });
+
+      // Map reviews to feed items
+      // Note: Backend should return user data with reviews, for now we'll handle missing data gracefully
+      const items: FeedItemData[] = data.reviews.map((review: any) => ({
         id: review.id,
         review,
         user: {
-          id: review.userId,
-          displayName: 'User Name', // TODO: Get from backend
-          handle: 'username',
+          id: review.user?.id || review.userId,
+          displayName: review.user?.displayName || review.user?.name || 'User',
+          handle: review.user?.handle || 'user',
           tint: '#d9b25a',
         },
-        likeCount: 0,
-        repostCount: 0,
-        saved: false,
+        likeCount: review.likeCount || 0,
+        repostCount: review.repostCount || 0,
+        saved: review.saved || false,
         createdAt: review.createdAt,
       }));
       setFeedItems(items);
@@ -75,6 +78,8 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
       loadPrompt();
     } catch (error) {
       console.error('Failed to load feed:', error);
+      // Set empty feed on error so user doesn't see indefinite loading
+      setFeedItems([]);
     } finally {
       setIsLoading(false);
     }
