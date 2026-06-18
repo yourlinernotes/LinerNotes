@@ -60,9 +60,9 @@ export function AlbumReviewItem({
               alt={albumReview.user.displayName}
               className="w-10 h-10 rounded-full ring-2 ring-offset-2 hover:opacity-90 transition-opacity"
               style={{
-                ringColor: "var(--ln-accent)",
-                ringOffsetColor: "var(--ln-surface)",
-              }}
+                '--tw-ring-color': 'var(--ln-accent)',
+                '--tw-ring-offset-color': 'var(--ln-surface)',
+              } as React.CSSProperties}
             />
           </Link>
         )}
