@@ -1,16 +1,24 @@
 import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import { UsersService } from '../users/users.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
+  private googleClient: OAuth2Client;
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
-  ) {}
+  ) {
+    // Initialize Google OAuth client with your client ID
+    this.googleClient = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID || '985992092131-9e67ajva2nob5efot6bfj1asikhdrdml.apps.googleusercontent.com'
+    );
+  }
 
   async signup(signupDto: SignupDto) {
     const { email, password, handle, displayName } = signupDto;
@@ -91,46 +99,63 @@ export class AuthService {
   }
 
   async googleLogin(idToken: string) {
-    // TODO: Implement Google token verification using google-auth-library
-    // For now, this is a placeholder that throws an error
-    throw new BadRequestException('Google login not yet implemented. Please install and configure google-auth-library.');
+    try {
+      // Verify Google ID token
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID || '985992092131-9e67ajva2nob5efot6bfj1asikhdrdml.apps.googleusercontent.com',
+      });
 
-    // Future implementation:
-    // 1. Verify Google ID token using OAuth2Client from google-auth-library
-    // 2. Extract user info (email, name, picture) from verified token
-    // 3. Find or create user in database
-    // 4. Generate and return JWT token
-    //
-    // Example code structure:
-    // const ticket = await googleClient.verifyIdToken({
-    //   idToken,
-    //   audience: process.env.GOOGLE_CLIENT_ID,
-    // });
-    // const payload = ticket.getPayload();
-    // const { email, name, picture } = payload;
-    //
-    // let user = await this.usersService.findByEmail(email);
-    // if (!user) {
-    //   // Generate unique handle from email
-    //   const baseHandle = email.split('@')[0];
-    //   let handle = baseHandle;
-    //   let counter = 1;
-    //   while (await this.usersService.findByHandle(handle).catch(() => null)) {
-    //     handle = `${baseHandle}${counter}`;
-    //     counter++;
-    //   }
-    //
-    //   user = await this.usersService.create({
-    //     email,
-    //     name,
-    //     displayName: name,
-    //     handle,
-    //     avatarUrl: picture,
-    //   });
-    // }
-    //
-    // const token = this.generateToken(user.id, user.email);
-    // return { user, token };
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email) {
+        throw new UnauthorizedException('Invalid Google token');
+      }
+
+      const { email, name, picture } = payload;
+
+      // Find or create user
+      let user = await this.usersService.findByEmail(email);
+
+      if (!user) {
+        // Generate unique handle from email
+        const baseHandle = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        let handle = baseHandle;
+        let counter = 1;
+
+        while (await this.usersService.findByHandle(handle).catch(() => null)) {
+          handle = `${baseHandle}${counter}`;
+          counter++;
+        }
+
+        // Create new user from Google account
+        user = await this.usersService.create({
+          email,
+          name: name || email.split('@')[0],
+          displayName: name || email.split('@')[0],
+          handle,
+          avatarUrl: picture,
+          passwordHash: null, // Google users don't have password
+        });
+      }
+
+      // Generate JWT token
+      const token = this.generateToken(user.id, user.email);
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          handle: user.handle,
+          displayName: user.displayName,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
+        },
+        token,
+      };
+    } catch (error) {
+      console.error('Google login error:', error);
+      throw new UnauthorizedException('Failed to authenticate with Google');
+    }
   }
 
   private generateToken(userId: string, email: string): string {
