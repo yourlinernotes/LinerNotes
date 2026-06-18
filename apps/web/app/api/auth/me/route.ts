@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth-helpers";
 
 /**
- * Get current user's session
+ * Get current user's session (web cookie or mobile Bearer JWT)
  */
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getAuthSession();
 
     if (!session?.user) {
       return NextResponse.json({ authenticated: false });

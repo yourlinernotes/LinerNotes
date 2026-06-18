@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth-helpers";
 
 /**
  * GET /api/search - Search for tracks or albums
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const session = await auth();
+    const session = await getAuthSession();
     const currentUserId = session?.user?.id;
 
     if (!currentUserId) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getAuthSession();
     const currentUserId = session?.user?.id;
 
     const searchParams = request.nextUrl.searchParams;
@@ -273,7 +273,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getAuthSession();
     const currentUserId = session?.user?.id;
 
     if (!currentUserId) {

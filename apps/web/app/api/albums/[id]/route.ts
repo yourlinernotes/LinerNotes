@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthSession } from "@/lib/auth-helpers";
 
 /**
  * GET /api/albums/[id] - Get album details with full tracklist
@@ -14,7 +14,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const session = await auth();
+    const session = await getAuthSession();
     const currentUserId = session?.user?.id;
 
     if (!currentUserId) {
