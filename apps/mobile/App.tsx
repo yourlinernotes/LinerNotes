@@ -6,7 +6,7 @@ import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScree
 import { MenuIcon, PlusIcon } from './src/components/atoms';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { tokens } from './src/lib/tokens';
-import { MOCK_REVIEWS } from './src/data/mockData';
+import type { FeedReview } from './src/lib/feed-types';
 // Push notifications are temporarily disabled on BOTH platforms pending an
 // iOS provisioning-profile update (see TODO below + commented plugin in
 // app.config.ts). The implementation is parked at ./src/services/notifications.ts
@@ -19,7 +19,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 function AppContent() {
   const { user, isLoading, needsOnboarding, completeOnboarding } = useAuth();
   const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
-  const [activeReview, setActiveReview] = useState(null);
+  const [activeReview, setActiveReview] = useState<FeedReview | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
 
   // TODO: Re-enable after updating provisioning profile with push notifications
@@ -51,7 +51,7 @@ function AppContent() {
   //   }
   // }
 
-  const openReview = (review: any) => {
+  const openReview = (review: FeedReview) => {
     setActiveReview(review);
   };
 

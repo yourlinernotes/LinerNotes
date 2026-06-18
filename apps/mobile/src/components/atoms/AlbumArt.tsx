@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface AlbumArtProps {
@@ -11,7 +11,11 @@ interface AlbumArtProps {
     glow: string;
   };
   label: string;
+  /** Real album artwork. When set, it renders over the gradient fallback. */
+  artworkUrl?: string;
   radius?: number;
+  /** Explicit square size; when omitted the art fills its parent. */
+  size?: number;
   dim?: boolean;
   noTag?: boolean;
   children?: React.ReactNode;
@@ -21,14 +25,24 @@ interface AlbumArtProps {
 export function AlbumArt({
   palette,
   label,
+  artworkUrl,
   radius = 0,
+  size,
   dim = false,
   noTag = false,
   children,
   style,
 }: AlbumArtProps) {
   return (
-    <View style={[styles.container, { borderRadius: radius }, style]}>
+    <View
+      style={[
+        styles.container,
+        { borderRadius: radius },
+        size != null && { width: size, height: size },
+        style,
+      ]}
+    >
+      {/* Gradient fallback (shown while the image loads or when there is no URL) */}
       <LinearGradient
         colors={[palette.mid, palette.deep, palette.lo]}
         locations={[0, 0.6, 1]}
@@ -40,6 +54,14 @@ export function AlbumArt({
         end={{ x: 0.2, y: 0.2 }}
         style={[StyleSheet.absoluteFill, { opacity: 0.5 }]}
       />
+      {/* Real album artwork */}
+      {artworkUrl ? (
+        <Image
+          source={{ uri: artworkUrl }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
+      ) : null}
       {dim && (
         <View
           style={[

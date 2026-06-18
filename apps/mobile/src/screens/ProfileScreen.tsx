@@ -25,7 +25,8 @@ import { formatRelativeTime } from '../lib/time-utils';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
 import { shareToInstagramStory, shareToTikTok, shareToTwitter, saveCardImage } from '../lib/share-utils';
-import type { Review } from '../lib/types';
+import { reviewToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
+import type { FeedAuthor } from '../lib/feed-types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -47,9 +48,9 @@ interface ProfileData {
   joined: string;
   top4: AlbumEntry[];
   thisWeek: AlbumEntry[];
-  reviews: Review[];
-  reposted: Review[];
-  saved: Review[];
+  reviews: EnrichedReview[];
+  reposted: EnrichedReview[];
+  saved: EnrichedReview[];
 }
 
 type TabType = 'notes' | 'saved';
@@ -78,7 +79,7 @@ export function ProfileScreen() {
       const profileData: ProfileData = {
         user: {
           id: user.id,
-          name: user.displayName || user.name || 'User',
+          name: user.displayName || 'User',
           handle: user.handle || 'user',
           tint: '#d9b25a',
         },
@@ -141,6 +142,12 @@ export function ProfileScreen() {
     ...profile.reposted.map((r) => ({ review: r, kind: 'repost' as const })),
     ...profile.reviews.map((r) => ({ review: r, kind: 'own' as const })),
   ];
+
+  const profileAuthor: FeedAuthor = {
+    name: profile.user.name,
+    handle: profile.user.handle,
+    tint: profile.user.tint,
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -236,10 +243,10 @@ export function ProfileScreen() {
         {/* Notes feed */}
         <View style={styles.feed}>
           {tab === 'notes' && notesList.map(({ review, kind }) => (
-            <ProfileNote key={kind + review.id} review={review} kind={kind} gold={gold} />
+            <ProfileNote key={kind + review.id} review={review} kind={kind} gold={gold} author={profileAuthor} />
           ))}
           {tab === 'saved' && profile.saved.map((review) => (
-            <ProfileNote key={'sv' + review.id} review={review} kind="saved" gold={gold} />
+            <ProfileNote key={'sv' + review.id} review={review} kind="saved" gold={gold} author={profileAuthor} />
           ))}
           {tab === 'saved' && profile.saved.length === 0 && (
             <View style={styles.emptyState}>
@@ -310,11 +317,14 @@ function ProfileNote({
   review,
   kind,
   gold,
+  author,
 }: {
-  review: Review;
+  review: EnrichedReview;
   kind: 'own' | 'repost' | 'saved';
   gold: string;
+  author: FeedAuthor;
 }) {
+  const feedReview = reviewToFeedReview(review, author);
   const [like, setLike] = useState({ on: false, n: 0 });
   const [save, setSave] = useState(kind === 'saved');
   const [repost, setRepost] = useState({ on: kind === 'repost', n: 0 });
@@ -359,7 +369,7 @@ function ProfileNote({
       )}
       {kind === 'saved' && review.user && (
         <View style={styles.noteHeader}>
-          <Avatar name={review.user.name} tint={review.user.tint || gold} size={28} />
+          <Avatar user={{ name: review.user.name, tint: review.user.tint || gold }} size={28} />
           <View style={styles.noteHeaderInfo}>
             <Text style={styles.noteUserName}>{review.user.name}</Text>
             <Text style={styles.noteUserHandle}>
@@ -371,12 +381,12 @@ function ProfileNote({
 
       {/* Hidden story variant for Instagram sharing (with link sticker space) */}
       <View style={{ position: 'absolute', left: -9999, top: 0 }} ref={storyCardRef} collapsable={false}>
-        <ReviewCard review={review} accent={gold} context="share" variant="story" />
+        <ReviewCard review={feedReview} accent={gold} context="share" variant="story" />
       </View>
 
       {/* Visible regular card (also used for TikTok/Twitter sharing) */}
       <View ref={regularCardRef} collapsable={false}>
-        <ReviewCard review={review} accent={gold} context="share" />
+        <ReviewCard review={feedReview} accent={gold} context="share" />
       </View>
 
       <View style={styles.actions}>

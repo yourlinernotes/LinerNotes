@@ -11,13 +11,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../components/atoms/Icon';
 import { Stars } from '../components/atoms/Stars';
 import { formatTimestamp } from '../lib/time-utils';
-import type { Review } from '../lib/types';
+import type { FeedReview } from '../lib/feed-types';
 import { odesli } from '../services/odesli';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface ExperienceScreenProps {
-  review: any; // TODO: Use proper Review type with extended properties
+  review: FeedReview;
   onClose: () => void;
 }
 
@@ -30,15 +30,9 @@ interface Palette {
 }
 
 export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
-  const { track, album, rating } = review;
-  const p: Palette = album?.palette || track?.palette || {
-    deep: '#23160a',
-    mid: '#7a4a16',
-    lo: '#3a1d0a',
-    accent: tokens.colors.gold,
-    glow: '#c97a1f',
-  };
-  const gold = p.accent;
+  const { album, rating } = review;
+  const p: Palette = album.palette;
+  const gold = tokens.colors.gold;
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [spotifyOpening, setSpotifyOpening] = useState(false);
 
@@ -50,8 +44,8 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
 
     try {
       // Try to get Spotify link via Odesli
-      const artist = album?.artist || track?.artists?.[0]?.name;
-      const title = album?.title || track?.name;
+      const artist = album.artist;
+      const title = album.title;
 
       if (!artist || !title) {
         Alert.alert('Error', 'Unable to open in Spotify - missing track info');
@@ -136,14 +130,14 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
           {/* Sharp cover */}
           <TouchableOpacity onPress={openSpotify} style={styles.cover}>
             <View style={styles.coverPlaceholder}>
-              <Text style={styles.coverLabel}>{(album?.title || track?.name)?.toLowerCase()}</Text>
+              <Text style={styles.coverLabel}>{album.title?.toLowerCase()}</Text>
             </View>
           </TouchableOpacity>
 
           {/* Title + artist */}
           <Text style={styles.title}>{album.title}</Text>
           <Text style={styles.artist}>
-            {album.artist} · {album.year}
+            {album.artist}{album.year ? ` · ${album.year}` : ''}
           </Text>
 
           {/* Rating */}
@@ -211,7 +205,7 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
                       ]}
                     >
                       <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
-                        <Text style={styles.momentTimeText}>{formatTimestamp(m.seconds)}</Text>
+                        <Text style={styles.momentTimeText}>{formatTimestamp(m.sec)}</Text>
                       </View>
                       <Text style={styles.momentNoteText} numberOfLines={2}>
                         {m.note}
@@ -296,7 +290,7 @@ function AlbumTrackStrip({
                       ]}
                     >
                       <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
-                        <Text style={styles.momentTimeText}>{formatTimestamp(m.seconds)}</Text>
+                        <Text style={styles.momentTimeText}>{formatTimestamp(m.sec)}</Text>
                       </View>
                       <Text style={styles.trackMomentText} numberOfLines={2}>
                         {m.note}

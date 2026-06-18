@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { AlbumArt, Stars, SaveIcon, ReactionIcon } from './atoms';
-import type { FeedReview } from '../data/mockData';
+import type { FeedReview } from '../lib/feed-types';
 import { tokens } from '../lib/tokens';
 
 interface ReviewCardProps {
@@ -50,7 +50,12 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
 
       {/* Album art */}
       <View style={styles.artContainer}>
-        <AlbumArt palette={album.palette} label={album.title.toLowerCase()} dim>
+        <AlbumArt
+          palette={album.palette}
+          artworkUrl={album.artworkUrl}
+          label={album.title.toLowerCase()}
+          dim
+        >
           {showPill && (
             <View style={styles.ratingPill}>
               <Stars rating={rating} size={12} color={gold} showNum={false} />

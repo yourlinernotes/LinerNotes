@@ -119,7 +119,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         },
         {
           text: 'Connect',
-          onPress: async (username) => {
+          onPress: async (username?: string) => {
             if (!username || username.trim() === '') {
               return;
             }

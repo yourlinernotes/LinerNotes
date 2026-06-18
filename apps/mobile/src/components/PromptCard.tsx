@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   promptText: {
-    fontFamily: tokens.typography.fonts.sans,
+    fontFamily: tokens.typography.fonts.body,
     fontWeight: '500',
     fontSize: 15,
     lineHeight: 19.8,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   metadata: {
-    fontFamily: tokens.typography.fonts.sans,
+    fontFamily: tokens.typography.fonts.body,
     fontSize: 12,
     color: tokens.colors.muted,
   },
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   noteButtonText: {
-    fontFamily: tokens.typography.fonts.sans,
+    fontFamily: tokens.typography.fonts.body,
     fontSize: 12,
     fontWeight: '600',
   },

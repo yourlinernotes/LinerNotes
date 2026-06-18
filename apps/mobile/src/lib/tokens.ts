@@ -36,6 +36,9 @@ export const colors = {
 
   /** Near-black for Experience overlay */
   nearBlack: '#0a0908',
+
+  /** Elevated card surface (subtly lighter than bg) */
+  surface: '#141210',
 } as const;
 
 // ============================================================================

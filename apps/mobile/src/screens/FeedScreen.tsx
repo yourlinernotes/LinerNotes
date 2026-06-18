@@ -19,7 +19,9 @@ import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
 import { askingEngine } from '../services/askingEngine';
 import { lastfm } from '../services/lastfm';
+import { reviewToFeedReview } from '../lib/feed-adapter';
 import type { Review } from '../lib/types';
+import type { FeedReview } from '../lib/feed-types';
 import type { PromptTrigger } from '../services/askingEngine';
 
 interface FeedItemData {
@@ -39,7 +41,7 @@ interface FeedItemData {
 }
 
 interface FeedScreenProps {
-  onOpenReview?: (review: Review) => void;
+  onOpenReview?: (review: FeedReview) => void;
 }
 
 export function FeedScreen({ onOpenReview }: FeedScreenProps) {
@@ -122,7 +124,7 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
     loadFeed();
   }, []);
 
-  function handleOpenReview(review: Review) {
+  function handleOpenReview(review: FeedReview) {
     if (onOpenReview) {
       onOpenReview(review);
     }
@@ -152,7 +154,7 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
       <FlatList
         data={feedItems}
         renderItem={({ item }) => (
-          <FeedItem item={item} onOpen={() => handleOpenReview(item.review)} />
+          <FeedItem item={item} onOpen={handleOpenReview} />
         )}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
@@ -183,11 +185,17 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
   );
 }
 
-function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) {
+function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: (review: FeedReview) => void }) {
   const [like, setLike] = useState({ on: false, n: item.likeCount });
   const [save, setSave] = useState(item.saved);
   const [repost, setRepost] = useState({ on: false, n: item.repostCount });
   const [follow, setFollow] = useState(false);
+
+  const feedReview = reviewToFeedReview(item.review, {
+    name: item.user.displayName,
+    handle: item.user.handle,
+    tint: item.user.tint,
+  });
 
   const toggleLike = async () => {
     const newState = !like.on;
@@ -236,7 +244,7 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) 
     <View style={styles.feedItem}>
       {/* Poster row */}
       <View style={styles.poster}>
-        <Avatar name={item.user.displayName} tint={item.user.tint} size={30} />
+        <Avatar user={{ name: item.user.displayName, tint: item.user.tint }} size={30} />
         <View style={styles.posterInfo}>
           <Text style={styles.userName}>{item.user.displayName}</Text>
           <Text style={styles.userHandle}>
@@ -281,9 +289,9 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) 
 
       {/* The card */}
       <ReviewCard
-        review={item.review}
+        review={feedReview}
         accent={tokens.colors.gold}
-        onPress={onOpen}
+        onPress={() => onOpen(feedReview)}
         context="feed"
       />
 

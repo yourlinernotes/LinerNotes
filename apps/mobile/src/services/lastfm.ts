@@ -15,7 +15,8 @@ const LASTFM_USERNAME_KEY = '@linernotes:lastfm_username';
 export interface LastFmTrack {
   artist: string;
   name: string;
-  album?: string;
+  /** Last.fm returns album either as a plain string or as { '#text' } */
+  album?: string | { '#text': string };
   mbid?: string;
   date?: {
     uts: string; // Unix timestamp

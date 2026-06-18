@@ -6,7 +6,8 @@
 import { Alert, Platform, Linking } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+// SDK 56 moved the classic file API (cacheDirectory, etc.) to the /legacy entry.
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
 
 interface ShareOptions {

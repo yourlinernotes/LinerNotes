@@ -7,11 +7,6 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'dark',
-  splash: {
-    image: './assets/splash.png',
-    resizeMode: 'contain',
-    backgroundColor: '#0A0A0A',
-  },
   assetBundlePatterns: ['**/*'],
   ios: {
     supportsTablet: true,
@@ -37,6 +32,14 @@ const config: ExpoConfig = {
       'expo-dev-client',
       {
         addGeneratedScheme: false,
+      },
+    ],
+    [
+      'expo-splash-screen',
+      {
+        image: './assets/splash.png',
+        resizeMode: 'contain',
+        backgroundColor: '#0A0A0A',
       },
     ],
     // TODO: Re-enable push notifications after updating provisioning profile

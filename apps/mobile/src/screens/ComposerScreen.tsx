@@ -18,7 +18,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../components/atoms/Icon';
-import { Reaction } from '../components/atoms/Reactions';
 import { Stars } from '../components/atoms/Stars';
 import { ReviewCard } from '../components/ReviewCard';
 import { formatTimestamp } from '../lib/time-utils';
@@ -76,18 +75,33 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
     setIsPosting(true);
 
     try {
-      const reviewData = {
-        rating,
-        take: preview || null,
-        body: hasBody ? lines.slice(1).join('\n') : null,
-        notes: soloMoments.length > 0 ? soloMoments : [],
-        // TODO: Add track/album metadata from search/selection
-      };
+      const body = hasBody ? lines.slice(1).join('\n') : undefined;
 
       if (mode === 'album') {
-        await api.createAlbumReview(reviewData);
+        await api.createAlbumReview({
+          // TODO: replace placeholder album metadata once track/album search is wired
+          album: { id: '', name: '', artist: '', artworkUrl: '' },
+          overallRating: rating,
+          body,
+          tracks: Object.values(tracks).map((t) => ({
+            trackId: String(t.n),
+            trackName: t.name,
+            trackNumber: t.n,
+            reaction: t.reaction,
+            moment: t.moments[0],
+          })),
+          notes: soloMoments,
+          featuredNoteIdx: 0,
+        });
       } else {
-        await api.createReview(reviewData);
+        await api.createReview({
+          // TODO: replace placeholder track metadata once track search is wired
+          track: { id: '', name: '', artist: '', album: '', artworkUrl: '' },
+          rating,
+          take: take.trim() || undefined,
+          notes: soloMoments,
+          featuredNoteIdx: 0,
+        });
       }
 
       onClose();

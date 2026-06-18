@@ -193,7 +193,8 @@ class AskingEngineService {
     // Count tracks per album in recent history
     for (const track of tracks) {
       if (track.album) {
-        const key = `${track.artist}|||${track.album['#text']}`;
+        const albumName = typeof track.album === 'string' ? track.album : track.album['#text'];
+        const key = `${track.artist}|||${albumName}`;
         albumTracks[key] = (albumTracks[key] || 0) + 1;
       }
     }
