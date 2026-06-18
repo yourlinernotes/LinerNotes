@@ -20,7 +20,6 @@
     "expo-image-picker": "~56.0.18",
     "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~56.0.14",
-    "expo-notifications": "~56.0.18",
     "expo-random": "~14.0.1",
     "expo-secure-store": "~56.0.4",
     "expo-sharing": "~56.0.18",

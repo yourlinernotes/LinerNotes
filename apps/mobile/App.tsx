@@ -7,7 +7,12 @@ import { MenuIcon, PlusIcon } from './src/components/atoms';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { tokens } from './src/lib/tokens';
 import { MOCK_REVIEWS } from './src/data/mockData';
-import { notificationService } from './src/services/notifications';
+// Push notifications are temporarily disabled on BOTH platforms pending an
+// iOS provisioning-profile update (see TODO below + commented plugin in
+// app.config.ts). The implementation is parked at ./src/services/notifications.ts
+// (excluded from tsconfig). To re-enable: (1) add expo-notifications back to
+// package.json, (2) un-exclude the service in tsconfig.json, (3) restore the
+// plugin in app.config.ts, (4) uncomment the init block below.
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
