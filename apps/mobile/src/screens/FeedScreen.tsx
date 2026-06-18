@@ -45,10 +45,11 @@ interface FeedScreenProps {
 }
 
 export function FeedScreen({ onOpenReview }: FeedScreenProps) {
+  const { user } = useAuth();
   const [feedItems, setFeedItems] = useState<FeedItemData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentPrompt, setCurrentPrompt] = useState<PromptTrigger | null>(null);
+  const [currentPrompts, setCurrentPrompts] = useState<PromptTrigger[]>([]);
   const [lastFmConnected, setLastFmConnected] = useState(false);
 
   async function loadFeed() {
@@ -89,26 +90,20 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
 
   async function loadPrompt() {
     try {
-      // Check if Last.fm is connected
+      // Last.fm powers live-listening prompts (optional).
       const isConnected = await lastfm.isConnected();
       setLastFmConnected(isConnected);
+      const username = isConnected ? (await lastfm.getUsername()) ?? undefined : undefined;
 
-      if (!isConnected) {
-        // No Last.fm connected, skip asking engine
-        return;
-      }
+      // Profile Top 4 powers prompts even without Last.fm connected.
+      const top4Albums = (user?.favourites?.albums ?? []).map((a) => ({
+        artist: a.artist,
+        title: a.name,
+      }));
 
-      // Get stored username
-      const username = await lastfm.getUsername();
-      if (!username) return;
-
-      // TODO: Get user's top 4 from profile
-      const prompt = await askingEngine.generatePrompts(username, undefined);
-      setCurrentPrompt(prompt);
-
-      if (prompt) {
-        await askingEngine.markPromptShown();
-      }
+      // No cooldown for the in-feed shelf — surface whatever is worth a note.
+      const prompts = await askingEngine.getFeedPrompts(username, top4Albums);
+      setCurrentPrompts(prompts);
     } catch (error) {
       console.error('Failed to load asking engine prompt:', error);
     }
@@ -138,7 +133,7 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
 
   async function handleDismissPrompt(promptId: string) {
     await askingEngine.dismissPrompt(promptId);
-    setCurrentPrompt(null);
+    setCurrentPrompts((prev) => prev.filter((p) => p.id !== promptId));
   }
 
   if (isLoading) {
@@ -159,9 +154,9 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
         ListHeaderComponent={
-          currentPrompt ? (
+          currentPrompts.length > 0 ? (
             <PromptShelf
-              prompt={currentPrompt}
+              prompts={currentPrompts}
               accent={tokens.colors.gold}
               onOpenComposer={handleOpenComposer}
               onDismiss={handleDismissPrompt}

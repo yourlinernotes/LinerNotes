@@ -60,13 +60,27 @@ class AskingEngineService {
   async generatePrompts(username: string, top4Albums?: any[]): Promise<PromptTrigger | null> {
     await this.initialize();
 
-    // Check cooldown - don't fire if we sent one recently
+    // Cooldown applies to notifications only (max one per ~12h).
     const hoursSinceLastPrompt = (Date.now() - this.lastPromptTime) / (1000 * 60 * 60);
     if (hoursSinceLastPrompt < 12) {
-      // At least 12 hours between prompts
       return null;
     }
 
+    const triggers = await this.buildTriggers(username, top4Albums);
+    return triggers[0] || null;
+  }
+
+  /**
+   * All available (non-dismissed) prompt triggers for the in-feed shelf.
+   * No cooldown — the shelf should always surface what's worth a note, drawn
+   * from the profile's Top 4 and/or connected Last.fm activity.
+   */
+  async getFeedPrompts(username?: string, top4Albums?: any[]): Promise<PromptTrigger[]> {
+    await this.initialize();
+    return this.buildTriggers(username, top4Albums);
+  }
+
+  private async buildTriggers(username?: string, top4Albums?: any[]): Promise<PromptTrigger[]> {
     const allTriggers: PromptTrigger[] = [];
 
     // TIER 1: Top 4 prompts (highest priority)
@@ -86,6 +100,12 @@ class AskingEngineService {
           });
         }
       }
+    }
+
+    // TIER 2 requires a connected Last.fm account; without it, return Tier-1 only.
+    if (!username) {
+      allTriggers.sort((a, b) => a.priority - b.priority);
+      return allTriggers;
     }
 
     // TIER 2: Live listening signals from Last.fm
@@ -164,9 +184,9 @@ class AskingEngineService {
       console.error('Failed to generate asking engine prompts:', error);
     }
 
-    // Sort by priority and return highest
+    // Sort by priority (highest-priority first).
     allTriggers.sort((a, b) => a.priority - b.priority);
-    return allTriggers[0] || null;
+    return allTriggers;
   }
 
   /**

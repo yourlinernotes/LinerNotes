@@ -10,14 +10,16 @@ import { tokens } from '../lib/tokens';
 import type { PromptTrigger } from '../services/askingEngine';
 
 interface PromptShelfProps {
-  prompt: PromptTrigger;
+  prompts: PromptTrigger[];
   accent?: string;
   onOpenComposer: (prompt: PromptTrigger) => void;
   onDismiss: (promptId: string) => void;
 }
 
-export function PromptShelf({ prompt, accent, onOpenComposer, onDismiss }: PromptShelfProps) {
+export function PromptShelf({ prompts, accent, onOpenComposer, onDismiss }: PromptShelfProps) {
   const gold = accent || tokens.colors.gold;
+
+  if (prompts.length === 0) return null;
 
   return (
     <View style={styles.container}>
@@ -27,19 +29,22 @@ export function PromptShelf({ prompt, accent, onOpenComposer, onDismiss }: Promp
         <Text style={styles.subtitle}>From what you've been playing</Text>
       </View>
 
-      {/* Horizontal scroll - one card per spec, but structured for future expansion */}
+      {/* Horizontal scroll of available prompts */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         style={styles.scroll}
       >
-        <PromptCard
-          prompt={prompt}
-          accent={gold}
-          onOpen={() => onOpenComposer(prompt)}
-          onDismiss={() => onDismiss(prompt.id)}
-        />
+        {prompts.map((prompt) => (
+          <PromptCard
+            key={prompt.id}
+            prompt={prompt}
+            accent={gold}
+            onOpen={() => onOpenComposer(prompt)}
+            onDismiss={() => onDismiss(prompt.id)}
+          />
+        ))}
       </ScrollView>
     </View>
   );
