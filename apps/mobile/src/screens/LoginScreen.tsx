@@ -45,6 +45,7 @@ export function LoginScreen() {
 
   // Google OAuth configuration
   const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: '985992092131-19g5d3fsgmb4riepda7a9s4eu133r8oj.apps.googleusercontent.com',
     iosClientId: '985992092131-ag9ohcq8t4d7dde659kqq343q5m6af47.apps.googleusercontent.com',
     webClientId: '985992092131-9e67ajva2nob5efot6bfj1asikhdrdml.apps.googleusercontent.com',
     scopes: ['openid', 'profile', 'email'],

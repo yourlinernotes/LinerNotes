@@ -3,11 +3,16 @@ import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '@/lib/prisma';
 import { sign } from 'jsonwebtoken';
 
-// For mobile, we need to verify tokens from the iOS client
-// Use GOOGLE_IOS_CLIENT_ID if set, otherwise fall back to GOOGLE_CLIENT_ID
-const googleClient = new OAuth2Client(
-  process.env.GOOGLE_IOS_CLIENT_ID || process.env.GOOGLE_CLIENT_ID
-);
+// For mobile, ID tokens may originate from the iOS, Android, or web client.
+// google-auth-library accepts an array of valid audiences, so we accept any
+// configured mobile client ID. Access tokens are validated separately below.
+const mobileAudiences = [
+  process.env.GOOGLE_IOS_CLIENT_ID,
+  process.env.GOOGLE_ANDROID_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_ID,
+].filter((id): id is string => Boolean(id));
+
+const googleClient = new OAuth2Client(mobileAudiences[0]);
 
 /**
  * Mobile Google OAuth endpoint
@@ -39,7 +44,7 @@ export async function POST(req: NextRequest) {
     try {
       const ticket = await googleClient.verifyIdToken({
         idToken: token,
-        audience: process.env.GOOGLE_IOS_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+        audience: mobileAudiences,
       });
 
       const payload = ticket.getPayload();
