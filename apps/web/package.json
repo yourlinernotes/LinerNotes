@@ -16,8 +16,10 @@
     "@prisma/client": "^7.8.0",
     "bcryptjs": "^3.0.3",
     "fast-average-color": "^9.5.2",
+    "google-auth-library": "^10.7.0",
     "html-to-image": "^1.11.13",
     "iron-session": "^8.0.4",
+    "jsonwebtoken": "^9.0.3",
     "next": "16.2.9",
     "next-auth": "^5.0.0-beta.31",
     "pg": "^8.21.0",
@@ -27,6 +29,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
