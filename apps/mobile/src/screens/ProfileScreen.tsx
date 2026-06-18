@@ -58,7 +58,7 @@ export function ProfileScreen() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [tab, setTab] = useState<TabType>('notes');
-  const gold = '#d9b25a';
+  const gold = tokens.colors.gold;
   const top4CardRef = useRef(null);
 
   useEffect(() => {
@@ -282,7 +282,7 @@ function Section({ gold, label, onShare }: { gold: string; label: string; onShar
 }
 
 function AlbumTile({ entry, big }: { entry: AlbumEntry; big?: boolean }) {
-  const gold = '#d9b25a';
+  const gold = tokens.colors.gold;
 
   return (
     <TouchableOpacity style={styles.albumTile}>

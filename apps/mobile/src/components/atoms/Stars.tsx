@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { tokens } from '../../lib/tokens';
 
 interface StarsProps {
   rating: number;
@@ -9,7 +10,7 @@ interface StarsProps {
   showNum?: boolean;
 }
 
-export function Stars({ rating, size = 13, color = '#d9b25a', showNum = true }: StarsProps) {
+export function Stars({ rating, size = 13, color = tokens.colors.gold, showNum = true }: StarsProps) {
   const stars = [];
 
   for (let i = 0; i < 5; i++) {

@@ -35,7 +35,7 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
     deep: '#23160a',
     mid: '#7a4a16',
     lo: '#3a1d0a',
-    accent: '#d9b25a',
+    accent: tokens.colors.gold,
     glow: '#c97a1f',
   };
   const gold = p.accent;

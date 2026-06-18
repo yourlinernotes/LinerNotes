@@ -30,7 +30,7 @@ const AUTH_COLORS = {
   deep: '#1a1512',
   mid: '#2a1f18',
   lo: '#1a1512',
-  accent: '#d9b25a', // Standard gold
+  accent: tokens.colors.gold,
   glow: '#c8a45c',
 };
 

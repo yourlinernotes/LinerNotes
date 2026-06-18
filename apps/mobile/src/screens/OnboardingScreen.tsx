@@ -29,15 +29,15 @@ const AUTH_COLORS = {
   deep: '#1a1512',
   mid: '#2a1f18',
   lo: '#1a1512',
-  accent: '#d9b25a', // Standard gold
+  accent: tokens.colors.gold,
   glow: '#c8a45c',
 };
 
 const COLORS = {
-  gold: '#d9b25a',
+  gold: tokens.colors.gold,
   confirmGreen: '#7fcf9b',
-  fg: '#f1ebe0',
-  bg: '#0a0908',
+  fg: tokens.colors.fg,
+  bg: tokens.colors.nearBlack,
 };
 
 type OnboardingStep = 1 | 2;

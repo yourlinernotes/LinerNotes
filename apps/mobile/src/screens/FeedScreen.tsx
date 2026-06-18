@@ -65,7 +65,7 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
           id: review.user?.id || review.userId,
           displayName: review.user?.displayName || review.user?.name || 'User',
           handle: review.user?.handle || 'user',
-          tint: '#d9b25a',
+          tint: tokens.colors.gold,
         },
         likeCount: review.likeCount || 0,
         repostCount: review.repostCount || 0,
@@ -256,8 +256,8 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) 
             style={[
               styles.followButton,
               {
-                borderColor: follow ? 'rgba(241,235,224,0.22)' : '#d9b25a',
-                backgroundColor: follow ? 'transparent' : '#d9b25a',
+                borderColor: follow ? 'rgba(241,235,224,0.22)' : tokens.colors.gold,
+                backgroundColor: follow ? 'transparent' : tokens.colors.gold,
               },
             ]}
           >
@@ -282,7 +282,7 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) 
       {/* The card */}
       <ReviewCard
         review={item.review}
-        accent="#d9b25a"
+        accent={tokens.colors.gold}
         onPress={onOpen}
         context="feed"
       />

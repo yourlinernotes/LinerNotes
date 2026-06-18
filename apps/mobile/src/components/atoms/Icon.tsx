@@ -108,5 +108,65 @@ export function Icon({ name, size = 22, color = 'currentColor', filled = false }
     );
   }
 
+  // Flame icon - standout tracks (per Claude Design)
+  if (name === 'flame') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : 'none'}>
+        <Path
+          d="M12 2c1.7 3.5 3 6 2 9-1 3-4 4.5-4 7 0 1.7 1.3 3 3 3s3-1.3 3-3c0-2.5-3-3.5-2-7 .5-1.5 1.5-3 3-5-1 3 0 5 1 7 1.5 3 1 5-1 7"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+
+  // Love icon - loved tracks (per Claude Design, different from "like")
+  if (name === 'love') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : 'none'}>
+        <Path
+          d="M20.8 4.6a5.5 5.5 0 00-7.8 0l-1 1-1-1a5.5 5.5 0 00-7.8 7.8l1 1 7.8 7.8 7.8-7.8 1-1a5.5 5.5 0 000-7.8z"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+
+  // Skip icon - skipped tracks (per Claude Design)
+  if (name === 'skip') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M5 4l10 8-10 8V4zM19 5v14"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+
+  // Bookmark icon - saved for later (per Claude Design)
+  if (name === 'bookmark') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : 'none'}>
+        <Path
+          d="M6 4h12v17l-6-4-6 4V4z"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
+
   return null;
 }

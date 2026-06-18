@@ -61,7 +61,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const [openTrack, setOpenTrack] = useState<number | null>(null);
   const [fullAlbum, setFullAlbum] = useState(false);
 
-  const gold = '#d9b25a';
+  const gold = tokens.colors.gold;
 
   const lines = take.split('\n').filter(l => l.trim());
   const preview = lines[0] || '';
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Menlo',
     fontSize: 9.5,
     letterSpacing: 0.6,
-    color: '#d9b25a',
+    color: tokens.colors.gold,
     textTransform: 'uppercase',
   },
   starsContainer: {
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   postButton: {
-    backgroundColor: '#d9b25a',
+    backgroundColor: tokens.colors.gold,
     paddingVertical: 14,
     borderRadius: 13,
     alignItems: 'center',
