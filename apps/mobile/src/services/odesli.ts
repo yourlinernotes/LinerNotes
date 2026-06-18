@@ -49,6 +49,8 @@ export interface OdesliResponse {
 
 class OdesliService {
   private client: AxiosInstance;
+  /** Per-track cache of in-flight/resolved responses (dedupes deeplink + artwork lookups). */
+  private resolveCache = new Map<string, Promise<OdesliResponse | null>>();
 
   constructor() {
     this.client = axios.create({
@@ -94,6 +96,20 @@ class OdesliService {
       console.error('Failed to search track:', error);
       return null;
     }
+  }
+
+  /**
+   * Resolve a track once and cache it, so deeplinks and artwork/metadata share
+   * a single Odesli lookup per track (important given the public rate limits).
+   */
+  resolve(artist: string, track: string): Promise<OdesliResponse | null> {
+    const key = `${artist}|${track}`.toLowerCase();
+    let pending = this.resolveCache.get(key);
+    if (!pending) {
+      pending = this.searchTrack(artist, track);
+      this.resolveCache.set(key, pending);
+    }
+    return pending;
   }
 
   /**

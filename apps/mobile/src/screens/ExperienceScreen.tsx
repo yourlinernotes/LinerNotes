@@ -6,11 +6,12 @@ import { tokens } from '../lib/tokens';
  */
 
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Linking, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Linking, Alert, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../components/atoms/Icon';
 import { Stars } from '../components/atoms/Stars';
 import { formatTimestamp } from '../lib/time-utils';
+import { useArtwork } from '../lib/use-artwork';
 import type { FeedReview } from '../lib/feed-types';
 import { odesli } from '../services/odesli';
 
@@ -33,6 +34,7 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
   const { album, rating } = review;
   const p: Palette = album.palette;
   const gold = tokens.colors.gold;
+  const coverUrl = useArtwork(album.artist, album.title, album.artworkUrl);
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [spotifyOpening, setSpotifyOpening] = useState(false);
 
@@ -53,7 +55,7 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
         return;
       }
 
-      const links = await odesli.searchTrack(artist, title);
+      const links = await odesli.resolve(artist, title);
 
       if (links?.linksByPlatform?.spotify) {
         const spotifyUri = links.linksByPlatform.spotify.nativeAppUriMobile || links.linksByPlatform.spotify.url;
@@ -129,9 +131,13 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
         <View style={styles.contentContainer}>
           {/* Sharp cover */}
           <TouchableOpacity onPress={openSpotify} style={styles.cover}>
-            <View style={styles.coverPlaceholder}>
-              <Text style={styles.coverLabel}>{album.title?.toLowerCase()}</Text>
-            </View>
+            {coverUrl ? (
+              <Image source={{ uri: coverUrl }} style={styles.coverPlaceholder} resizeMode="cover" />
+            ) : (
+              <View style={styles.coverPlaceholder}>
+                <Text style={styles.coverLabel}>{album.title?.toLowerCase()}</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           {/* Title + artist */}

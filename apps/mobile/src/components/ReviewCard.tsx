@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { AlbumArt, Stars, SaveIcon, ReactionIcon } from './atoms';
 import type { FeedReview } from '../lib/feed-types';
+import { useArtwork } from '../lib/use-artwork';
 import { tokens } from '../lib/tokens';
 
 interface ReviewCardProps {
@@ -15,6 +16,7 @@ interface ReviewCardProps {
 export function ReviewCard({ review, accent, onPress, context = 'feed', variant }: ReviewCardProps) {
   const { album, rating } = review;
   const gold = accent || tokens.colors.gold;
+  const artworkUrl = useArtwork(album.artist, album.title, album.artworkUrl);
   const isAlbum = !!(album.tracks && album.tracks.length > 0);
 
   // Depth is derived from content
@@ -52,7 +54,7 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
       <View style={styles.artContainer}>
         <AlbumArt
           palette={album.palette}
-          artworkUrl={album.artworkUrl}
+          artworkUrl={artworkUrl}
           label={album.title.toLowerCase()}
           dim
         >
