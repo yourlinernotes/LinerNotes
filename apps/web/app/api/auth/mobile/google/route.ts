@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate JWT token for mobile
-    const token = sign(
+    const jwtToken = sign(
       { sub: user.id, email: user.email },
       process.env.NEXTAUTH_SECRET!,
       { expiresIn: '30d' }
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
         name: user.name,
         avatarUrl: user.image,
       },
-      token,
+      token: jwtToken,
     });
   } catch (error) {
     console.error('Mobile Google login error:', error);
