@@ -11,7 +11,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../components/atoms/Icon';
 import { Stars } from '../components/atoms/Stars';
 import { formatTimestamp } from '../lib/time-utils';
-import { useArtwork } from '../lib/use-artwork';
 import type { FeedReview } from '../lib/feed-types';
 import { odesli } from '../services/odesli';
 
@@ -34,7 +33,6 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
   const { album, rating } = review;
   const p: Palette = album.palette;
   const gold = tokens.colors.gold;
-  const coverUrl = useArtwork(album.artist, album.title, album.artworkUrl);
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [spotifyOpening, setSpotifyOpening] = useState(false);
 
@@ -131,8 +129,8 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
         <View style={styles.contentContainer}>
           {/* Sharp cover */}
           <TouchableOpacity onPress={openSpotify} style={styles.cover}>
-            {coverUrl ? (
-              <Image source={{ uri: coverUrl }} style={styles.coverPlaceholder} resizeMode="cover" />
+            {album.artworkUrl ? (
+              <Image source={{ uri: album.artworkUrl }} style={styles.coverPlaceholder} resizeMode="cover" />
             ) : (
               <View style={styles.coverPlaceholder}>
                 <Text style={styles.coverLabel}>{album.title?.toLowerCase()}</Text>
