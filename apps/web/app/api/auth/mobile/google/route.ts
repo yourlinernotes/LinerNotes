@@ -11,30 +11,67 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
  */
 export async function POST(req: NextRequest) {
   try {
-    const { idToken } = await req.json();
+    const { idToken, accessToken } = await req.json();
+    const token = idToken || accessToken;
 
-    if (!idToken) {
+    if (!token) {
       return NextResponse.json(
-        { error: 'ID token is required' },
+        { error: 'ID token or access token is required' },
         { status: 400 }
       );
     }
 
-    // Verify Google ID token
-    const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    let email: string;
+    let name: string | undefined;
+    let picture: string | undefined;
 
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      return NextResponse.json(
-        { error: 'Invalid Google token' },
-        { status: 401 }
-      );
+    // Try to verify as ID token first
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+
+      const payload = ticket.getPayload();
+      if (!payload || !payload.email) {
+        throw new Error('Invalid ID token payload');
+      }
+
+      email = payload.email;
+      name = payload.name;
+      picture = payload.picture;
+    } catch (idTokenError) {
+      // If ID token verification fails, try using it as an access token
+      console.log('ID token verification failed, trying as access token:', idTokenError);
+
+      try {
+        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!userInfoResponse.ok) {
+          throw new Error('Failed to fetch user info with access token');
+        }
+
+        const userInfo = await userInfoResponse.json();
+        if (!userInfo.email) {
+          throw new Error('No email in user info');
+        }
+
+        email = userInfo.email;
+        name = userInfo.name;
+        picture = userInfo.picture;
+      } catch (accessTokenError) {
+        console.error('Both ID token and access token verification failed:', {
+          idTokenError,
+          accessTokenError,
+        });
+        return NextResponse.json(
+          { error: 'Invalid Google token' },
+          { status: 401 }
+        );
+      }
     }
-
-    const { email, name, picture } = payload;
 
     // Find or create user
     let user = await prisma.user.findUnique({

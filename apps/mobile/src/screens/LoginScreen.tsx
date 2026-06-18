@@ -47,6 +47,7 @@ export function LoginScreen() {
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: '985992092131-ag9ohcq8t4d7dde659kqq343q5m6af47.apps.googleusercontent.com',
     webClientId: '985992092131-9e67ajva2nob5efot6bfj1asikhdrdml.apps.googleusercontent.com',
+    scopes: ['openid', 'profile', 'email'],
   });
 
   React.useEffect(() => {
@@ -59,12 +60,22 @@ export function LoginScreen() {
     try {
       setIsLoading(true);
 
+      console.log('Google auth response:', JSON.stringify(authentication, null, 2));
+
       // expo-auth-session provides an idToken if configured correctly
       // Use the ID token for backend authentication
-      const idToken = authentication.idToken || authentication.accessToken;
+      const idToken = authentication?.idToken || authentication?.accessToken;
 
-      console.log('Google auth successful, sending to backend...');
-      await loginWithGoogle(idToken);
+      if (!idToken) {
+        throw new Error('No ID token or access token received from Google');
+      }
+
+      console.log('Sending token to backend...');
+      const isAccessToken = !authentication?.idToken;
+      console.log('Token type:', isAccessToken ? 'Access token' : 'ID token');
+      console.log('Token (first 20 chars):', idToken.substring(0, 20));
+
+      await loginWithGoogle(idToken, isAccessToken);
 
       console.log('Login successful!');
     } catch (error: any) {

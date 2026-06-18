@@ -97,12 +97,12 @@ class APIClient {
     });
   }
 
-  async loginWithGoogle(idToken: string): Promise<{ user: User; token: string }> {
-    // For mobile, we need to exchange the Google ID token for a session
-    // This calls the Next.js API which uses NextAuth
+  async loginWithGoogle(token: string, isAccessToken = false): Promise<{ user: User; token: string }> {
+    // For mobile, we need to exchange the Google token for a JWT
+    // This calls the Next.js API which handles both ID tokens and access tokens
     return this.request('/auth/mobile/google', {
       method: 'POST',
-      body: { idToken },
+      body: isAccessToken ? { accessToken: token } : { idToken: token },
     });
   }
 
