@@ -4,7 +4,7 @@
  * Based on Claude Design handoff: onboarding.jsx
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,7 @@ const COLORS = {
 
 type OnboardingStep = 1 | 2 | 3;
 type LastFmStatus = 'idle' | 'linking' | 'linked';
+type AlbumPick = { name: string; artist: string; artworkUrl: string };
 
 interface OnboardingScreenProps {
   onComplete: () => void;
@@ -58,16 +59,55 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [lastFmStatus, setLastFmStatus] = useState<LastFmStatus>('idle');
   const [lastFmUsername, setLastFmUsername] = useState('');
-  const [top4, setTop4] = useState<Array<{ title: string; artist: string }>>([
-    { title: '', artist: '' },
-    { title: '', artist: '' },
-    { title: '', artist: '' },
-    { title: '', artist: '' },
-  ]);
+  const [lastFmInput, setLastFmInput] = useState('');
+  const [top4, setTop4] = useState<AlbumPick[]>([]);
+  const [albumQuery, setAlbumQuery] = useState('');
+  const [albumResults, setAlbumResults] = useState<AlbumPick[]>([]);
+  const [searching, setSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const updateTop4 = (index: number, field: 'title' | 'artist', value: string) => {
-    setTop4((prev) => prev.map((a, i) => (i === index ? { ...a, [field]: value } : a)));
+  // Album search via the iTunes Search API (free, no auth, returns artwork).
+  const runAlbumSearch = async (q: string) => {
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=15`
+      );
+      const data = await res.json();
+      const albums: AlbumPick[] = (data.results || []).map((r: any) => ({
+        name: r.collectionName,
+        artist: r.artistName,
+        artworkUrl: (r.artworkUrl100 || '').replace('100x100', '300x300'),
+      }));
+      setAlbumResults(albums);
+    } catch {
+      setAlbumResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const onAlbumQueryChange = (q: string) => {
+    setAlbumQuery(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.trim().length < 2) {
+      setAlbumResults([]);
+      return;
+    }
+    searchTimer.current = setTimeout(() => runAlbumSearch(q.trim()), 350);
+  };
+
+  const addAlbum = (album: AlbumPick) => {
+    if (top4.length >= 4) return;
+    if (top4.some((a) => a.name === album.name && a.artist === album.artist)) return;
+    setTop4((prev) => [...prev, album]);
+    setAlbumQuery('');
+    setAlbumResults([]);
+  };
+
+  const removeAlbum = (index: number) => {
+    setTop4((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Handle validation
@@ -117,60 +157,38 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   };
 
   const connectLastFm = async () => {
-    if (lastFmStatus !== 'idle') return;
+    const username = lastFmInput.trim();
+    if (!username || lastFmStatus === 'linking') return;
 
-    // Prompt for Last.fm username
-    Alert.prompt(
-      'Connect Last.fm',
-      'Enter your Last.fm username to sync your listening history',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Connect',
-          onPress: async (username?: string) => {
-            if (!username || username.trim() === '') {
-              return;
-            }
+    setLastFmStatus('linking');
+    setLastFmUsername(username);
 
-            setLastFmStatus('linking');
-            setLastFmUsername(username.trim());
+    try {
+      // Verify the username exists by fetching recent tracks.
+      const tracks = await lastfm.getRecentTracks(username, 1);
 
-            try {
-              // Verify the username exists by fetching recent tracks
-              const tracks = await lastfm.getRecentTracks(username.trim(), 1);
-
-              if (tracks && tracks.length > 0) {
-                setLastFmStatus('linked');
-
-                // Save Last.fm username
-                await lastfm.setUsername(username.trim());
-              } else {
-                setLastFmStatus('idle');
-                Alert.alert('Error', 'Could not find that Last.fm username. Please check and try again.');
-              }
-            } catch (error) {
-              setLastFmStatus('idle');
-              Alert.alert('Error', 'Failed to connect to Last.fm. Please check the username and try again.');
-            }
-          },
-        },
-      ],
-      'plain-text',
-      '',
-      'default'
-    );
+      if (tracks && tracks.length > 0) {
+        await lastfm.setUsername(username);
+        setLastFmStatus('linked');
+      } else {
+        setLastFmStatus('idle');
+        Alert.alert('Error', 'Could not find that Last.fm username. Please check and try again.');
+      }
+    } catch (error) {
+      setLastFmStatus('idle');
+      Alert.alert('Error', 'Failed to connect to Last.fm. Please check the username and try again.');
+    }
   };
 
   // Persist any filled-in Top 4 albums, then finish. Always completes onboarding
   // even if saving fails — favourites are optional and editable later.
   const saveFavouritesAndFinish = async () => {
-    const albums = top4
-      .map((a) => ({ title: a.title.trim(), artist: a.artist.trim() }))
-      .filter((a) => a.title && a.artist)
-      .map((a, i) => ({ id: `fav-${i}`, name: a.title, artist: a.artist, artworkUrl: '' }));
+    const albums = top4.map((a, i) => ({
+      id: `fav-${i}`,
+      name: a.name,
+      artist: a.artist,
+      artworkUrl: a.artworkUrl,
+    }));
 
     try {
       setIsSaving(true);
@@ -474,9 +492,23 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                       : 'we line up what you played, so the words come easier.'}
                   </Text>
 
+                  {lastFmStatus !== 'linked' && (
+                    <TextInput
+                      value={lastFmInput}
+                      onChangeText={setLastFmInput}
+                      placeholder="your last.fm username"
+                      placeholderTextColor="rgba(241,235,224,0.3)"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={lastFmStatus !== 'linking'}
+                      onSubmitEditing={connectLastFm}
+                      style={[styles.input, { marginBottom: 10 }]}
+                    />
+                  )}
+
                   <TouchableOpacity
                     onPress={lastFmStatus === 'linked' ? () => setStep(3) : connectLastFm}
-                    disabled={lastFmStatus === 'linking'}
+                    disabled={lastFmStatus === 'linking' || (lastFmStatus !== 'linked' && lastFmInput.trim().length === 0)}
                     style={[
                       styles.lastFmButton,
                       {
@@ -533,29 +565,61 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 </Text>
               </View>
 
-              <View style={styles.top4List}>
-                {top4.map((album, i) => (
-                  <View key={i} style={styles.top4Row}>
-                    <Text style={styles.top4Number}>{i + 1}</Text>
-                    <View style={styles.top4Inputs}>
-                      <TextInput
-                        value={album.title}
-                        onChangeText={(t) => updateTop4(i, 'title', t)}
-                        placeholder="album"
-                        placeholderTextColor="rgba(241,235,224,0.3)"
-                        style={[styles.input, styles.top4Input]}
-                      />
-                      <TextInput
-                        value={album.artist}
-                        onChangeText={(t) => updateTop4(i, 'artist', t)}
-                        placeholder="artist"
-                        placeholderTextColor="rgba(241,235,224,0.3)"
-                        style={[styles.input, styles.top4Input]}
-                      />
-                    </View>
-                  </View>
-                ))}
-              </View>
+              {/* Chosen albums */}
+              {top4.length > 0 && (
+                <View style={styles.top4Selected}>
+                  {top4.map((album, i) => (
+                    <TouchableOpacity
+                      key={`${album.name}-${i}`}
+                      style={styles.top4Chip}
+                      onPress={() => removeAlbum(i)}
+                      activeOpacity={0.8}
+                    >
+                      <Image source={{ uri: album.artworkUrl }} style={styles.top4ChipArt} />
+                      <View style={styles.top4ChipRemove}>
+                        <Text style={styles.top4ChipRemoveText}>×</Text>
+                      </View>
+                      <Text style={styles.top4ChipName} numberOfLines={1}>
+                        {album.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Search + results */}
+              {top4.length < 4 && (
+                <View style={styles.searchSection}>
+                  <TextInput
+                    value={albumQuery}
+                    onChangeText={onAlbumQueryChange}
+                    placeholder="search albums…"
+                    placeholderTextColor="rgba(241,235,224,0.3)"
+                    autoCorrect={false}
+                    style={styles.input}
+                  />
+                  {searching && <Text style={styles.searchHint}>searching…</Text>}
+                  {albumResults.map((album, i) => (
+                    <TouchableOpacity
+                      key={`${album.name}-${album.artist}-${i}`}
+                      style={styles.resultRow}
+                      onPress={() => addAlbum(album)}
+                      activeOpacity={0.7}
+                    >
+                      <Image source={{ uri: album.artworkUrl }} style={styles.resultArt} />
+                      <View style={styles.resultInfo}>
+                        <Text style={styles.resultName} numberOfLines={1}>
+                          {album.name}
+                        </Text>
+                        <Text style={styles.resultArtist} numberOfLines={1}>
+                          {album.artist}
+                        </Text>
+                      </View>
+                      <Text style={styles.resultAdd}>+</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
               <TouchableOpacity
                 onPress={saveFavouritesAndFinish}
@@ -799,30 +863,85 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontSize: 15,
   },
-  top4List: {
-    gap: 12,
-  },
-  top4Row: {
+  top4Selected: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  top4Chip: {
+    width: 72,
+  },
+  top4ChipArt: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+    backgroundColor: 'rgba(241,235,224,0.08)',
+  },
+  top4ChipRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.3)',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
   },
-  top4Number: {
-    fontFamily: 'Space Mono',
-    fontSize: 16,
-    color: COLORS.gold,
-    width: 16,
-    textAlign: 'center',
+  top4ChipRemoveText: {
+    color: COLORS.fg,
+    fontSize: 14,
+    lineHeight: 16,
   },
-  top4Inputs: {
-    flex: 1,
-    flexDirection: 'row',
+  top4ChipName: {
+    marginTop: 4,
+    fontFamily: 'System',
+    fontSize: 10.5,
+    color: 'rgba(241,235,224,0.7)',
+  },
+  searchSection: {
     gap: 8,
   },
-  top4Input: {
+  searchHint: {
+    fontFamily: 'Menlo',
+    fontSize: 11,
+    color: 'rgba(241,235,224,0.4)',
+    paddingHorizontal: 2,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    paddingVertical: 7,
+  },
+  resultArt: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    backgroundColor: 'rgba(241,235,224,0.08)',
+  },
+  resultInfo: {
     flex: 1,
-    paddingVertical: 11,
+    minWidth: 0,
+  },
+  resultName: {
+    fontFamily: 'System',
     fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.fg,
+  },
+  resultArtist: {
+    fontFamily: 'System',
+    fontSize: 12,
+    color: 'rgba(241,235,224,0.55)',
+    marginTop: 1,
+  },
+  resultAdd: {
+    fontSize: 22,
+    color: COLORS.gold,
+    paddingHorizontal: 6,
   },
   handleInputContainer: {
     position: 'relative',
