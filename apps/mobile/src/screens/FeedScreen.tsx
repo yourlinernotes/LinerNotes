@@ -148,11 +148,7 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>LinerNotes</Text>
-      </View>
-
+    <SafeAreaView style={styles.container} edges={[]}>
       <FlatList
         data={feedItems}
         renderItem={({ item }) => (
@@ -199,7 +195,7 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) 
     setLike({ on: newState, n: newCount });
 
     try {
-      await api.likeReview(item.review.id);
+      await api.toggleAction(item.review.id, 'like');
     } catch (error) {
       console.error('Failed to toggle like:', error);
       // Revert on error
@@ -212,8 +208,7 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) 
     setSave(newState);
 
     try {
-      // TODO: Add save/unsave endpoint when available
-      console.log('Save toggled:', newState);
+      await api.toggleAction(item.review.id, 'save');
     } catch (error) {
       console.error('Failed to toggle save:', error);
       setSave(!newState);
@@ -226,7 +221,7 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: () => void }) 
     setRepost({ on: newState, n: newCount });
 
     try {
-      await api.repostReview(item.review.id);
+      await api.toggleAction(item.review.id, 'repost');
     } catch (error) {
       console.error('Failed to toggle repost:', error);
       // Revert on error
