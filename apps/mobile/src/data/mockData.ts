@@ -3,7 +3,7 @@
  * Based on data.js
  */
 
-import type { Review, AlbumReview, User } from '@linernotes/core';
+import type { Review, AlbumReview, User } from '../lib/types';
 
 export interface Album {
   title: string;

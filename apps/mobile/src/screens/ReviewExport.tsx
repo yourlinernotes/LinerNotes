@@ -2,9 +2,9 @@ import React, { useRef } from 'react';
 import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text } from 'react-native';
 import { ReviewCard } from '../components/ReviewCard';
 import { shareToInstagramStory, saveCardImage } from '../utils/shareCard';
-import type { Review } from '@linernotes/core';
-import { tokens } from '@linernotes/core';
+import type { Review } from '../lib/types';
 
+import { tokens } from '../lib/tokens';
 /**
  * Export screen with share functionality
  * Demonstrates Instagram story export
@@ -113,15 +113,15 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: tokens.colors.cream,
+    borderColor: tokens.colors.fg,
   },
   buttonText: {
-    fontFamily: tokens.typography.fonts.sans,
+    fontFamily: 'System',
     fontSize: 16,
-    fontWeight: tokens.typography.weights.semibold,
+    fontWeight: '600',
     color: tokens.colors.nearBlack,
   },
   secondaryButtonText: {
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
 });

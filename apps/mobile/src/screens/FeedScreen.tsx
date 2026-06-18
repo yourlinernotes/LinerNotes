@@ -8,14 +8,19 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { tokens } from '../lib/tokens';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../components/ReviewCard';
-import { Icon, Avatar } from '../components/atoms/Icon';
-import { tokens } from '@linernotes/core';
+import { PromptShelf } from '../components/PromptShelf';
+import { Icon } from '../components/atoms/Icon';
+import { Avatar } from '../components/atoms/Avatar';
 import { formatRelativeTime } from '../lib/time-utils';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
-import type { Review } from '@linernotes/core';
+import { askingEngine } from '../services/askingEngine';
+import { lastfm } from '../services/lastfm';
+import type { Review } from '../lib/types';
+import type { PromptTrigger } from '../services/askingEngine';
 
 interface FeedItemData {
   id: string;
@@ -33,16 +38,23 @@ interface FeedItemData {
   createdAt: string;
 }
 
-export function FeedScreen() {
+interface FeedScreenProps {
+  onOpenReview?: (review: Review) => void;
+}
+
+export function FeedScreen({ onOpenReview }: FeedScreenProps) {
   const [feedItems, setFeedItems] = useState<FeedItemData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPrompt, setCurrentPrompt] = useState<PromptTrigger | null>(null);
+  const [lastFmConnected, setLastFmConnected] = useState(false);
 
   async function loadFeed() {
     try {
       setIsLoading(true);
+
+      // Load feed items
       const data = await api.getReviews({ limit: 20 });
-      // Map to feed items with mock social data
       const items: FeedItemData[] = (data as any).map((review: any) => ({
         id: review.id,
         review,
@@ -58,10 +70,40 @@ export function FeedScreen() {
         createdAt: review.createdAt,
       }));
       setFeedItems(items);
+
+      // Load asking engine prompt
+      loadPrompt();
     } catch (error) {
       console.error('Failed to load feed:', error);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function loadPrompt() {
+    try {
+      // Check if Last.fm is connected
+      const isConnected = await lastfm.isConnected();
+      setLastFmConnected(isConnected);
+
+      if (!isConnected) {
+        // No Last.fm connected, skip asking engine
+        return;
+      }
+
+      // Get stored username
+      const username = await lastfm.getUsername();
+      if (!username) return;
+
+      // TODO: Get user's top 4 from profile
+      const prompt = await askingEngine.generatePrompts(username, undefined);
+      setCurrentPrompt(prompt);
+
+      if (prompt) {
+        await askingEngine.markPromptShown();
+      }
+    } catch (error) {
+      console.error('Failed to load asking engine prompt:', error);
     }
   }
 
@@ -76,14 +118,26 @@ export function FeedScreen() {
   }, []);
 
   function handleOpenReview(review: Review) {
-    // TODO: Navigate to Experience screen
-    console.log('Open review:', review.id);
+    if (onOpenReview) {
+      onOpenReview(review);
+    }
+  }
+
+  function handleOpenComposer(prompt: PromptTrigger) {
+    // TODO: Open composer with track/album pre-filled from prompt
+    console.log('Opening composer for prompt:', prompt);
+    // This will be wired to the actual composer when integrated
+  }
+
+  async function handleDismissPrompt(promptId: string) {
+    await askingEngine.dismissPrompt(promptId);
+    setCurrentPrompt(null);
   }
 
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={tokens.colors.cream} />
+        <ActivityIndicator size="large" color={tokens.colors.fg} />
       </View>
     );
   }
@@ -101,11 +155,21 @@ export function FeedScreen() {
         )}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
+        ListHeaderComponent={
+          currentPrompt ? (
+            <PromptShelf
+              prompt={currentPrompt}
+              accent={tokens.colors.gold}
+              onOpenComposer={handleOpenComposer}
+              onDismiss={handleDismissPrompt}
+            />
+          ) : null
+        }
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
-            tintColor={tokens.colors.cream}
+            tintColor={tokens.colors.fg}
           />
         }
         ListFooterComponent={
@@ -291,7 +355,7 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontSize: 17,
     fontWeight: '600',
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     letterSpacing: -0.17,
   },
   content: {
@@ -318,7 +382,7 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontSize: 13.5,
     fontWeight: '600',
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
   userHandle: {
     fontFamily: 'Menlo',

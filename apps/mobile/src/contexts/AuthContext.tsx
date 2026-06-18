@@ -5,13 +5,14 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { api } from '../lib/api-client';
-import type { User } from '@linernotes/core';
+import type { User } from '../lib/types';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   signup: (email: string, password: string, handle: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -50,10 +51,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string) {
     try {
-      const response = await api.loginWithEmail(email, password);
+      const response = await api.login({ email, password });
+      api.setAuthToken(response.token);
       setUser(response.user);
     } catch (error) {
       console.error('Login failed:', error);
+      throw error;
+    }
+  }
+
+  async function loginWithGoogle(idToken: string) {
+    try {
+      const response = await api.loginWithGoogle(idToken);
+      api.setAuthToken(response.token);
+      setUser(response.user);
+    } catch (error) {
+      console.error('Google login failed:', error);
       throw error;
     }
   }
@@ -65,7 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     displayName: string
   ) {
     try {
-      const response = await api.signupWithEmail(email, password, handle, displayName);
+      const response = await api.signup({ email, password, handle, displayName });
+      api.setAuthToken(response.token);
       setUser(response.user);
     } catch (error) {
       console.error('Signup failed:', error);
@@ -98,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoading,
     isAuthenticated: !!user,
+    loginWithGoogle,
     login,
     signup,
     logout,

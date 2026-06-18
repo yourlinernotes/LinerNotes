@@ -15,17 +15,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { lastfm } from '../services/lastfm';
 
-const TURMERIC_PALETTE = {
-  deep: '#23160a',
-  mid: '#7a4a16',
-  lo: '#3a1d0a',
-  accent: '#e8a13a',
-  glow: '#c97a1f',
+// Warm gradient colors for auth screens
+const AUTH_COLORS = {
+  deep: '#1a1512',
+  mid: '#2a1f18',
+  lo: '#1a1512',
+  accent: '#d9b25a', // Standard gold
+  glow: '#c8a45c',
 };
 
 const COLORS = {
@@ -49,6 +52,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [bio, setBio] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [lastFmStatus, setLastFmStatus] = useState<LastFmStatus>('idle');
+  const [lastFmUsername, setLastFmUsername] = useState('');
 
   // Handle validation
   const handleClean = handle.replace(/[^a-z0-9._]/gi, '').toLowerCase();
@@ -68,11 +72,52 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     }
   };
 
-  const connectLastFm = () => {
+  const connectLastFm = async () => {
     if (lastFmStatus !== 'idle') return;
-    setLastFmStatus('linking');
-    // Simulate connection delay
-    setTimeout(() => setLastFmStatus('linked'), 1100);
+
+    // Prompt for Last.fm username
+    Alert.prompt(
+      'Connect Last.fm',
+      'Enter your Last.fm username to sync your listening history',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Connect',
+          onPress: async (username) => {
+            if (!username || username.trim() === '') {
+              return;
+            }
+
+            setLastFmStatus('linking');
+            setLastFmUsername(username.trim());
+
+            try {
+              // Verify the username exists by fetching recent tracks
+              const tracks = await lastfm.getRecentTracks(username.trim(), 1);
+
+              if (tracks && tracks.length > 0) {
+                setLastFmStatus('linked');
+
+                // Save Last.fm username
+                await lastfm.setUsername(username.trim());
+              } else {
+                setLastFmStatus('idle');
+                Alert.alert('Error', 'Could not find that Last.fm username. Please check and try again.');
+              }
+            } catch (error) {
+              setLastFmStatus('idle');
+              Alert.alert('Error', 'Failed to connect to Last.fm. Please check the username and try again.');
+            }
+          },
+        },
+      ],
+      'plain-text',
+      '',
+      'default'
+    );
   };
 
   return (
@@ -80,12 +125,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       {/* Warm flood background */}
       <View style={StyleSheet.absoluteFill}>
         <LinearGradient
-          colors={[TURMERIC_PALETTE.mid, TURMERIC_PALETTE.deep, COLORS.bg]}
+          colors={[AUTH_COLORS.mid, AUTH_COLORS.deep, COLORS.bg]}
           locations={[0, 0.55, 1]}
           style={StyleSheet.absoluteFill}
         />
         <LinearGradient
-          colors={[`${TURMERIC_PALETTE.glow}aa`, 'transparent']}
+          colors={[`${AUTH_COLORS.glow}aa`, 'transparent']}
           locations={[0, 0.6]}
           start={{ x: 0.75, y: 0.08 }}
           end={{ x: 0.5, y: 0.6 }}

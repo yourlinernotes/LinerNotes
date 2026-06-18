@@ -1,3 +1,4 @@
+import { tokens } from '../lib/tokens';
 /**
  * LinerNotes Login/Signup Screen
  * Google OAuth + email/password auth
@@ -21,20 +22,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { useAuth } from '../contexts/AuthContext';
-import { tokens } from '@linernotes/core';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const TURMERIC_PALETTE = {
-  deep: '#23160a',
-  mid: '#7a4a16',
-  lo: '#3a1d0a',
-  accent: '#e8a13a',
-  glow: '#c97a1f',
+// Warm gradient colors for auth screens
+const AUTH_COLORS = {
+  deep: '#1a1512',
+  mid: '#2a1f18',
+  lo: '#1a1512',
+  accent: '#d9b25a', // Standard gold
+  glow: '#c8a45c',
 };
 
 export function LoginScreen() {
-  const { login, signup } = useAuth();
+  const { login, signup, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<'signup' | 'login'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,20 +45,38 @@ export function LoginScreen() {
 
   // Google OAuth configuration
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: 'YOUR_EXPO_CLIENT_ID',
-    iosClientId: 'YOUR_IOS_CLIENT_ID',
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID',
-    webClientId: 'YOUR_WEB_CLIENT_ID',
+    iosClientId: '985992092131-ag9ohcq8t4d7dde659kqq343q5m6af47.apps.googleusercontent.com',
+    webClientId: '985992092131-9e67ajva2nob5efot6bfj1asikhdrdml.apps.googleusercontent.com',
   });
 
   React.useEffect(() => {
     if (response?.type === 'success') {
-      const { authentication } = response;
-      // Handle Google OAuth success
-      console.log('Google OAuth successful:', authentication);
-      // TODO: Send token to backend
+      handleGoogleAuth(response.authentication);
     }
   }, [response]);
+
+  async function handleGoogleAuth(authentication: any) {
+    try {
+      setIsLoading(true);
+
+      // expo-auth-session provides an idToken if configured correctly
+      // Use the ID token for backend authentication
+      const idToken = authentication.idToken || authentication.accessToken;
+
+      console.log('Google auth successful, sending to backend...');
+      await loginWithGoogle(idToken);
+
+      console.log('Login successful!');
+    } catch (error: any) {
+      console.error('Google auth error:', error);
+      Alert.alert(
+        'Authentication Error',
+        error.message || 'Failed to authenticate with Google. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   async function handleEmailAuth() {
     if (!email || !password) {
@@ -92,12 +111,12 @@ export function LoginScreen() {
       {/* Warm flood background */}
       <View style={styles.backgroundContainer}>
         <LinearGradient
-          colors={[TURMERIC_PALETTE.mid, TURMERIC_PALETTE.deep, '#0a0908']}
+          colors={[AUTH_COLORS.mid, AUTH_COLORS.deep, '#0a0908']}
           locations={[0, 0.55, 1]}
           style={StyleSheet.absoluteFill}
         />
         <LinearGradient
-          colors={[`${TURMERIC_PALETTE.glow}aa`, 'transparent']}
+          colors={[`${AUTH_COLORS.glow}aa`, 'transparent']}
           locations={[0, 0.6]}
           style={[StyleSheet.absoluteFill, { opacity: 0.8 }]}
         />
@@ -137,6 +156,10 @@ export function LoginScreen() {
               onPress={() => promptAsync()}
               disabled={!request || isLoading}
             >
+              {/* Google Logo SVG */}
+              <View style={styles.googleLogo}>
+                <Text style={styles.googleLogoText}>G</Text>
+              </View>
               <Text style={styles.googleButtonText}>Continue with Google</Text>
             </TouchableOpacity>
 
@@ -237,7 +260,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0908',
   },
   backgroundContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   keyboardView: {
     flex: 1,
@@ -260,22 +283,22 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontWeight: '600',
     fontSize: 34,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     letterSpacing: -0.34,
   },
   betaBadge: {
     borderWidth: 1,
-    borderColor: `${TURMERIC_PALETTE.accent}55`,
+    borderColor: `${AUTH_COLORS.accent}55`,
     borderRadius: 999,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    marginTop: -6,
+    marginBottom: 4, // Raised up to match design
   },
   betaText: {
     fontFamily: 'System',
     fontSize: 11,
     letterSpacing: 1.54,
-    color: TURMERIC_PALETTE.accent,
+    color: AUTH_COLORS.accent,
     textTransform: 'uppercase',
     fontWeight: '700',
   },
@@ -284,7 +307,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontSize: 21,
     lineHeight: 29.4,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     textAlign: 'center',
     maxWidth: 290,
     marginTop: 20,
@@ -302,7 +325,21 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 14,
     borderRadius: 13,
-    backgroundColor: tokens.colors.cream,
+    backgroundColor: tokens.colors.fg,
+  },
+  googleLogo: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleLogoText: {
+    fontFamily: 'System',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4285F4',
   },
   googleButtonText: {
     fontFamily: 'System',
@@ -330,7 +367,7 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     backgroundColor: 'rgba(241,235,224,0.07)',
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     borderWidth: 1,
     borderColor: 'rgba(241,235,224,0.16)',
     borderRadius: 13,
@@ -342,7 +379,7 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 14,
     borderRadius: 13,
-    backgroundColor: TURMERIC_PALETTE.accent,
+    backgroundColor: AUTH_COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
@@ -371,7 +408,7 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontSize: 13,
     fontWeight: '600',
-    color: TURMERIC_PALETTE.accent,
+    color: AUTH_COLORS.accent,
   },
   disclaimer: {
     fontFamily: 'Menlo',

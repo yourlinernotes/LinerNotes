@@ -18,11 +18,8 @@ import type {
 // CONFIGURATION
 // ============================================================================
 
-/** API base URL - override via env var */
-export const API_BASE_URL =
-  typeof process !== 'undefined'
-    ? process.env.NEXT_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api'
-    : 'http://localhost:3001/api';
+/** API base URL - hardcoded for now to avoid React Native env issues */
+export const API_BASE_URL = 'http://localhost:3001/api';
 
 // ============================================================================
 // HTTP CLIENT

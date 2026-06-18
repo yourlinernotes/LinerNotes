@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusBar as RNStatusBar, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScreen } from './src/screens';
 import { MenuIcon, PlusIcon } from './src/components/atoms';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
-import { tokens } from '@linernotes/core';
+import { tokens } from './src/lib/tokens';
 import { MOCK_REVIEWS } from './src/data/mockData';
+import { notificationService } from './src/services/notifications';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -15,6 +16,35 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
   const [activeReview, setActiveReview] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
+
+  // TODO: Re-enable after updating provisioning profile with push notifications
+  // Initialize notifications when user is logged in
+  // useEffect(() => {
+  //   if (user) {
+  //     initializeNotifications();
+  //   }
+  // }, [user]);
+
+  // async function initializeNotifications() {
+  //   try {
+  //     const token = await notificationService.initialize();
+  //     console.log('Push token:', token);
+
+  //     // Schedule daily prompt (for testing, triggers after 5 seconds)
+  //     await notificationService.scheduleDailyPrompt();
+
+  //     // Listen for notification taps
+  //     notificationService.addNotificationResponseListener((response) => {
+  //       const data = response.notification.request.content.data;
+  //       console.log('Notification tapped:', data);
+
+  //       // TODO: Open composer with track/album from notification data
+  //       setComposerOpen(true);
+  //     });
+  //   } catch (error) {
+  //     console.error('Failed to initialize notifications:', error);
+  //   }
+  // }
 
   const openReview = (review: any) => {
     setActiveReview(review);
@@ -29,7 +59,7 @@ function AppContent() {
     return (
       <View style={[styles.container, styles.centered]}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color={tokens.colors.cream} />
+        <ActivityIndicator size="large" color={tokens.colors.fg} />
       </View>
     );
   }
@@ -76,7 +106,7 @@ function AppContent() {
 
         {/* Tab content */}
         {activeTab === 'feed' && (
-          <FeedScreen reviews={MOCK_REVIEWS} onOpenReview={openReview} />
+          <FeedScreen onOpenReview={openReview} />
         )}
         {activeTab === 'profile' && <ProfileScreen />}
 
@@ -128,7 +158,7 @@ function TabButton({
         style={[
           styles.tabLabel,
           {
-            color: active ? tokens.colors.fg : `rgba(${tokens.colors.fgRgb}, 0.4)`,
+            color: active ? tokens.colors.fg : tokens.colors.gold + '66',
             borderTopColor: active ? tokens.colors.gold : 'transparent',
           },
         ]}
@@ -142,7 +172,7 @@ function TabButton({
 function LogButton({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity onPress={onPress} style={styles.logButton}>
-      <PlusIcon size={20} color={tokens.colors.bg} />
+      <PlusIcon size={20} color={tokens.colors.nearBlack} />
     </TouchableOpacity>
   );
 }
@@ -150,7 +180,7 @@ function LogButton({ onPress }: { onPress: () => void }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.bg,
+    backgroundColor: tokens.colors.nearBlack,
     paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
   },
   main: {
@@ -179,12 +209,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   appTitle: {
-    fontFamily: tokens.typography.fonts.display,
-    fontWeight: tokens.typography.weights.semibold,
-    fontSize: tokens.typography.sizes.appTitle,
+    fontFamily: 'System',
+    fontWeight: '600',
+    fontSize: 20,
     color: tokens.colors.fg,
     letterSpacing: -0.2,
-    lineHeight: tokens.typography.sizes.appTitle,
+    lineHeight: 20,
   },
   betaBadge: {
     borderWidth: 1,
@@ -196,11 +226,11 @@ const styles = StyleSheet.create({
     top: -4,
   },
   betaText: {
-    fontFamily: tokens.typography.fonts.mono,
-    fontSize: tokens.typography.sizes.betaBadge,
+    fontFamily: 'System',
+    fontSize: 10,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
-    fontWeight: tokens.typography.weights.bold,
+    fontWeight: '700',
     color: tokens.colors.gold,
   },
   menuButton: {
@@ -208,8 +238,8 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: `rgba(${tokens.colors.lineRgb}, 0.14)`,
-    backgroundColor: tokens.colors.bg,
+    borderColor: tokens.colors.fg + '24',
+    backgroundColor: tokens.colors.nearBlack,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -223,7 +253,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: tokens.colors.gold,
     borderWidth: 1.5,
-    borderColor: tokens.colors.bg,
+    borderColor: tokens.colors.nearBlack,
   },
   tabBar: {
     position: 'absolute',
@@ -243,11 +273,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   tabLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'System',
     fontSize: 11.5,
     letterSpacing: 1.6,
     textTransform: 'uppercase',
-    fontWeight: tokens.typography.weights.semibold,
+    fontWeight: '600',
     borderTopWidth: 1.5,
     paddingTop: 2,
   },
@@ -265,11 +295,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   experienceOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 20,
   },
   composerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 30,
   },
   centered: {

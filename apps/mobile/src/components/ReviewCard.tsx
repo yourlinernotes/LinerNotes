@@ -1,17 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { AlbumArt, Stars, SaveIcon, ReactionIcon } from './atoms';
-import { tokens } from '@linernotes/core';
 import type { FeedReview } from '../data/mockData';
+import { tokens } from '../lib/tokens';
 
 interface ReviewCardProps {
   review: FeedReview;
   accent?: string;
   onPress?: () => void;
   context?: 'feed' | 'share';
+  variant?: 'story' | 'cameraRoll'; // story = space for link sticker, cameraRoll = no space
 }
 
-export function ReviewCard({ review, accent, onPress, context = 'feed' }: ReviewCardProps) {
+export function ReviewCard({ review, accent, onPress, context = 'feed', variant }: ReviewCardProps) {
   const { album, rating } = review;
   const gold = accent || tokens.colors.gold;
   const isAlbum = !!(album.tracks && album.tracks.length > 0);
@@ -25,11 +26,14 @@ export function ReviewCard({ review, accent, onPress, context = 'feed' }: Review
 
   const padding = tokens.layout.cardPadding[depth];
 
+  // Add top padding for story variant (space for link sticker)
+  const topPadding = variant === 'story' ? 80 : 0;
+
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      style={styles.card}
+      style={[styles.card, topPadding > 0 && { paddingTop: topPadding }]}
       disabled={!onPress}
     >
       {/* Subtle accent tint */}
@@ -152,7 +156,7 @@ function TrackStrip({ tracks, gold }: { tracks: any[]; gold: string }) {
           <Text
             style={[
               styles.trackName,
-              { color: t.reaction ? tokens.colors.fg : `rgba(${tokens.colors.fgRgb}, 0.55)` },
+              { color: t.reaction ? tokens.colors.fg : tokens.colors.fg + '88' },
             ]}
             numberOfLines={1}
           >
@@ -187,9 +191,9 @@ const styles = StyleSheet.create({
   card: {
     position: 'relative',
     borderRadius: tokens.layout.radius.card,
-    backgroundColor: tokens.colors.bg,
+    backgroundColor: tokens.colors.nearBlack,
     borderWidth: 1,
-    borderColor: `rgba(${tokens.colors.lineRgb}, 0.07)`,
+    borderColor: tokens.colors.fg + '12',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 18 },
@@ -219,7 +223,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.layout.radius.pill,
     backgroundColor: 'rgba(8, 7, 6, 0.55)',
     borderWidth: 1,
-    borderColor: `rgba(${tokens.colors.lineRgb}, 0.1)`,
+    borderColor: tokens.colors.fg + '1A',
   },
   badge: {
     position: 'absolute',
@@ -230,10 +234,10 @@ const styles = StyleSheet.create({
     borderRadius: tokens.layout.radius.pill,
     backgroundColor: 'rgba(8, 7, 6, 0.5)',
     borderWidth: 1,
-    borderColor: `rgba(${tokens.colors.lineRgb}, 0.1)`,
+    borderColor: tokens.colors.fg + '1A',
   },
   badgeText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 9.5,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
@@ -247,24 +251,24 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontFamily: tokens.typography.fonts.display,
-    fontWeight: tokens.typography.weights.semibold,
-    fontSize: tokens.typography.sizes.cardTitle,
-    lineHeight: tokens.typography.sizes.cardTitle * 1.12,
+    fontFamily: 'System',
+    fontWeight: '600',
+    fontSize: 20,
+    lineHeight: 22.4,
     color: tokens.colors.fg,
     letterSpacing: -0.2,
   },
   artist: {
-    fontFamily: tokens.typography.fonts.body,
-    fontSize: tokens.typography.sizes.cardArtist,
+    fontFamily: 'System',
+    fontSize: 15,
     color: tokens.colors.muted,
   },
   previewLine: {
-    fontFamily: tokens.typography.fonts.preview,
+    fontFamily: 'System',
     fontStyle: 'italic',
     fontWeight: '500',
-    fontSize: tokens.typography.sizes.previewLine,
-    lineHeight: tokens.typography.sizes.previewLine * 1.4,
+    fontSize: 16,
+    lineHeight: 22.4,
     color: tokens.colors.fg,
   },
   floorRating: {
@@ -274,15 +278,15 @@ const styles = StyleSheet.create({
     paddingTop: 1,
   },
   ratingNum: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 15,
     letterSpacing: -0.3,
   },
   ratedLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10,
     letterSpacing: 0.8,
-    color: `rgba(${tokens.colors.fgRgb}, 0.38)`,
+    color: tokens.colors.fg + '61',
     textTransform: 'uppercase',
     marginLeft: 2,
   },
@@ -299,24 +303,24 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   momentTime: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 12.5,
-    fontWeight: tokens.typography.weights.semibold,
-    color: tokens.colors.bg,
+    fontWeight: '600',
+    color: tokens.colors.nearBlack,
     letterSpacing: -0.25,
   },
   momentNote: {
     flex: 1,
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 13.5,
-    lineHeight: 13.5 * 1.35,
-    color: `rgba(${tokens.colors.fgRgb}, 0.86)`,
+    lineHeight: 18.225,
+    color: tokens.colors.fg + 'DC',
   },
   strip: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: `rgba(${tokens.colors.fgRgb}, 0.09)`,
-    backgroundColor: `rgba(${tokens.colors.fgRgb}, 0.02)`,
+    borderColor: tokens.colors.fg + '17',
+    backgroundColor: tokens.colors.fg + '05',
     overflow: 'hidden',
   },
   stripHeader: {
@@ -326,14 +330,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: `rgba(${tokens.colors.fgRgb}, 0.07)`,
+    borderBottomColor: tokens.colors.fg + '12',
   },
   stripLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 9.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: `rgba(${tokens.colors.fgRgb}, 0.5)`,
+    color: tokens.colors.fg + '80',
   },
   momentCount: {
     flexDirection: 'row',
@@ -341,7 +345,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   momentCountText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10,
   },
   trackRow: {
@@ -351,17 +355,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: `rgba(${tokens.colors.fgRgb}, 0.05)`,
+    borderBottomColor: tokens.colors.fg + '0D',
   },
   trackNum: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10.5,
-    color: `rgba(${tokens.colors.fgRgb}, 0.38)`,
+    color: tokens.colors.fg + '61',
     width: 16,
   },
   trackName: {
     flex: 1,
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 13.5,
   },
   trackMomentBadge: {
@@ -373,7 +377,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   trackMomentCount: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10,
   },
   emptyReaction: {
@@ -382,7 +386,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: `rgba(${tokens.colors.fgRgb}, 0.18)`,
+    borderColor: tokens.colors.fg + '2E',
   },
   cta: {
     marginTop: 1,
@@ -394,24 +398,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaText: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 12.5,
-    fontWeight: tokens.typography.weights.semibold,
+    fontWeight: '600',
     letterSpacing: 0.1,
   },
   footer: {
     marginTop: 2,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: `rgba(${tokens.colors.fgRgb}, 0.1)`,
+    borderTopColor: tokens.colors.fg + '1A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   footerText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10.5,
     letterSpacing: 0.4,
-    color: `rgba(${tokens.colors.fgRgb}, 0.45)`,
+    color: tokens.colors.fg + '73',
   },
 });

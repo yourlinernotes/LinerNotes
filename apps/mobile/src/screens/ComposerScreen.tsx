@@ -17,12 +17,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Icon, Reaction, Stars } from '../components/atoms/Icon';
+import { Icon } from '../components/atoms/Icon';
+import { Reaction } from '../components/atoms/Reactions';
+import { Stars } from '../components/atoms/Stars';
 import { ReviewCard } from '../components/ReviewCard';
 import { formatTimestamp } from '../lib/time-utils';
 import { api } from '../lib/api-client';
-import { tokens } from '@linernotes/core';
-import type { Moment, ReactionType } from '@linernotes/core';
+import type { Moment, ReactionType } from '../lib/types';
+import { tokens } from '../lib/tokens';
 
 type ComposerMode = 'track' | 'album' | 'playlist';
 
@@ -114,7 +116,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
               New {mode === 'playlist' ? 'playlist' : mode === 'track' ? 'track note' : 'album review'}
             </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={17} color={tokens.colors.cream} />
+              <Icon name="close" size={17} color={tokens.colors.fg} />
             </TouchableOpacity>
           </View>
         </View>
@@ -329,7 +331,7 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontWeight: '600',
     fontSize: 20,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
   closeButton: {
     width: 34,
@@ -399,7 +401,7 @@ const styles = StyleSheet.create({
     paddingTop: 11,
     fontFamily: 'System',
     fontSize: 14.5,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     minHeight: 100,
   },
   momentsContainer: {
@@ -450,7 +452,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Menlo',
     fontSize: 15,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
   momentColon: {
     fontFamily: 'Menlo',
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     fontFamily: 'System',
     fontSize: 13,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
   momentAddButton: {
     width: 36,

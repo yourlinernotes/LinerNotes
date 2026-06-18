@@ -1,3 +1,4 @@
+import { tokens } from '../lib/tokens';
 /**
  * LinerNotes Experience Screen
  * Immersive read-along with album-color background
@@ -5,12 +6,13 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Linking, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Icon, Stars } from '../components/atoms/Icon';
-import { tokens } from '@linernotes/core';
+import { Icon } from '../components/atoms/Icon';
+import { Stars } from '../components/atoms/Stars';
 import { formatTimestamp } from '../lib/time-utils';
-import type { Review } from '@linernotes/core';
+import type { Review } from '../lib/types';
+import { odesli } from '../services/odesli';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -43,9 +45,40 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
   const isAlbum = !!(album.tracks && album.tracks.length > 0);
   const npTrack = album.tracks?.find((t) => t.moments && t.moments.length > 0);
 
-  const openSpotify = () => {
+  const openSpotify = async () => {
     setSpotifyOpening(true);
-    setTimeout(() => setSpotifyOpening(false), 1900);
+
+    try {
+      // Try to get Spotify link via Odesli
+      const artist = album?.artist || track?.artists?.[0]?.name;
+      const title = album?.title || track?.name;
+
+      if (!artist || !title) {
+        Alert.alert('Error', 'Unable to open in Spotify - missing track info');
+        setSpotifyOpening(false);
+        return;
+      }
+
+      const links = await odesli.searchTrack(artist, title);
+
+      if (links?.linksByPlatform?.spotify) {
+        const spotifyUri = links.linksByPlatform.spotify.nativeAppUriMobile || links.linksByPlatform.spotify.url;
+
+        const canOpen = await Linking.canOpenURL(spotifyUri);
+        if (canOpen) {
+          await Linking.openURL(spotifyUri);
+        } else {
+          Alert.alert('Spotify Not Found', 'Please install Spotify to open this track');
+        }
+      } else {
+        Alert.alert('Not Found', 'Could not find this track on Spotify');
+      }
+    } catch (error) {
+      console.error('Failed to open Spotify:', error);
+      Alert.alert('Error', 'Failed to open Spotify');
+    } finally {
+      setTimeout(() => setSpotifyOpening(false), 1900);
+    }
   };
 
   const tapNote = (key: string) => {
@@ -315,7 +348,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   experienceLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10.5,
     letterSpacing: 0.8,
     color: 'rgba(241,235,224,0.65)',
@@ -345,7 +378,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   coverLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10,
     color: 'rgba(241,235,224,0.4)',
     textAlign: 'center',
@@ -353,18 +386,18 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 18,
-    fontFamily: tokens.typography.fonts.display,
-    fontWeight: tokens.typography.weights.semibold,
-    fontSize: tokens.typography.sizes.experienceTitle,
-    lineHeight: tokens.typography.sizes.experienceTitle * 1.1,
+    fontFamily: 'System',
+    fontWeight: '600',
+    fontSize: 26,
+    lineHeight: 28.6,
     color: '#f1ebe0',
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   artist: {
     marginTop: 3,
-    fontFamily: tokens.typography.fonts.body,
-    fontSize: tokens.typography.sizes.experienceArtist,
+    fontFamily: 'System',
+    fontSize: 18,
     color: 'rgba(241,235,224,0.72)',
   },
   rating: {
@@ -391,9 +424,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   spotifyText: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 13,
-    fontWeight: tokens.typography.weights.semibold,
+    fontWeight: '600',
     color: '#f1ebe0',
   },
   nowPlaying: {
@@ -422,18 +455,18 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   nowPlayingLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 9.5,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   nowPlayingTrack: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 14,
     color: '#f1ebe0',
   },
   nowPlayingSource: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 9.5,
     color: 'rgba(241,235,224,0.5)',
     letterSpacing: 0.3,
@@ -441,19 +474,19 @@ const styles = StyleSheet.create({
   },
   quote: {
     marginTop: 24,
-    fontFamily: tokens.typography.fonts.preview,
+    fontFamily: 'System',
     fontStyle: 'italic',
-    fontSize: tokens.typography.sizes.experienceQuote,
-    lineHeight: tokens.typography.sizes.experienceQuote * 1.4,
+    fontSize: 18,
+    lineHeight: 25.2,
     color: '#f1ebe0',
     textAlign: 'center',
     maxWidth: 320,
   },
   body: {
     marginTop: 18,
-    fontFamily: tokens.typography.fonts.body,
-    fontSize: tokens.typography.sizes.experienceBody,
-    lineHeight: tokens.typography.sizes.experienceBody * 1.62,
+    fontFamily: 'System',
+    fontSize: 16,
+    lineHeight: 25.92,
     color: 'rgba(241,235,224,0.78)',
     maxWidth: 340,
   },
@@ -462,14 +495,14 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   sectionLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    fontWeight: tokens.typography.weights.semibold,
+    fontWeight: '600',
   },
   momentInstructions: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 11.5,
     color: 'rgba(241,235,224,0.5)',
     marginTop: 9,
@@ -493,21 +526,21 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   momentTimeText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 12.5,
-    fontWeight: tokens.typography.weights.semibold,
-    color: tokens.colors.bg,
+    fontWeight: '600',
+    color: tokens.colors.nearBlack,
     letterSpacing: -0.25,
   },
   momentNoteText: {
     flex: 1,
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 13.5,
     lineHeight: 18,
     color: 'rgba(241,235,224,0.86)',
   },
   readAhead: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 9,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -531,19 +564,19 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(241,235,224,0.06)',
   },
   trackStripNum: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 11,
     color: 'rgba(241,235,224,0.4)',
     width: 20,
   },
   trackStripName: {
     flex: 1,
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 14,
     color: '#f1ebe0',
   },
   trackStripMomentCount: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10.5,
   },
   trackMoments: {
@@ -561,7 +594,7 @@ const styles = StyleSheet.create({
   },
   trackMomentText: {
     flex: 1,
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 13,
     lineHeight: 17,
     color: 'rgba(241,235,224,0.8)',

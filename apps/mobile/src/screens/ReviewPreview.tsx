@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
 import { ReviewCard } from '../components/ReviewCard';
-import type { Review } from '@linernotes/core';
+import type { Review } from '../lib/types';
 
 /**
  * Preview screen to demonstrate the ReviewCard component

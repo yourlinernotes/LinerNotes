@@ -1,3 +1,4 @@
+import { tokens } from '../lib/tokens';
 /**
  * LinerNotes Profile Screen
  * User profile with favourites, recent ratings, and notes/saved tabs
@@ -13,16 +14,18 @@ import {
   StyleSheet,
   Dimensions,
   FlatList,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../components/ReviewCard';
-import { Icon, Avatar, Stars } from '../components/atoms/Icon';
-import { tokens } from '@linernotes/core';
+import { Icon } from '../components/atoms/Icon';
+import { Avatar } from '../components/atoms/Avatar';
+import { Stars } from '../components/atoms/Stars';
 import { formatRelativeTime } from '../lib/time-utils';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
-import { shareCard } from '../lib/share-utils';
-import type { Review } from '@linernotes/core';
+import { shareToInstagramStory, shareToTikTok, shareToTwitter, saveCardImage } from '../lib/share-utils';
+import type { Review } from '../lib/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -56,6 +59,7 @@ export function ProfileScreen() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [tab, setTab] = useState<TabType>('notes');
   const gold = '#d9b25a';
+  const top4CardRef = useRef(null);
 
   useEffect(() => {
     loadProfile();
@@ -83,6 +87,34 @@ export function ProfileScreen() {
     };
     setProfile(mockProfile);
   }
+
+  const handleShareTop4 = async () => {
+    if (!top4CardRef.current) return;
+
+    // Show share options for Top 4 card
+    Alert.alert(
+      'Share your Top 4',
+      'Export as sticker to story or camera roll',
+      [
+        {
+          text: 'Camera Roll',
+          onPress: () => saveCardImage(top4CardRef.current),
+        },
+        {
+          text: 'Instagram',
+          onPress: () => shareToInstagramStory(top4CardRef.current),
+        },
+        {
+          text: 'TikTok',
+          onPress: () => shareToTikTok(top4CardRef.current),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
 
   if (!profile) {
     return (
@@ -129,11 +161,19 @@ export function ProfileScreen() {
         {/* Favourites - Top 4 */}
         {profile.top4.length > 0 && (
           <>
-            <Section gold={gold} label="favourites" />
-            <View style={styles.top4Grid}>
-              {profile.top4.map((entry, i) => (
-                <AlbumTile key={i} entry={entry} big />
-              ))}
+            <Section gold={gold} label="favourites" onShare={handleShareTop4} />
+            <View ref={top4CardRef} collapsable={false} style={styles.top4Container}>
+              <View style={styles.top4Grid}>
+                {profile.top4.map((entry, i) => (
+                  <AlbumTile key={i} entry={entry} big />
+                ))}
+              </View>
+              {/* User attribution for shared card */}
+              <View style={styles.top4Attribution}>
+                <Text style={styles.top4AttrText}>
+                  @{profile.user.handle}'s top 4 · linernotes.app
+                </Text>
+              </View>
             </View>
           </>
         )}
@@ -267,15 +307,35 @@ function ProfileNote({
   const [like, setLike] = useState({ on: false, n: 0 });
   const [save, setSave] = useState(kind === 'saved');
   const [repost, setRepost] = useState({ on: kind === 'repost', n: 0 });
-  const cardRef = useRef(null);
+  const storyCardRef = useRef(null); // For Instagram (with link sticker space)
+  const regularCardRef = useRef(null); // For TikTok/Twitter (no space)
 
   const handleShare = async () => {
-    if (cardRef.current) {
-      await shareCard(cardRef.current, {
-        title: 'Share LinerNote',
-        message: `Check out this review on LinerNotes!`,
-      });
-    }
+    const reviewUrl = `https://linernotes.app/review/${review.id}`; // TODO: Update with actual URL
+
+    // Show share options matching Claude Design: Camera Roll, Instagram, TikTok
+    Alert.alert(
+      'Share your note',
+      'Export to story or camera roll',
+      [
+        {
+          text: 'Camera Roll',
+          onPress: () => shareToTwitter(regularCardRef.current, reviewUrl),
+        },
+        {
+          text: 'Instagram',
+          onPress: () => shareToInstagramStory(storyCardRef.current),
+        },
+        {
+          text: 'TikTok',
+          onPress: () => shareToTikTok(regularCardRef.current),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   return (
@@ -298,7 +358,13 @@ function ProfileNote({
         </View>
       )}
 
-      <View ref={cardRef} collapsable={false}>
+      {/* Hidden story variant for Instagram sharing (with link sticker space) */}
+      <View style={{ position: 'absolute', left: -9999, top: 0 }} ref={storyCardRef} collapsable={false}>
+        <ReviewCard review={review} accent={gold} context="share" variant="story" />
+      </View>
+
+      {/* Visible regular card (also used for TikTok/Twitter sharing) */}
+      <View ref={regularCardRef} collapsable={false}>
         <ReviewCard review={review} accent={gold} context="share" />
       </View>
 
@@ -374,9 +440,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 14,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
   scroll: {
     flex: 1,
@@ -400,7 +466,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: tokens.typography.fonts.display,
+    fontFamily: 'System',
     fontWeight: '600',
     fontSize: 32,
   },
@@ -410,15 +476,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   name: {
-    fontFamily: tokens.typography.fonts.display,
+    fontFamily: 'System',
     fontWeight: '600',
     fontSize: 23,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     lineHeight: 25,
     letterSpacing: -0.23,
   },
   handle: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 12,
     color: 'rgba(241,235,224,0.5)',
   },
@@ -431,14 +497,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statNumber: {
-    fontFamily: tokens.typography.fonts.display,
+    fontFamily: 'System',
     fontWeight: '600',
     fontSize: 16,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     lineHeight: 18,
   },
   statLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 9.5,
     letterSpacing: 0.95,
     textTransform: 'uppercase',
@@ -447,7 +513,7 @@ const styles = StyleSheet.create({
   },
   bio: {
     marginTop: 15,
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 14,
     lineHeight: 21,
     color: 'rgba(241,235,224,0.78)',
@@ -462,10 +528,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editButtonText: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 13.5,
     fontWeight: '500',
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
   section: {
     flexDirection: 'row',
@@ -474,7 +540,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   sectionLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 11,
     letterSpacing: 1.98,
     textTransform: 'uppercase',
@@ -495,15 +561,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   shareText: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 11.5,
     fontWeight: '600',
+  },
+  top4Container: {
+    marginTop: 13,
+    backgroundColor: tokens.colors.nearBlack,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.08)',
   },
   top4Grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 13,
-    marginTop: 13,
+  },
+  top4Attribution: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  top4AttrText: {
+    fontFamily: 'Menlo',
+    fontSize: 10,
+    letterSpacing: 0.5,
+    color: 'rgba(241,235,224,0.4)',
   },
   weekScroll: {
     gap: 11,
@@ -537,7 +621,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   albumArtLabel: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10,
     color: 'rgba(241,235,224,0.4)',
     textAlign: 'center',
@@ -558,13 +642,13 @@ const styles = StyleSheet.create({
     paddingLeft: 1,
   },
   albumTitle: {
-    fontFamily: tokens.typography.fonts.display,
+    fontFamily: 'System',
     fontWeight: '600',
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     lineHeight: 16,
   },
   albumArtist: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 11.5,
     color: 'rgba(241,235,224,0.6)',
     marginTop: 2,
@@ -581,7 +665,7 @@ const styles = StyleSheet.create({
     marginBottom: -1,
   },
   tabText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
@@ -589,7 +673,7 @@ const styles = StyleSheet.create({
     color: 'rgba(241,235,224,0.4)',
   },
   tabTextActive: {
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
   feed: {
     gap: 26,
@@ -605,7 +689,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   noteHeaderText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10.5,
     letterSpacing: 0.42,
     color: 'rgba(241,235,224,0.5)',
@@ -614,13 +698,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   noteUserName: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 13,
     fontWeight: '600',
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
   },
   noteUserHandle: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 10,
     color: 'rgba(241,235,224,0.45)',
   },
@@ -639,7 +723,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   actionCount: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 12,
   },
   shareNoteButton: {
@@ -652,7 +736,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   shareNoteText: {
-    fontFamily: tokens.typography.fonts.body,
+    fontFamily: 'System',
     fontSize: 12.5,
     fontWeight: '600',
   },
@@ -661,7 +745,7 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   emptyText: {
-    fontFamily: tokens.typography.fonts.mono,
+    fontFamily: 'Menlo',
     fontSize: 11,
     color: 'rgba(241,235,224,0.4)',
   },

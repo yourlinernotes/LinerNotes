@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "pnpm --parallel dev",
     "build": "pnpm -r build",
-    "clean": "pnpm -r clean && rm -rf node_modules"
+    "clean": "rm -rf node_modules pnpm-lock.yaml apps/*/node_modules packages/*/node_modules",
+    "android": "cd apps/mobile && expo run:android",
+    "ios": "cd apps/mobile && expo run:ios"
   },
   "engines": {
     "node": ">=20.0.0",
