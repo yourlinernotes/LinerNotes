@@ -9,6 +9,28 @@ Google auth, the deployed backend mismatch, and outstanding work.
 
 ---
 
+## 0. Start here (new session)
+
+- **Repo:** `https://github.com/yourlinernotes/LinerNotes` · local: `C:\Users\abiay\LinerNotes`
+- **⚠️ A fresh clone checks out `master` (the abandoned v0 scaffold), because
+  `origin/HEAD → master`.** You MUST `git checkout main` — otherwise you're editing the
+  wrong app (a different, single-app expo-router scaffold; an old clone even had the whole
+  project nested under an `OneDrive/Desktop/...` path). Everything below assumes `main`.
+- **Verify you're oriented:** `git checkout main && git pull` → you should see
+  `apps/mobile`, `apps/web`, `apps/backend`, `packages/`, `pnpm-workspace.yaml`, and these
+  two docs at the repo root.
+- **Then:** `corepack pnpm install` (see §1). Read [`TODO.md`](./TODO.md) for the
+  prioritized next steps.
+- **Resume point (where we stopped):** the **feed side-menu button** (`apps/mobile/App.tsx`,
+  the `menuButton` with no `onPress`). Start by wiring **logout** (`useAuth().logout()`).
+  See §6 / TODO. Also: the backend auth fix is committed but **not yet deployed to Vercel**
+  (§4) — mobile profile-save + feed will 401 until it is.
+- **Current state of the Android test on device (Samsung A53):** dev build installs & runs;
+  Google Sign-In redirects back into the app correctly; "Continue" in profile creation and
+  the feed return **401 pending the Vercel deploy** of the auth fix.
+
+---
+
 ## 1. Repo / environment
 
 - **Working dir:** `C:\Users\abiay\LinerNotes` (Windows 11, PowerShell + Git Bash).
