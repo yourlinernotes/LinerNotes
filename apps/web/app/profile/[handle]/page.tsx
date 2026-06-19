@@ -35,7 +35,7 @@ function AlbumTile({ review, onOpen, rank }: { review: Review; onOpen: () => voi
   const [hover, setHover] = useState(false);
   const p = paletteFromString(review.track.trackId || review.track.album || review.track.name);
   return (
-    <button onClick={onOpen} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="ln-card-hover" style={{ display: "flex", flexDirection: "column", gap: 9, minWidth: 0, cursor: "pointer", background: "none", border: "none", padding: 0, textAlign: "left", transform: hover ? "translateY(-3px)" : "none" }}>
+    <button onClick={onOpen} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="ln-card-hover" style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", minWidth: 0, boxSizing: "border-box", cursor: "pointer", background: "none", border: "none", padding: 0, textAlign: "left", transform: hover ? "translateY(-3px)" : "none" }}>
       <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: hover ? "0 22px 44px -22px var(--ln-shadow)" : "0 12px 28px -18px var(--ln-shadow)" }}>
         <LNArt palette={p} src={review.track.artworkUrl} label="" radius={12} noTag />
         {review.rating > 0 && (
