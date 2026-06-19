@@ -377,6 +377,10 @@ class APIClient {
     return this.request('/music/connections');
   }
 
+  async getLastFmConnection(): Promise<{ connected: boolean; username?: string; connectedAt?: string }> {
+    return this.request('/connect/lastfm');
+  }
+
   // ==========================================================================
   // MUSIC SEARCH
   // ==========================================================================

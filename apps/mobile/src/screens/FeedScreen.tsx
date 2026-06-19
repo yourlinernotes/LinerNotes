@@ -91,15 +91,27 @@ export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
 
   async function loadPrompt() {
     try {
-      // Initialize Last.fm service to load stored username from AsyncStorage
-      await lastfm.initialize();
+      // Check Last.fm connection status from backend (web connections sync here)
+      let username: string | undefined;
+      try {
+        const connection = await api.getLastFmConnection();
+        setLastFmConnected(connection.connected);
+        username = connection.username;
 
-      // Last.fm powers live-listening prompts (optional).
-      const isConnected = await lastfm.isConnected();
-      setLastFmConnected(isConnected);
-      const username = isConnected ? (await lastfm.getUsername()) ?? undefined : undefined;
+        // Sync to local AsyncStorage for offline access
+        if (connection.connected && connection.username) {
+          await lastfm.setUsername(connection.username);
+        }
+      } catch (error) {
+        console.error('[Feed] Failed to check Last.fm connection from backend:', error);
+        // Fallback to local AsyncStorage check
+        await lastfm.initialize();
+        const isConnected = await lastfm.isConnected();
+        setLastFmConnected(isConnected);
+        username = isConnected ? (await lastfm.getUsername()) ?? undefined : undefined;
+      }
 
-      console.log('[Feed] Loading prompts - Last.fm connected:', isConnected, 'username:', username);
+      console.log('[Feed] Loading prompts - Last.fm connected:', username ? true : false, 'username:', username);
 
       // Profile Top 4 powers prompts even without Last.fm connected.
       const top4Albums = (user?.favourites?.albums ?? []).map((a) => ({
