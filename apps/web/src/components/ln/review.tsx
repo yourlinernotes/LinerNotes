@@ -130,7 +130,15 @@ export function ImmersiveReview({
   // everything after it is the full review, kept in the order it was written.
   const takeLines = (vm.take || "").split("\n").map((s) => s.trim()).filter(Boolean);
   const caption = takeLines[0] || "";
-  const restLines = takeLines.slice(1);
+  // Body = everything after the pull-quote line. Back-compat: notes saved before
+  // the pull-quote change stored the caption ONLY as the lead line and dropped it
+  // from the body. If the body no longer contains the caption, surface it so the
+  // full review still reads with the caption included (its exact original position
+  // can't be recovered for those older notes).
+  let restLines = takeLines.slice(1);
+  if (takeLines.length > 1 && caption && !restLines.includes(caption)) {
+    restLines = [caption, ...restLines];
+  }
 
   const [spotify, setSpotify] = useState(false);
   const [follow, setFollow] = useState(false);
