@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * GET /api/music/search/albums - Search for albums using iTunes API
+ * GET /api/music/search/albums - Multi-source album search
+ * Uses MusicBrainz (comprehensive) + Cover Art Archive + iTunes fallback
  * Public endpoint (no auth required for search)
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q");
-  const limit = searchParams.get("limit") || "20";
+  const limit = parseInt(searchParams.get("limit") || "20");
 
   if (!query || query.trim().length < 2) {
     return NextResponse.json(
@@ -17,30 +18,76 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Use iTunes Search API
-    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=album&limit=${limit}`;
-    const response = await fetch(itunesUrl);
+    const results = [];
+    const seenAlbums = new Set<string>(); // Dedupe by artist+album
 
-    if (!response.ok) {
-      throw new Error(`iTunes API returned ${response.status}`);
+    // 1. Search MusicBrainz first (most comprehensive)
+    try {
+      const mbUrl = `https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}`;
+      const mbResponse = await fetch(mbUrl, {
+        headers: { "User-Agent": "LinerNotes/1.0 (contact@linernotes.app)" },
+      });
+
+      if (mbResponse.ok) {
+        const mbData = await mbResponse.json();
+        const releaseGroups = mbData["release-groups"] || [];
+
+        for (const rg of releaseGroups) {
+          if (rg["primary-type"] === "Album" && rg["artist-credit"]?.[0]?.name) {
+            const key = `${rg["artist-credit"][0].name.toLowerCase()}-${rg.title.toLowerCase()}`;
+            if (!seenAlbums.has(key)) {
+              seenAlbums.add(key);
+              results.push({
+                id: rg.id,
+                name: rg.title,
+                artist: rg["artist-credit"][0].name,
+                artworkUrl: `https://coverartarchive.org/release-group/${rg.id}/front-500`,
+                releaseDate: rg["first-release-date"],
+                trackCount: null,
+                genre: null,
+                source: "musicbrainz",
+              });
+            }
+          }
+        }
+      }
+    } catch (mbError) {
+      console.error("MusicBrainz search failed:", mbError);
     }
 
-    const data = await response.json();
+    // 2. Fill gaps with iTunes if needed
+    if (results.length < limit / 2) {
+      try {
+        const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=album&limit=${limit}`;
+        const itunesResponse = await fetch(itunesUrl);
 
-    // Transform to backend format
-    const results = (data.results || []).map((album: any) => ({
-      id: album.collectionId,
-      name: album.collectionName,
-      artist: album.artistName,
-      artworkUrl: (album.artworkUrl100 || "").replace("100x100", "600x600"),
-      releaseDate: album.releaseDate,
-      trackCount: album.trackCount,
-      genre: album.primaryGenreName,
-      copyright: album.copyright,
-    }));
+        if (itunesResponse.ok) {
+          const itunesData = await itunesResponse.json();
+
+          for (const album of itunesData.results || []) {
+            const key = `${album.artistName.toLowerCase()}-${album.collectionName.toLowerCase()}`;
+            if (!seenAlbums.has(key)) {
+              seenAlbums.add(key);
+              results.push({
+                id: album.collectionId,
+                name: album.collectionName,
+                artist: album.artistName,
+                artworkUrl: (album.artworkUrl100 || "").replace("100x100", "600x600"),
+                releaseDate: album.releaseDate,
+                trackCount: album.trackCount,
+                genre: album.primaryGenreName,
+                source: "itunes",
+              });
+            }
+          }
+        }
+      } catch (itunesError) {
+        console.error("iTunes search failed:", itunesError);
+      }
+    }
 
     return NextResponse.json({
-      results,
+      results: results.slice(0, limit),
       count: results.length,
     });
   } catch (error) {
