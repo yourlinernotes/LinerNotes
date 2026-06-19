@@ -1,8 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserNav } from "@/components/UserNav";
 import { useRouter } from "next/navigation";
+import { TopBar, Footer } from "@/components/ln/nav";
+import { tintFromString } from "@/lib/palette";
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  background: "rgba(var(--ln-fg-rgb),0.06)",
+  color: "var(--ln-fg)",
+  border: "1px solid rgba(var(--ln-line-rgb),0.16)",
+  borderRadius: 13,
+  padding: "13px 15px",
+  fontFamily: "var(--ln-body)",
+  fontSize: 15,
+  outline: "none",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontFamily: "var(--ln-label)",
+  fontSize: 11,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  fontWeight: 700,
+  color: "rgba(var(--ln-fg-rgb),0.55)",
+  marginBottom: 8,
+};
+
+const hintStyle: React.CSSProperties = {
+  fontFamily: "var(--ln-mono)",
+  fontSize: 10.5,
+  color: "rgba(var(--ln-fg-rgb),0.42)",
+  marginTop: 7,
+  lineHeight: 1.5,
+};
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -12,7 +45,6 @@ export default function EditProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [handle, setHandle] = useState("");
-  const [originalHandle, setOriginalHandle] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -25,13 +57,11 @@ export default function EditProfilePage() {
           }
           throw new Error("Failed to load profile");
         }
-
         const data = await res.json();
         setDisplayName(data.user.displayName || "");
         setBio(data.user.bio || "");
         setAvatarUrl(data.user.avatarUrl || "");
         setHandle(data.user.handle || "");
-        setOriginalHandle(data.user.handle || "");
       } catch (error) {
         console.error("Failed to load profile:", error);
         alert("Failed to load profile");
@@ -39,14 +69,12 @@ export default function EditProfilePage() {
         setLoading(false);
       }
     };
-
     loadProfile();
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-
     try {
       const res = await fetch("/api/users/me", {
         method: "PATCH",
@@ -58,15 +86,11 @@ export default function EditProfilePage() {
           handle: handle.trim().toLowerCase(),
         }),
       });
-
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to update profile");
       }
-
       const result = await res.json();
-
-      // Redirect to profile (use new handle if it changed)
       router.push(`/profile/${result.user.handle}`);
     } catch (error) {
       console.error("Failed to update profile:", error);
@@ -76,170 +100,72 @@ export default function EditProfilePage() {
     }
   };
 
+  const tint = tintFromString(handle || "ln");
+  const gold = "var(--ln-accent)";
+
   if (loading) {
     return (
-      <div className="min-h-screen p-6 flex items-center justify-center" style={{ backgroundColor: "var(--ln-bg)" }}>
-        <div
-          className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin"
-          style={{ borderColor: "var(--ln-accent)" }}
-        />
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--ln-bg)" }}>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(var(--ln-fg-rgb),0.15)", borderTopColor: gold, animation: "ln-spin 0.8s linear infinite" }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundColor: "var(--ln-bg)" }}>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
-            Edit Profile
-          </h1>
-          <UserNav />
-        </div>
+    <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", display: "flex", flexDirection: "column", flex: 1 }}>
+      <TopBar />
 
-        {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="p-6 rounded-lg space-y-6"
-          style={{ backgroundColor: "var(--ln-surface)" }}
-        >
-          {/* Avatar Preview */}
-          {avatarUrl && (
-            <div className="flex justify-center">
-              <img
-                src={avatarUrl}
-                alt="Avatar preview"
-                className="w-32 h-32 rounded-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
+      <main style={{ position: "relative", zIndex: 1, flex: 1 }}>
+        <section style={{ maxWidth: 560, margin: "0 auto", padding: "112px 20px 90px" }}>
+          <h1 style={{ margin: "0 0 26px", fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 30, letterSpacing: "-0.01em" }}>Edit profile</h1>
+
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 22, padding: "26px 24px", borderRadius: 18, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.08)" }}>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarUrl} alt="Avatar preview" style={{ width: 104, height: 104, borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+              ) : (
+                <div style={{ width: 104, height: 104, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: `${tint}22`, border: `1.5px solid ${tint}66`, color: tint, fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 44 }}>
+                  {(displayName || handle || "?")[0].toUpperCase()}
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Avatar URL */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Avatar URL
-            </label>
-            <input
-              type="url"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://example.com/your-avatar.jpg"
-              className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2"
-              style={{
-                backgroundColor: "var(--ln-bg)",
-                color: "var(--ln-ink)",
-                borderColor: "var(--ln-line)",
-              }}
-            />
-            <p className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>
-              Paste a link to your profile picture. You can use your Spotify avatar or any image URL.
-            </p>
-          </div>
-
-          {/* Display Name */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Display Name *
-            </label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your name"
-              required
-              maxLength={50}
-              className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2"
-              style={{
-                backgroundColor: "var(--ln-bg)",
-                color: "var(--ln-ink)",
-                borderColor: "var(--ln-line)",
-              }}
-            />
-          </div>
-
-          {/* Handle */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Handle *
-            </label>
-            <div className="flex items-center gap-2">
-              <span style={{ color: "var(--ln-ink-soft)" }}>@</span>
-              <input
-                type="text"
-                value={handle}
-                onChange={(e) => setHandle(e.target.value.toLowerCase())}
-                placeholder="your_handle"
-                required
-                minLength={3}
-                maxLength={20}
-                pattern="[a-z0-9_]+"
-                className="flex-1 px-4 py-3 rounded-lg focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: "var(--ln-bg)",
-                  color: "var(--ln-ink)",
-                  borderColor: "var(--ln-line)",
-                }}
-              />
+            <div>
+              <label style={labelStyle}>Avatar URL</label>
+              <input type="url" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://example.com/your-avatar.jpg" style={inputStyle} />
+              <p style={hintStyle}>Paste a link to your profile picture.</p>
             </div>
-            <p className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>
-              3-20 characters, lowercase letters, numbers, and underscores only. Your profile URL will be /profile/@{handle || "your_handle"}
-            </p>
-          </div>
 
-          {/* Bio */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Bio
-            </label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Tell us about yourself..."
-              maxLength={200}
-              rows={4}
-              className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2 resize-none"
-              style={{
-                backgroundColor: "var(--ln-bg)",
-                color: "var(--ln-ink)",
-                borderColor: "var(--ln-line)",
-              }}
-            />
-            <div className="text-xs text-right" style={{ color: "var(--ln-ink-soft)" }}>
-              {bio.length}/200
+            <div>
+              <label style={labelStyle}>Display name *</label>
+              <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" required maxLength={50} style={inputStyle} />
             </div>
-          </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => router.push(`/profile/${handle}`)}
-              className="flex-1 py-3 rounded-lg font-medium transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-line)",
-                color: "var(--ln-ink)",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving || !displayName.trim()}
-              className="flex-1 py-3 rounded-lg font-medium transition-opacity hover:opacity-80 disabled:opacity-50"
-              style={{
-                backgroundColor: "var(--ln-accent)",
-                color: "white",
-              }}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
-          </div>
-        </form>
-      </div>
+            <div>
+              <label style={labelStyle}>Handle *</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: "var(--ln-mono)", color: "rgba(var(--ln-fg-rgb),0.5)", fontSize: 16 }}>@</span>
+                <input type="text" value={handle} onChange={(e) => setHandle(e.target.value.toLowerCase())} placeholder="your_handle" required minLength={3} maxLength={20} pattern="[a-z0-9_]+" style={inputStyle} />
+              </div>
+              <p style={hintStyle}>3–20 chars · lowercase letters, numbers, underscores. Your URL: /profile/{handle || "your_handle"}</p>
+            </div>
+
+            <div>
+              <label style={labelStyle}>Bio</label>
+              <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Logging the songs worth stopping for…" maxLength={200} rows={4} style={{ ...inputStyle, resize: "none" }} />
+              <div style={{ ...hintStyle, textAlign: "right" }}>{bio.length}/200</div>
+            </div>
+
+            <div style={{ display: "flex", gap: 11 }}>
+              <button type="button" onClick={() => router.push(`/profile/${handle}`)} className="ln-press" style={{ flex: 1, padding: "13px", borderRadius: 13, cursor: "pointer", background: "rgba(var(--ln-fg-rgb),0.06)", color: "var(--ln-fg)", border: "1px solid rgba(var(--ln-fg-rgb),0.16)", fontFamily: "var(--ln-body)", fontWeight: 600 }}>Cancel</button>
+              <button type="submit" disabled={saving || !displayName.trim()} className="ln-press" style={{ flex: 1, padding: "13px", borderRadius: 13, cursor: saving ? "default" : "pointer", background: gold, color: "#1a0a04", border: "none", fontFamily: "var(--ln-body)", fontWeight: 700, opacity: saving || !displayName.trim() ? 0.5 : 1 }}>{saving ? "Saving…" : "Save changes"}</button>
+            </div>
+          </form>
+        </section>
+      </main>
+
+      <Footer />
     </div>
   );
 }

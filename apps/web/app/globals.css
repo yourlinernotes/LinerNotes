@@ -1,38 +1,175 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────────────────
+   LinerNotes — editorial design system (ported from the Claude design bundle)
+   Dark "garnet" front-door surface by default; gold accent; serif display,
+   grotesk body, mono labels. The signature object is the timestamped moment.
+   ───────────────────────────────────────────────────────────────────────── */
+
 :root {
-  /* LinerNotes palette — peach + magenta-purple (v0) */
-  --ln-bg: #FFF6F0;
-  --ln-surface: #FFEADD;
-  --ln-ink: #3A1E30;
-  --ln-ink-soft: #7A5468;
-  --ln-accent: #B5377E;
-  --ln-accent-2: #6E2A5B;
-  --ln-peach: #F58A6B;
-  --ln-line: #F0D6C8;
+  /* Theme — garnet (default dark) */
+  --ln-bg: #1a0a0c;
+  --ln-surface: #2c1418;
+  --ln-surface-rgb: 44, 20, 24;
+  --ln-fg: #f8ecdb;
+  --ln-fg-rgb: 248, 236, 219;
+  --ln-line-rgb: 255, 205, 165;
+  --ln-muted: #bd9183;
+  --ln-shadow: rgba(20, 2, 6, 0.7);
 
-  /* Beta palette — near-black / cream / gold */
-  --ln-black: #0A0A0A;
-  --ln-cream: #F5F1E8;
-  --ln-gold: #D4AF37;
+  /* Accent + reaction/semantic colours */
+  --ln-accent: #e6b450;
+  --ln-flame: #e0762f;
+  --ln-love: #d98aa0;
+  --ln-skip: #7a7468;
+  --ln-save: #c8a45c;
 
-  /* Compat with Tailwind theme */
+  /* Type families (variables provided by next/font in layout.tsx) */
+  --ln-display: var(--font-newsreader), Georgia, serif;
+  --ln-album: var(--font-newsreader), Georgia, serif;
+  --ln-preview: var(--font-newsreader), Georgia, serif;
+  --ln-body: var(--font-hanken), system-ui, sans-serif;
+  --ln-label: var(--font-hanken), system-ui, sans-serif;
+  --ln-mono: var(--font-space-mono), ui-monospace, monospace;
+  --ln-logo: var(--font-bricolage), system-ui, sans-serif;
+  --ln-syne: var(--font-syne), system-ui, sans-serif;
+
+  /* ── Back-compat aliases for any not-yet-reskinned surface ──
+     (old peach/magenta v0 tokens remap onto the new editorial palette
+     so nothing renders broken mid-migration) */
+  --ln-ink: var(--ln-fg);
+  --ln-ink-soft: var(--ln-muted);
+  --ln-line: rgba(255, 205, 165, 0.12);
+  --ln-peach: var(--ln-accent);
+  --ln-accent-2: #7a1d24;
+  --ln-black: #0a0807;
+  --ln-cream: var(--ln-fg);
+  --ln-gold: var(--ln-accent);
+
   --background: var(--ln-bg);
-  --foreground: var(--ln-ink);
+  --foreground: var(--ln-fg);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-ln-bg: var(--ln-bg);
+  --color-ln-surface: var(--ln-surface);
+  --color-ln-fg: var(--ln-fg);
+  --color-ln-muted: var(--ln-muted);
+  --color-ln-accent: var(--ln-accent);
   --color-black: var(--ln-black);
   --color-cream: var(--ln-cream);
-  --color-gold: var(--ln-gold);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-gold: var(--ln-accent);
+  --font-sans: var(--ln-body);
+  --font-mono: var(--ln-mono);
+  --font-serif: var(--ln-display);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--ln-bg);
-  color: var(--ln-ink);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ln-fg);
+  font-family: var(--ln-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* hide scrollbars on horizontal rails */
+.ln-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.ln-scroll {
+  scrollbar-width: none;
+}
+
+/* shared keyframes */
+@keyframes ln-slideup {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes ln-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ln-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ln-eq {
+  from {
+    height: 28%;
+  }
+  to {
+    height: 100%;
+  }
+}
+@keyframes ln-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ln-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+button {
+  transition: transform 0.12s ease, background 0.16s ease, color 0.16s ease,
+    border-color 0.16s ease;
+}
+.ln-press:active {
+  transform: scale(0.97);
+}
+
+.ln-card-hover {
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* film grain — fixed overlay, low opacity, overlay blend */
+.ln-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9000;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 150px 150px;
 }

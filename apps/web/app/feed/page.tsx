@@ -2,24 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { FeedList } from "@/components/feed";
-import { UserNav } from "@/components/UserNav";
-import { getReviews, toggleLike, toggleRepost } from "@/lib/api";
-import type { UnifiedFeedItem, Review, AlbumReview } from "@/lib/types";
 import Link from "next/link";
+import { TopBar, Footer } from "@/components/ln/nav";
+import { FeedItem } from "@/components/ln/cards";
+import { getReviews, toggleLike, toggleRepost } from "@/lib/api";
+import { toReviewVM, toAlbumReviewVM, type ReviewVM } from "@/lib/view-adapter";
+import type { AlbumReview } from "@/lib/types";
 
 export default function FeedPage() {
   const { data: session, status } = useSession();
-  const [feedItems, setFeedItems] = useState<UnifiedFeedItem[]>([]);
+  const [items, setItems] = useState<ReviewVM[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Wait for session to load
-    if (status === "loading") {
-      return;
-    }
+    if (status === "loading") return;
 
-    // Check auth and load feed
     const loadFeed = async () => {
       try {
         if (!session) {
@@ -27,69 +24,17 @@ export default function FeedPage() {
           return;
         }
 
-        // Get friends' track reviews
         const reviews = await getReviews({ feed: "friends" });
-
-        // Get friends' album reviews
         const albumReviewsRes = await fetch("/api/album-reviews?feed=friends");
         const albumReviewsData = await albumReviewsRes.json();
         const albumReviews: AlbumReview[] = albumReviewsData.albumReviews || [];
 
-        // Transform reviews into feed items
-        const items: UnifiedFeedItem[] = [];
+        const vms: ReviewVM[] = [
+          ...reviews.map((r) => toReviewVM(r)),
+          ...albumReviews.map((a) => toAlbumReviewVM(a)),
+        ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-        // Add track reviews
-        for (const review of reviews) {
-          // Add original review
-          items.push({
-            kind: "review",
-            review,
-            at: review.createdAt,
-          });
-
-          // Add repost entries
-          if ((review as any).reposts) {
-            for (const repost of (review as any).reposts) {
-              items.push({
-                kind: "repost",
-                review,
-                repostedBy: repost.user,
-                at: repost.createdAt,
-              });
-            }
-          }
-        }
-
-        // Add album reviews
-        for (const albumReview of albumReviews) {
-          // Add original album review
-          items.push({
-            kind: "album_review",
-            albumReview,
-            at: albumReview.createdAt,
-          });
-
-          // Add album repost entries
-          if ((albumReview as any).reposts) {
-            for (const repost of (albumReview as any).reposts) {
-              items.push({
-                kind: "album_repost",
-                albumReview,
-                repostedBy: repost.user,
-                at: repost.createdAt,
-              });
-            }
-          }
-        }
-
-        // Sort by creation time (most recent first)
-        items.sort((a, b) => {
-          const aTime = new Date(a.at).getTime();
-          const bTime = new Date(b.at).getTime();
-          return bTime - aTime;
-        });
-
-        setFeedItems(items);
+        setItems(vms);
       } catch (error) {
         console.error("Failed to load feed:", error);
       } finally {
@@ -100,171 +45,67 @@ export default function FeedPage() {
     loadFeed();
   }, [session, status]);
 
-  const handleLike = async (reviewId: string) => {
-    try {
-      const result = await toggleLike(reviewId);
-
-      // Update feed items with new like count and status
-      setFeedItems((items) =>
-        items.map((item) =>
-          item.kind === "review" || item.kind === "repost"
-            ? item.review.id === reviewId
-              ? {
-                  ...item,
-                  review: {
-                    ...item.review,
-                    likeCount: result.likeCount,
-                    likedByMe: result.liked,
-                  },
-                }
-              : item
-            : item
-        )
-      );
-    } catch (error) {
-      console.error("Failed to toggle like:", error);
-    }
+  const onLike = (vm: ReviewVM) => {
+    if (vm.kind === "track") toggleLike(vm.id).catch(() => {});
+    else if (vm.kind === "album") fetch(`/api/album-reviews/${vm.id}/like`, { method: "POST" }).catch(() => {});
   };
-
-  const handleRepost = async (reviewId: string) => {
-    try {
-      const result = await toggleRepost(reviewId);
-
-      // Update feed items with new repost count and status
-      setFeedItems((items) =>
-        items.map((item) =>
-          item.kind === "review" || item.kind === "repost"
-            ? item.review.id === reviewId
-              ? {
-                  ...item,
-                  review: {
-                    ...item.review,
-                    repostCount: result.repostCount,
-                    repostedByMe: result.reposted,
-                  },
-                }
-              : item
-            : item
-        )
-      );
-    } catch (error) {
-      console.error("Failed to toggle repost:", error);
-    }
-  };
-
-  const handleAlbumLike = async (albumReviewId: string) => {
-    try {
-      const result = await fetch(`/api/album-reviews/${albumReviewId}/like`, {
-        method: "POST",
-      });
-      const data = await result.json();
-
-      // Update feed items with new like count and status
-      setFeedItems((items) =>
-        items.map((item) =>
-          item.kind === "album_review" || item.kind === "album_repost"
-            ? item.albumReview.id === albumReviewId
-              ? {
-                  ...item,
-                  albumReview: {
-                    ...item.albumReview,
-                    likeCount: data.likeCount,
-                    likedByMe: data.liked,
-                  },
-                }
-              : item
-            : item
-        )
-      );
-    } catch (error) {
-      console.error("Failed to toggle album like:", error);
-    }
-  };
-
-  const handleAlbumRepost = async (albumReviewId: string) => {
-    try {
-      const result = await fetch(`/api/album-reviews/${albumReviewId}/repost`, {
-        method: "POST",
-      });
-      const data = await result.json();
-
-      // Update feed items with new repost count and status
-      setFeedItems((items) =>
-        items.map((item) =>
-          item.kind === "album_review" || item.kind === "album_repost"
-            ? item.albumReview.id === albumReviewId
-              ? {
-                  ...item,
-                  albumReview: {
-                    ...item.albumReview,
-                    repostCount: data.repostCount,
-                    repostedByMe: data.reposted,
-                  },
-                }
-              : item
-            : item
-        )
-      );
-    } catch (error) {
-      console.error("Failed to toggle album repost:", error);
-    }
+  const onRepost = (vm: ReviewVM) => {
+    if (vm.kind === "track") toggleRepost(vm.id).catch(() => {});
+    else if (vm.kind === "album") fetch(`/api/album-reviews/${vm.id}/repost`, { method: "POST" }).catch(() => {});
   };
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundColor: "var(--ln-bg)" }}>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
-            Friends Feed
-          </h1>
-          <UserNav />
-        </div>
+    <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", position: "relative", display: "flex", flexDirection: "column", flex: 1 }}>
+      <TopBar />
 
-        {/* Not authenticated */}
-        {!loading && !session && (
-          <div
-            className="p-8 rounded-lg text-center"
-            style={{
-              backgroundColor: "var(--ln-surface)",
-              color: "var(--ln-ink)",
-            }}
-          >
-            <p className="text-lg mb-4">Login to see your friends' reviews</p>
-            <Link
-              href="/login"
-              className="inline-block px-6 py-3 rounded-lg font-medium transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-accent)",
-                color: "white",
-              }}
-            >
-              Login
-            </Link>
+      <main style={{ position: "relative", zIndex: 1, flex: 1 }}>
+        <section style={{ maxWidth: 900, margin: "0 auto", padding: "112px 20px 90px" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 26 }}>
+            <h1 style={{ margin: 0, fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 30, letterSpacing: "-0.01em", color: "var(--ln-fg)" }}>Your feed</h1>
+            <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: "rgba(var(--ln-fg-rgb),0.42)", letterSpacing: "0.03em" }}>from listeners you&apos;d trust</span>
+            <span style={{ flex: 1, height: 1, background: "rgba(var(--ln-fg-rgb),0.1)", alignSelf: "center" }} />
           </div>
-        )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex justify-center py-12">
-            <div
-              className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: "var(--ln-accent)" }}
-            />
-          </div>
-        )}
+          {!loading && !session && (
+            <div style={{ textAlign: "center", padding: "60px 24px", borderRadius: 18, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.08)" }}>
+              <p style={{ margin: "0 0 18px", fontFamily: "var(--ln-preview)", fontStyle: "italic", fontSize: 20, color: "var(--ln-fg)" }}>Log in to see what your friends are logging.</p>
+              <Link href="/login" className="ln-press" style={{ display: "inline-block", padding: "13px 26px", borderRadius: 999, textDecoration: "none", background: "var(--ln-accent)", color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 15, fontWeight: 700 }}>Log in</Link>
+            </div>
+          )}
 
-        {/* Feed */}
-        {!loading && session && (
-          <FeedList
-            items={feedItems}
-            onLike={handleLike}
-            onRepost={handleRepost}
-            onAlbumLike={handleAlbumLike}
-            onAlbumRepost={handleAlbumRepost}
-          />
-        )}
-      </div>
+          {loading && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(var(--ln-fg-rgb),0.15)", borderTopColor: "var(--ln-accent)", animation: "ln-spin 0.8s linear infinite" }} />
+            </div>
+          )}
+
+          {!loading && session && items.length === 0 && (
+            <div style={{ textAlign: "center", padding: "60px 24px", fontFamily: "var(--ln-preview)", fontStyle: "italic", fontSize: 19, color: "var(--ln-muted)" }}>
+              Nothing here yet. <Link href="/log" style={{ color: "var(--ln-accent)" }}>Log the first note</Link>, or add a few friends.
+            </div>
+          )}
+
+          {!loading && session && items.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 34, containerType: "inline-size" }}>
+              {items.map((vm) => (
+                <FeedItem key={`${vm.kind}-${vm.id}`} vm={vm} onLike={() => onLike(vm)} onRepost={() => onRepost(vm)} />
+              ))}
+              <div style={{ textAlign: "center", marginTop: 10, fontFamily: "var(--ln-mono)", fontSize: 10.5, letterSpacing: "0.06em", color: "rgba(var(--ln-fg-rgb),0.3)" }}>You&apos;re all caught up · breathe</div>
+            </div>
+          )}
+        </section>
+      </main>
+
+      <Footer />
+
+      <style>{`
+        @container (max-width: 680px) {
+          .lnw-fcard { flex-direction: column !important; }
+          .lnw-fcard-art { width: 100% !important; }
+          .lnw-fcard-main { justify-content: flex-start !important; }
+          .lnw-fcard-tracks { width: 100% !important; border-left: none !important; border-top: 1px solid rgba(var(--ln-fg-rgb),0.08) !important; }
+        }
+      `}</style>
     </div>
   );
 }

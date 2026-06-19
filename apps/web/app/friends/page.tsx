@@ -2,39 +2,52 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { UserNav } from "@/components/UserNav";
-import {
-  getFriends,
-  updateFriendRequest,
-} from "@/lib/api";
-import type { User } from "@/lib/types";
 import Link from "next/link";
+import { getFriends, updateFriendRequest } from "@/lib/api";
+import type { User } from "@/lib/types";
+import { TopBar, Footer } from "@/components/ln/nav";
+import { LNAvatar } from "@/components/ln/atoms";
+import { tintFromString } from "@/lib/palette";
+
+type FriendRequest = { id: string; requester: User };
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+      <span style={{ fontFamily: "var(--ln-label)", fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 700, color: "var(--ln-accent)" }}>{children}</span>
+      <span style={{ flex: 1, height: 1, background: "rgba(var(--ln-fg-rgb),0.1)" }} />
+    </div>
+  );
+}
+
+function Row({ user, children }: { user: User; children?: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 15px", borderRadius: 14, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.08)" }}>
+      <LNAvatar user={{ name: user.displayName || user.handle, tint: tintFromString(user.id || user.handle), avatarUrl: user.avatarUrl }} size={44} />
+      <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
+        <div style={{ fontFamily: "var(--ln-body)", fontSize: 15, fontWeight: 600, color: "var(--ln-fg)" }}>{user.displayName || user.handle}</div>
+        <div style={{ fontFamily: "var(--ln-mono)", fontSize: 11, color: "rgba(var(--ln-fg-rgb),0.45)" }}>@{user.handle}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export default function FriendsPage() {
   const { data: session, status } = useSession();
   const [friends, setFriends] = useState<User[]>([]);
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Wait for session to load
-    if (status === "loading") {
-      return;
-    }
-
+    if (status === "loading") return;
     const loadFriends = async () => {
       try {
         if (!session) {
           setLoading(false);
           return;
         }
-
-        // Get friends and requests in parallel
-        const [friendsData, requestsData] = await Promise.all([
-          getFriends(),
-          getFriends("requests"),
-        ]);
-
+        const [friendsData, requestsData] = await Promise.all([getFriends(), getFriends("requests")]);
         setFriends(friendsData.friends || []);
         setRequests(requestsData.requests || []);
       } catch (error) {
@@ -43,15 +56,12 @@ export default function FriendsPage() {
         setLoading(false);
       }
     };
-
     loadFriends();
   }, [session, status]);
 
   const handleAccept = async (userId: string) => {
     try {
       await updateFriendRequest(userId, "accept");
-
-      // Move from requests to friends
       const request = requests.find((r) => r.requester.id === userId);
       if (request) {
         setRequests(requests.filter((r) => r.requester.id !== userId));
@@ -71,157 +81,67 @@ export default function FriendsPage() {
     }
   };
 
+  const gold = "var(--ln-accent)";
+
   return (
-    <div className="min-h-screen p-6" style={{ backgroundColor: "var(--ln-bg)" }}>
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold" style={{ color: "var(--ln-ink)" }}>
-            Friends
-          </h1>
-          <UserNav />
-        </div>
+    <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", display: "flex", flexDirection: "column", flex: 1 }}>
+      <TopBar />
 
-        {/* Not authenticated */}
-        {!loading && !session && (
-          <div
-            className="p-8 rounded-lg text-center"
-            style={{
-              backgroundColor: "var(--ln-surface)",
-              color: "var(--ln-ink)",
-            }}
-          >
-            <p className="text-lg mb-4">Login to manage friends</p>
-            <Link
-              href="/login"
-              className="inline-block px-6 py-3 rounded-lg font-medium transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-accent)",
-                color: "white",
-              }}
-            >
-              Login
-            </Link>
-          </div>
-        )}
+      <main style={{ position: "relative", zIndex: 1, flex: 1 }}>
+        <section style={{ maxWidth: 680, margin: "0 auto", padding: "112px 20px 90px" }}>
+          <h1 style={{ margin: "0 0 26px", fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 30, letterSpacing: "-0.01em", color: "var(--ln-fg)" }}>Friends</h1>
 
-        {/* Loading */}
-        {loading && (
-          <div className="flex justify-center py-12">
-            <div
-              className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: "var(--ln-accent)" }}
-            />
-          </div>
-        )}
-
-        {/* Friend Requests */}
-        {!loading && session && requests.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="text-xl font-bold" style={{ color: "var(--ln-ink)" }}>
-              Friend Requests
-            </h2>
-            <div className="space-y-3">
-              {requests.map((request) => (
-                <div
-                  key={request.id}
-                  className="p-4 rounded-lg flex items-center justify-between"
-                  style={{ backgroundColor: "var(--ln-surface)" }}
-                >
-                  <div className="flex items-center gap-3">
-                    {request.requester.avatarUrl && (
-                      <img
-                        src={request.requester.avatarUrl}
-                        alt={request.requester.displayName}
-                        className="w-12 h-12 rounded-full"
-                      />
-                    )}
-                    <div>
-                      <div className="font-medium" style={{ color: "var(--ln-ink)" }}>
-                        {request.requester.displayName}
-                      </div>
-                      <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-                        @{request.requester.handle}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleAccept(request.requester.id)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-80"
-                      style={{
-                        backgroundColor: "var(--ln-accent)",
-                        color: "white",
-                      }}
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => handleReject(request.requester.id)}
-                      className="px-4 py-2 rounded-lg text-sm transition-opacity hover:opacity-80"
-                      style={{
-                        backgroundColor: "var(--ln-line)",
-                        color: "var(--ln-ink-soft)",
-                      }}
-                    >
-                      Decline
-                    </button>
-                  </div>
-                </div>
-              ))}
+          {!loading && !session && (
+            <div style={{ textAlign: "center", padding: "60px 24px", borderRadius: 18, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.08)" }}>
+              <p style={{ margin: "0 0 18px", fontFamily: "var(--ln-preview)", fontStyle: "italic", fontSize: 20, color: "var(--ln-fg)" }}>Log in to manage friends.</p>
+              <Link href="/login" className="ln-press" style={{ display: "inline-block", padding: "13px 26px", borderRadius: 999, textDecoration: "none", background: gold, color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 15, fontWeight: 700 }}>Log in</Link>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Friends List */}
-        {!loading && session && (
-          <div className="space-y-3">
-            <h2 className="text-xl font-bold" style={{ color: "var(--ln-ink)" }}>
-              Your Friends ({friends.length})
-            </h2>
-            {friends.length === 0 ? (
-              <div
-                className="p-8 rounded-lg text-center"
-                style={{
-                  backgroundColor: "var(--ln-surface)",
-                  color: "var(--ln-ink-soft)",
-                }}
-              >
-                <p>No friends yet. Search for users and add them!</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {friends.map((friend) => (
-                  <Link
-                    key={friend.id}
-                    href={`/profile/${friend.handle}`}
-                    className="block p-4 rounded-lg transition-opacity hover:opacity-80"
-                    style={{ backgroundColor: "var(--ln-surface)" }}
-                  >
-                    <div className="flex items-center gap-3">
-                      {friend.avatarUrl && (
-                        <img
-                          src={friend.avatarUrl}
-                          alt={friend.displayName}
-                          className="w-12 h-12 rounded-full"
-                        />
-                      )}
-                      <div>
-                        <div className="font-medium" style={{ color: "var(--ln-ink)" }}>
-                          {friend.displayName}
-                        </div>
-                        <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-                          @{friend.handle}
-                        </div>
-                      </div>
+          {loading && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(var(--ln-fg-rgb),0.15)", borderTopColor: gold, animation: "ln-spin 0.8s linear infinite" }} />
+            </div>
+          )}
+
+          {!loading && session && requests.length > 0 && (
+            <div style={{ marginBottom: 34 }}>
+              <SectionLabel>friend requests</SectionLabel>
+              <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                {requests.map((request) => (
+                  <Row key={request.id} user={request.requester}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => handleAccept(request.requester.id)} className="ln-press" style={{ padding: "8px 16px", borderRadius: 999, border: "none", cursor: "pointer", background: gold, color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 13, fontWeight: 700 }}>Accept</button>
+                      <button onClick={() => handleReject(request.requester.id)} className="ln-press" style={{ padding: "8px 16px", borderRadius: 999, cursor: "pointer", background: "transparent", color: "rgba(var(--ln-fg-rgb),0.7)", border: "1px solid rgba(var(--ln-fg-rgb),0.2)", fontFamily: "var(--ln-body)", fontSize: 13, fontWeight: 600 }}>Decline</button>
                     </div>
-                  </Link>
+                  </Row>
                 ))}
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+
+          {!loading && session && (
+            <div>
+              <SectionLabel>your friends · {friends.length}</SectionLabel>
+              {friends.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "50px 24px", fontFamily: "var(--ln-preview)", fontStyle: "italic", fontSize: 18, color: "var(--ln-muted)" }}>
+                  No friends yet. Find listeners you&apos;d trust.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+                  {friends.map((friend) => (
+                    <Link key={friend.id} href={`/profile/${friend.handle}`} style={{ textDecoration: "none" }} className="ln-card-hover">
+                      <Row user={friend} />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </main>
+
+      <Footer />
     </div>
   );
 }
