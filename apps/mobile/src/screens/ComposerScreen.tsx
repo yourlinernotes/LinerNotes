@@ -66,6 +66,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const [isPosting, setIsPosting] = useState(false);
   const [showTake, setShowTake] = useState(false);
   const [showMoments, setShowMoments] = useState(false);
+  const [captionIndex, setCaptionIndex] = useState(0);
 
   // Album/Playlist track management
   const [tracks, setTracks] = useState<Record<number, TrackData>>({});
@@ -84,7 +85,15 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
 
   const lines = take.split('\n').filter(l => l.trim());
-  const preview = lines[0] || '';
+  // When the take is multi-line the user picks which line is the caption (the
+  // line shown on the card); we store the take with that line hoisted first so
+  // the card preview shows the caption and the experience shows the full text.
+  const captionIdx = lines.length ? Math.min(captionIndex, lines.length - 1) : 0;
+  const orderedTake =
+    lines.length > 1
+      ? [lines[captionIdx], ...lines.filter((_, i) => i !== captionIdx)].join('\n')
+      : take.trim();
+  const preview = lines[captionIdx] || '';
   const hasBody = lines.length > 1;
   const depth = hasBody ? 'full' : preview ? 'caption' : rating > 0 ? 'floor' : null;
 
@@ -132,7 +141,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
               artworkUrl: selectedTrack.artworkUrl,
             },
             rating,
-            take: take.trim() || undefined,
+            take: orderedTake || undefined,
             notes: soloMoments,
             featuredNoteIdx: 0,
             createdAt: new Date().toISOString(),
@@ -182,7 +191,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
     setIsPosting(true);
 
     try {
-      const body = hasBody ? lines.slice(1).join('\n') : undefined;
+      const body = hasBody ? orderedTake.split('\n').slice(1).join('\n') : undefined;
 
       if (mode === 'album') {
         await api.createAlbumReview({
@@ -214,7 +223,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
             artworkUrl: selectedTrack.artworkUrl,
           },
           rating,
-          take: take.trim() || undefined,
+          take: orderedTake || undefined,
           notes: soloMoments,
           featuredNoteIdx: 0,
         });
@@ -363,6 +372,35 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
                   autoFocus
                   onFocus={scrollToInput}
                 />
+                {lines.length > 1 && (
+                  <View style={styles.captionPicker}>
+                    <Text style={styles.captionLabel}>
+                      CAPTION — shown on the card
+                    </Text>
+                    {lines.map((line, i) => {
+                      const active = i === captionIdx;
+                      return (
+                        <TouchableOpacity
+                          key={i}
+                          style={[styles.captionRow, active && { borderColor: gold }]}
+                          onPress={() => setCaptionIndex(i)}
+                          activeOpacity={0.8}
+                        >
+                          <View
+                            style={[
+                              styles.captionRadio,
+                              { borderColor: active ? gold : 'rgba(241,235,224,0.3)' },
+                              active && { backgroundColor: gold },
+                            ]}
+                          />
+                          <Text style={styles.captionText} numberOfLines={1}>
+                            {line}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
               </>
             ) : (
               <TouchableOpacity style={styles.addButton} onPress={() => setShowTake(true)}>
@@ -663,6 +701,42 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     color: tokens.colors.fg,
     minHeight: 100,
+  },
+  captionPicker: {
+    gap: 6,
+    marginTop: 4,
+  },
+  captionLabel: {
+    fontFamily: 'Menlo',
+    fontSize: 9,
+    letterSpacing: 0.6,
+    color: 'rgba(241,235,224,0.45)',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  captionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.12)',
+    backgroundColor: 'rgba(241,235,224,0.04)',
+  },
+  captionRadio: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    flexShrink: 0,
+  },
+  captionText: {
+    flex: 1,
+    fontFamily: 'System',
+    fontSize: 13.5,
+    color: 'rgba(241,235,224,0.85)',
   },
   addButton: {
     flexDirection: 'row',

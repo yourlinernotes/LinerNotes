@@ -86,8 +86,8 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
 
         {/* Preview line */}
         {review.take && (
-          <Text style={styles.previewLine} numberOfLines={3}>
-            {review.take}
+          <Text style={styles.previewLine} numberOfLines={2}>
+            {review.take.split('\n')[0]}
           </Text>
         )}
 
@@ -119,13 +119,11 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
         {/* Album: track strip */}
         {isAlbum && album.tracks && <TrackStrip tracks={album.tracks} gold={gold} />}
 
-        {/* CTA */}
+        {/* CTA — plain text */}
         {showCTA && (
-          <View style={[styles.cta, { borderColor: `${gold}66`, backgroundColor: `${gold}0a` }]}>
-            <Text style={[styles.ctaText, { color: gold }]}>
-              tap to read the full review
-            </Text>
-          </View>
+          <Text style={[styles.ctaText, { color: gold }]}>
+            tap to read the full review
+          </Text>
         )}
 
         {/* Footer - export only */}
@@ -394,16 +392,8 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: tokens.colors.fg + '2E',
   },
-  cta: {
-    marginTop: 1,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderRadius: tokens.layout.radius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    alignItems: 'center',
-  },
   ctaText: {
+    marginTop: 2,
     fontFamily: 'System',
     fontSize: 12.5,
     fontWeight: '600',
