@@ -15,6 +15,7 @@ import {
   Dimensions,
   FlatList,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../components/ReviewCard';
@@ -41,6 +42,7 @@ interface ProfileData {
     name: string;
     handle: string;
     tint: string;
+    avatarUrl?: string;
   };
   bio: string;
   reviewCount: number;
@@ -81,6 +83,7 @@ export function ProfileScreen() {
           name: user.displayName || 'User',
           handle: user.handle || 'user',
           tint: '#d9b25a',
+          avatarUrl: user.avatarUrl,
         },
         bio: user.bio || '',
         reviewCount: reviews.length,
@@ -154,9 +157,13 @@ export function ProfileScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={[styles.avatarContainer, { backgroundColor: `${profile.user.tint}22`, borderColor: `${profile.user.tint}66` }]}>
-            <Text style={[styles.avatarText, { color: profile.user.tint }]}>
-              {profile.user.name[0]}
-            </Text>
+            {profile.user.avatarUrl ? (
+              <Image source={{ uri: profile.user.avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={[styles.avatarText, { color: profile.user.tint }]}>
+                {profile.user.name[0]}
+              </Text>
+            )}
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.name}>{profile.user.name}</Text>
@@ -489,6 +496,11 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
     fontWeight: '600',
     fontSize: 32,
+  },
+  avatarImage: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
   },
   headerInfo: {
     flex: 1,
