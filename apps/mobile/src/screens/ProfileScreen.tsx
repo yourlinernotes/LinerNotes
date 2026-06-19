@@ -31,7 +31,7 @@ import { EditProfileModal } from '../components/EditProfileModal';
 import type { User } from '../lib/types';
 import { shareToInstagramStory, shareToTikTok, shareToTwitter, saveCardImage } from '../lib/share-utils';
 import { reviewToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
-import type { FeedAuthor } from '../lib/feed-types';
+import type { FeedAuthor, FeedReview } from '../lib/feed-types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -61,7 +61,11 @@ interface ProfileData {
 
 type TabType = 'notes' | 'saved';
 
-export function ProfileScreen() {
+export function ProfileScreen({
+  onOpenReview,
+}: {
+  onOpenReview?: (review: FeedReview) => void;
+}) {
   const { user } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [tab, setTab] = useState<TabType>('notes');
@@ -275,10 +279,10 @@ export function ProfileScreen() {
         {/* Notes feed */}
         <View style={styles.feed}>
           {tab === 'notes' && notesList.map(({ review, kind }) => (
-            <ProfileNote key={kind + review.id} review={review} kind={kind} gold={gold} author={profileAuthor} />
+            <ProfileNote key={kind + review.id} review={review} kind={kind} gold={gold} author={profileAuthor} onOpenReview={onOpenReview} />
           ))}
           {tab === 'saved' && profile.saved.map((review) => (
-            <ProfileNote key={'sv' + review.id} review={review} kind="saved" gold={gold} author={profileAuthor} />
+            <ProfileNote key={'sv' + review.id} review={review} kind="saved" gold={gold} author={profileAuthor} onOpenReview={onOpenReview} />
           ))}
           {tab === 'saved' && profile.saved.length === 0 && (
             <View style={styles.emptyState}>
@@ -360,11 +364,13 @@ function ProfileNote({
   kind,
   gold,
   author,
+  onOpenReview,
 }: {
   review: EnrichedReview;
   kind: 'own' | 'repost' | 'saved';
   gold: string;
   author: FeedAuthor;
+  onOpenReview?: (review: FeedReview) => void;
 }) {
   const feedReview = reviewToFeedReview(review, author);
   const [like, setLike] = useState({ on: false, n: 0 });
@@ -426,10 +432,18 @@ function ProfileNote({
         <ReviewCard review={feedReview} accent={gold} context="share" variant="story" />
       </View>
 
-      {/* Visible regular card (also used for TikTok/Twitter sharing) */}
-      <View ref={regularCardRef} collapsable={false}>
+      {/* Hidden plain card for TikTok/Twitter export */}
+      <View style={{ position: 'absolute', left: -9999, top: 0 }} ref={regularCardRef} collapsable={false}>
         <ReviewCard review={feedReview} accent={gold} context="share" />
       </View>
+
+      {/* Visible card — tap to open the full review */}
+      <ReviewCard
+        review={feedReview}
+        accent={gold}
+        context="feed"
+        onPress={() => onOpenReview?.(feedReview)}
+      />
 
       <View style={styles.actions}>
         <ActionButton

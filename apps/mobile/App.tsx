@@ -149,7 +149,7 @@ function AppContent() {
             onOpenComposer={() => setComposerOpen(true)}
           />
         )}
-        {activeTab === 'profile' && <ProfileScreen key={contentKey} />}
+        {activeTab === 'profile' && <ProfileScreen key={contentKey} onOpenReview={openReview} />}
 
         {/* Bottom tab bar */}
         <View style={styles.tabBar}>

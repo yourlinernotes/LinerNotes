@@ -21,8 +21,9 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
   const depth = !review.take ? 'floor' : review.body ? 'full' : 'caption';
 
   const showPill = rating > 0 && album.kind !== 'playlist';
-  const hasFullReview = !!review.body;
-  const showCTA = hasFullReview && context === 'feed';
+  // Show the "tap to read the full review" hint on interactive feed cards that
+  // have something more to read (a take and/or moments).
+  const showCTA = context === 'feed' && (!!review.take || (review.notes?.length ?? 0) > 0);
 
   const padding = tokens.layout.cardPadding[depth];
 
