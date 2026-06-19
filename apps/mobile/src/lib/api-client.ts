@@ -229,7 +229,9 @@ class APIClient {
   }
 
   async getUserReviews(userId: string): Promise<Review[]> {
-    return this.request(`/reviews/user/${userId}`);
+    // Deployed backend: GET /reviews?userId= (public) returns { reviews }.
+    const data = await this.request<{ reviews: Review[] }>(`/reviews?userId=${userId}`);
+    return data.reviews ?? [];
   }
 
   // ==========================================================================

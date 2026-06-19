@@ -70,11 +70,10 @@ export function ProfileScreen() {
     if (!user) return;
 
     try {
-      // Load user reviews
-      const reviews = await api.getUserReviews(user.id);
-
-      // Load saved reviews
-      const saved = await api.getSavedReviews();
+      // Load independently so one failing call doesn't blank the whole profile.
+      // (Saved-reviews has no backend endpoint yet → falls back to [].)
+      const reviews = await api.getUserReviews(user.id).catch(() => []);
+      const saved = await api.getSavedReviews().catch(() => []);
 
       const profileData: ProfileData = {
         user: {
