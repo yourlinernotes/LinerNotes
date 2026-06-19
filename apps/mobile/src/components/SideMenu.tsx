@@ -20,23 +20,26 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api-client';
 import { tokens } from '../lib/tokens';
 import { Icon } from './atoms/Icon';
-import { EditProfileModal } from './EditProfileModal';
 import type { User } from '../lib/types';
 
 type MenuView = 'menu' | 'friends';
 
-export function SideMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { user, logout, refreshUser } = useAuth();
+export function SideMenu({
+  visible,
+  onClose,
+  onEditProfile,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onEditProfile: () => void;
+}) {
+  const { user, logout } = useAuth();
   const [view, setView] = useState<MenuView>('menu');
-  const [showEdit, setShowEdit] = useState(false);
   const gold = tokens.colors.gold;
 
   // Reset to the menu root whenever the drawer is reopened.
   useEffect(() => {
-    if (visible) {
-      setView('menu');
-      setShowEdit(false);
-    }
+    if (visible) setView('menu');
   }, [visible]);
 
   const handleLogout = async () => {
@@ -95,7 +98,7 @@ export function SideMenu({ visible, onClose }: { visible: boolean; onClose: () =
 
               <View style={styles.menuList}>
                 <MenuRow label="Friends & requests" onPress={() => setView('friends')} gold={gold} />
-                <MenuRow label="Edit profile" onPress={() => setShowEdit(true)} gold={gold} />
+                <MenuRow label="Edit profile" onPress={onEditProfile} gold={gold} />
                 <MenuRow label="Log out" onPress={handleLogout} gold={gold} danger />
               </View>
             </View>
@@ -104,16 +107,6 @@ export function SideMenu({ visible, onClose }: { visible: boolean; onClose: () =
           {view === 'friends' && <FriendsView />}
         </View>
       </View>
-
-      {/* Edit profile (same modal the profile page uses) */}
-      <EditProfileModal
-        visible={showEdit}
-        onClose={() => setShowEdit(false)}
-        onSaved={async () => {
-          setShowEdit(false);
-          await refreshUser().catch(() => {});
-        }}
-      />
     </Modal>
   );
 }

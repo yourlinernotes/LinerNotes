@@ -6,6 +6,7 @@ import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScree
 import { MenuIcon, PlusIcon } from './src/components/atoms';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { SideMenu } from './src/components/SideMenu';
+import { EditProfileModal } from './src/components/EditProfileModal';
 import { api } from './src/lib/api-client';
 import { tokens } from './src/lib/tokens';
 import type { FeedReview } from './src/lib/feed-types';
@@ -19,11 +20,12 @@ import type { FeedReview } from './src/lib/feed-types';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 function AppContent() {
-  const { user, isLoading, needsOnboarding, completeOnboarding } = useAuth();
+  const { user, isLoading, needsOnboarding, completeOnboarding, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
   const [activeReview, setActiveReview] = useState<FeedReview | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [hasRequests, setHasRequests] = useState(false);
 
   // Show the header dot only when there are pending friend requests.
@@ -181,6 +183,20 @@ function AppContent() {
         onClose={() => {
           setMenuOpen(false);
           refreshRequests();
+        }}
+        onEditProfile={() => {
+          setMenuOpen(false);
+          setEditProfileOpen(true);
+        }}
+      />
+
+      {/* Edit profile (app-level so it's never nested inside the menu) */}
+      <EditProfileModal
+        visible={editProfileOpen}
+        onClose={() => setEditProfileOpen(false)}
+        onSaved={async () => {
+          setEditProfileOpen(false);
+          await refreshUser().catch(() => {});
         }}
       />
     </View>
