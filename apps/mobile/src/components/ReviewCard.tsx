@@ -398,6 +398,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     letterSpacing: 0.1,
+    textAlign: 'center',
   },
   footer: {
     marginTop: 2,

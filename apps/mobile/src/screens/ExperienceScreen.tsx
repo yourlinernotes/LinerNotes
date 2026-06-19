@@ -221,10 +221,16 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
             </View>
           )}
 
-          {/* The line + full review body */}
+          {/* The caption (first line) reads as an italic pull-quote; the rest
+              of the take sits below it in plain, non-italic text. */}
           {review.take && (
-            <Text style={styles.quote}>"{review.take}"</Text>
+            <Text style={styles.quote}>"{review.take.split('\n')[0]}"</Text>
           )}
+          {review.take && review.take.split('\n').slice(1).join('\n').trim() ? (
+            <Text style={styles.body}>
+              {review.take.split('\n').slice(1).join('\n').trim()}
+            </Text>
+          ) : null}
           {review.body && (
             <Text style={styles.body}>{review.body}</Text>
           )}
@@ -277,20 +283,23 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
               <AlbumTrackStrip tracks={album.tracks} gold={gold} onTapMoment={tapNote} activeNote={activeNote} />
             </View>
           )}
-
-          {/* Delete — only for your own note (backend also enforces ownership) */}
-          {isOwn && (
-            <TouchableOpacity
-              style={[styles.deleteButton, deleting && { opacity: 0.5 }]}
-              onPress={confirmDelete}
-              disabled={deleting}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete note'}</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </ScrollView>
+
+      {/* Delete — pinned to the very bottom (only for your own note; the
+          backend also enforces ownership). */}
+      {isOwn && (
+        <View style={styles.deleteBar}>
+          <TouchableOpacity
+            style={[styles.deleteButton, deleting && { opacity: 0.5 }]}
+            onPress={confirmDelete}
+            disabled={deleting}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete note'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Fixed top bar — swipe down here to dismiss */}
       <View style={styles.topBar} {...panResponder.panHandlers}>
@@ -393,7 +402,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 96,
-    paddingBottom: 40,
+    paddingBottom: 110,
   },
   topBar: {
     position: 'absolute',
@@ -408,8 +417,17 @@ const styles = StyleSheet.create({
     paddingTop: 54,
     paddingBottom: 8,
   },
+  deleteBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 15,
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 34,
+  },
   deleteButton: {
-    marginTop: 28,
     alignSelf: 'center',
     paddingVertical: 12,
     paddingHorizontal: 28,
