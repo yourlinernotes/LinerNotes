@@ -71,20 +71,28 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const runAlbumSearch = async (q: string) => {
     setSearching(true);
     try {
+      console.log('[Onboarding] Searching for albums:', q);
+
       // Use the backend API which calls iTunes Search API
       const data = await api.searchAlbums(q, 15);
 
+      console.log('[Onboarding] Search response:', JSON.stringify(data, null, 2));
+
       // Backend returns { results: [...], count: N }
       const results = data.results || data || [];
+      console.log('[Onboarding] Results count:', results.length);
+
       const albums: AlbumPick[] = results.map((r: any) => ({
         name: r.name,
         artist: r.artist,
         artworkUrl: r.artworkUrl,
       }));
 
+      console.log('[Onboarding] Mapped albums:', albums.length);
       setAlbumResults(albums);
     } catch (error) {
-      console.error('Album search failed:', error);
+      console.error('[Onboarding] Album search failed:', error);
+      console.error('[Onboarding] Error details:', JSON.stringify(error, null, 2));
       setAlbumResults([]);
     } finally {
       setSearching(false);

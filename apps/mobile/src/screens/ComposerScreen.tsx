@@ -159,16 +159,23 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
     setIsSearching(true);
     try {
+      console.log('[Composer] Searching for:', query, 'mode:', mode);
+
       // Use the backend API which calls iTunes Search API
       const data = mode === 'album'
         ? await api.searchAlbums(query, 10)
         : await api.searchTracks(query, 10);
 
+      console.log('[Composer] Search response:', JSON.stringify(data, null, 2));
+
       // Backend returns { results: [...], count: N }
       const results = data.results || data || [];
+      console.log('[Composer] Processed results count:', results.length);
+
       setSearchResults(results);
     } catch (error) {
-      console.error('Search failed:', error);
+      console.error('[Composer] Search failed:', error);
+      console.error('[Composer] Error details:', JSON.stringify(error, null, 2));
       setSearchResults([]);
     } finally {
       setIsSearching(false);
