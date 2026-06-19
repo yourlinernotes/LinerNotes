@@ -64,7 +64,7 @@ export function TrackSearch({ onTrackSelect, searchAPI }: TrackSearchProps) {
       )}
 
       {showResults && (results.length > 0 || !loading) && (
-        <div className="ln-scroll" style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 8, borderRadius: 14, overflow: "hidden", overflowY: "auto", maxHeight: 360, zIndex: 20, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.14)", boxShadow: "0 26px 56px -26px var(--ln-shadow)" }}>
+        <div className="ln-scroll" style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 8, borderRadius: 14, overflow: "hidden", overflowY: "auto", overscrollBehavior: "contain", maxHeight: "min(360px, 50vh)", zIndex: 80, background: "var(--ln-bg)", border: "1px solid rgba(var(--ln-line-rgb),0.18)", boxShadow: "0 26px 56px -26px var(--ln-shadow)" }}>
           {results.length > 0 ? (
             results.map((track) => (
               <button key={track.trackId} type="button" onClick={() => selectTrack(track)} style={{ width: "100%", padding: "11px 13px", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "none", border: "none", borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.06)", cursor: "pointer" }}>

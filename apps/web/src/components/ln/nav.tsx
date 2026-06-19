@@ -215,7 +215,7 @@ export function Footer({ dark = true }: { dark?: boolean }) {
   const muted = dark ? "rgba(241,235,224,0.5)" : "rgba(var(--ln-fg-rgb),0.55)";
   const line = dark ? "rgba(241,235,224,0.12)" : "rgba(var(--ln-fg-rgb),0.12)";
   return (
-    <footer style={{ position: "relative", zIndex: 2, borderTop: `1px solid ${line}`, marginTop: "auto", background: "rgba(0,0,0,0.12)" }}>
+    <footer style={{ position: "relative", zIndex: 0, borderTop: `1px solid ${line}`, marginTop: "auto", background: "rgba(0,0,0,0.12)" }}>
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "44px 24px 52px", display: "flex", flexWrap: "wrap", gap: 30, alignItems: "flex-start", justifyContent: "space-between" }}>
         <div style={{ maxWidth: 360 }}>
           <Link href="/" style={{ display: "inline-flex", alignItems: "baseline", gap: 7, textDecoration: "none" }}>
