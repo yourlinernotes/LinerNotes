@@ -16,6 +16,7 @@ import {
   FlatList,
   Alert,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../components/ReviewCard';
@@ -25,6 +26,8 @@ import { Stars } from '../components/atoms/Stars';
 import { formatRelativeTime } from '../lib/time-utils';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
+import { EditProfileForm } from '../components/EditProfileForm';
+import type { User } from '../lib/types';
 import { shareToInstagramStory, shareToTikTok, shareToTwitter, saveCardImage } from '../lib/share-utils';
 import { reviewToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
 import type { FeedAuthor } from '../lib/feed-types';
@@ -61,6 +64,8 @@ export function ProfileScreen() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [tab, setTab] = useState<TabType>('notes');
+  const [showEdit, setShowEdit] = useState(false);
+  const [fullUser, setFullUser] = useState<User | null>(null);
   const gold = tokens.colors.gold;
   const top4CardRef = useRef(null);
 
@@ -73,19 +78,22 @@ export function ProfileScreen() {
 
     try {
       // Load independently so one failing call doesn't blank the whole profile.
-      // (Saved-reviews has no backend endpoint yet → falls back to [].)
+      // (getMyProfile supplies bio, which the login/auth-me user lacks.)
+      const full = await api.getMyProfile().catch(() => null);
       const reviews = await api.getUserReviews(user.id).catch(() => []);
       const saved = await api.getSavedReviews().catch(() => []);
+      const u = full ?? user;
+      setFullUser(u);
 
       const profileData: ProfileData = {
         user: {
-          id: user.id,
-          name: user.displayName || 'User',
-          handle: user.handle || 'user',
+          id: u.id || user.id,
+          name: u.displayName || 'User',
+          handle: u.handle || 'user',
           tint: '#d9b25a',
-          avatarUrl: user.avatarUrl,
+          avatarUrl: u.avatarUrl,
         },
-        bio: user.bio || '',
+        bio: u.bio || '',
         reviewCount: reviews.length,
         friends: 0, // Will be populated when friends feature is implemented
         joined: new Date(user.createdAt || Date.now()).getFullYear().toString(),
@@ -176,9 +184,9 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        <Text style={styles.bio}>{profile.bio}</Text>
+        {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
 
-        <TouchableOpacity style={styles.editButton}>
+        <TouchableOpacity style={styles.editButton} onPress={() => setShowEdit(true)}>
           <Text style={styles.editButtonText}>Edit profile</Text>
         </TouchableOpacity>
 
@@ -261,6 +269,25 @@ export function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Edit profile modal */}
+      <Modal visible={showEdit} animationType="slide" onRequestClose={() => setShowEdit(false)}>
+        <View style={styles.editModal}>
+          <View style={styles.editModalHeader}>
+            <Text style={styles.editModalTitle}>Edit profile</Text>
+            <TouchableOpacity onPress={() => setShowEdit(false)} style={styles.editModalClose}>
+              <Icon name="close" size={18} color={tokens.colors.fg} />
+            </TouchableOpacity>
+          </View>
+          <EditProfileForm
+            user={fullUser ?? user}
+            onSaved={() => {
+              setShowEdit(false);
+              loadProfile();
+            }}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -460,6 +487,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: tokens.colors.nearBlack,
+  },
+  editModal: {
+    flex: 1,
+    backgroundColor: tokens.colors.bg,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 56,
+    paddingHorizontal: 18,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(241,235,224,0.08)',
+  },
+  editModalTitle: {
+    fontFamily: 'System',
+    fontSize: 18,
+    fontWeight: '600',
+    color: tokens.colors.fg,
+  },
+  editModalClose: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loading: {
     flex: 1,

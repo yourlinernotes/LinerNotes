@@ -199,6 +199,12 @@ class APIClient {
     });
   }
 
+  /** Full current-user profile (includes bio), from GET /users/me ({ user }). */
+  async getMyProfile(): Promise<User> {
+    const res = await this.request<{ user: User }>('/users/me');
+    return res.user;
+  }
+
   // ==========================================================================
   // REVIEWS
   // ==========================================================================

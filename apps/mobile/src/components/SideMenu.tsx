@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api-client';
 import { tokens } from '../lib/tokens';
 import { Icon } from './atoms/Icon';
+import { EditProfileForm } from './EditProfileForm';
 import type { User } from '../lib/types';
 
 type MenuView = 'menu' | 'friends' | 'edit';
@@ -98,7 +99,7 @@ export function SideMenu({ visible, onClose }: { visible: boolean; onClose: () =
 
           {view === 'friends' && <FriendsView />}
           {view === 'edit' && (
-            <EditProfileView
+            <EditProfileForm
               user={user}
               onSaved={async () => {
                 await refreshUser().catch(() => {});
@@ -229,82 +230,6 @@ function PersonInfo({ user }: { user: User }) {
   );
 }
 
-// ─── Edit profile ───────────────────────────────────────────────────────────
-
-function EditProfileView({ user, onSaved }: { user: User | null; onSaved: () => void }) {
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [handle, setHandle] = useState(user?.handle || '');
-  const [bio, setBio] = useState(user?.bio || '');
-  const [saving, setSaving] = useState(false);
-
-  const handleClean = handle.replace(/[^a-z0-9_]/gi, '').toLowerCase();
-  const canSave = displayName.trim().length > 0 && handleClean.length >= 3;
-
-  async function save() {
-    if (!canSave || saving) return;
-    setSaving(true);
-    try {
-      await api.updateUser({
-        displayName: displayName.trim(),
-        handle: handleClean,
-        bio: bio.trim() || undefined,
-      });
-      onSaved();
-    } catch (e: any) {
-      Alert.alert('Could not save', e?.message || 'Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <ScrollView contentContainerStyle={styles.viewContent} keyboardShouldPersistTaps="handled">
-      <Text style={styles.fieldLabel}>DISPLAY NAME</Text>
-      <TextInput
-        style={styles.input}
-        value={displayName}
-        onChangeText={setDisplayName}
-        placeholder="your name"
-        placeholderTextColor="rgba(241,235,224,0.3)"
-      />
-
-      <Text style={styles.fieldLabel}>HANDLE</Text>
-      <TextInput
-        style={styles.input}
-        value={handleClean}
-        onChangeText={setHandle}
-        placeholder="yourhandle"
-        placeholderTextColor="rgba(241,235,224,0.3)"
-        autoCapitalize="none"
-      />
-
-      <Text style={styles.fieldLabel}>BIO</Text>
-      <TextInput
-        style={[styles.input, { minHeight: 80 }]}
-        value={bio}
-        onChangeText={setBio}
-        placeholder="what do you listen for?"
-        placeholderTextColor="rgba(241,235,224,0.3)"
-        multiline
-        textAlignVertical="top"
-      />
-
-      <TouchableOpacity
-        style={[styles.saveBtn, { backgroundColor: canSave && !saving ? tokens.colors.gold : 'rgba(241,235,224,0.12)' }]}
-        onPress={save}
-        disabled={!canSave || saving}
-      >
-        {saving ? (
-          <ActivityIndicator color={tokens.colors.nearBlack} />
-        ) : (
-          <Text style={[styles.saveBtnText, { color: canSave ? tokens.colors.nearBlack : 'rgba(241,235,224,0.4)' }]}>
-            Save
-          </Text>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
-  );
-}
 
 const styles = StyleSheet.create({
   root: { flex: 1, flexDirection: 'row' },
