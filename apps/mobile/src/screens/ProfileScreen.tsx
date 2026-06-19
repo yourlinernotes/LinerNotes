@@ -26,7 +26,7 @@ import { Stars } from '../components/atoms/Stars';
 import { formatRelativeTime } from '../lib/time-utils';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
-import { EditProfileForm } from '../components/EditProfileForm';
+import { EditProfileModal } from '../components/EditProfileModal';
 import type { User } from '../lib/types';
 import { shareToInstagramStory, shareToTikTok, shareToTwitter, saveCardImage } from '../lib/share-utils';
 import { reviewToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
@@ -271,23 +271,14 @@ export function ProfileScreen() {
       </ScrollView>
 
       {/* Edit profile modal */}
-      <Modal visible={showEdit} animationType="slide" onRequestClose={() => setShowEdit(false)}>
-        <View style={styles.editModal}>
-          <View style={styles.editModalHeader}>
-            <Text style={styles.editModalTitle}>Edit profile</Text>
-            <TouchableOpacity onPress={() => setShowEdit(false)} style={styles.editModalClose}>
-              <Icon name="close" size={18} color={tokens.colors.fg} />
-            </TouchableOpacity>
-          </View>
-          <EditProfileForm
-            user={fullUser ?? user}
-            onSaved={() => {
-              setShowEdit(false);
-              loadProfile();
-            }}
-          />
-        </View>
-      </Modal>
+      <EditProfileModal
+        visible={showEdit}
+        onClose={() => setShowEdit(false)}
+        onSaved={() => {
+          setShowEdit(false);
+          loadProfile();
+        }}
+      />
     </View>
   );
 }

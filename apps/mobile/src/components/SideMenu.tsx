@@ -20,19 +20,23 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api-client';
 import { tokens } from '../lib/tokens';
 import { Icon } from './atoms/Icon';
-import { EditProfileForm } from './EditProfileForm';
+import { EditProfileModal } from './EditProfileModal';
 import type { User } from '../lib/types';
 
-type MenuView = 'menu' | 'friends' | 'edit';
+type MenuView = 'menu' | 'friends';
 
 export function SideMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { user, logout, refreshUser } = useAuth();
   const [view, setView] = useState<MenuView>('menu');
+  const [showEdit, setShowEdit] = useState(false);
   const gold = tokens.colors.gold;
 
   // Reset to the menu root whenever the drawer is reopened.
   useEffect(() => {
-    if (visible) setView('menu');
+    if (visible) {
+      setView('menu');
+      setShowEdit(false);
+    }
   }, [visible]);
 
   const handleLogout = async () => {
@@ -59,7 +63,7 @@ export function SideMenu({ visible, onClose }: { visible: boolean; onClose: () =
               <View style={styles.headerBtn} />
             )}
             <Text style={styles.panelTitle}>
-              {view === 'friends' ? 'Friends' : view === 'edit' ? 'Edit profile' : 'Menu'}
+              {view === 'friends' ? 'Friends' : 'Menu'}
             </Text>
             <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
               <Icon name="close" size={18} color={tokens.colors.fg} />
@@ -91,24 +95,25 @@ export function SideMenu({ visible, onClose }: { visible: boolean; onClose: () =
 
               <View style={styles.menuList}>
                 <MenuRow label="Friends & requests" onPress={() => setView('friends')} gold={gold} />
-                <MenuRow label="Edit profile" onPress={() => setView('edit')} gold={gold} />
+                <MenuRow label="Edit profile" onPress={() => setShowEdit(true)} gold={gold} />
                 <MenuRow label="Log out" onPress={handleLogout} gold={gold} danger />
               </View>
             </View>
           )}
 
           {view === 'friends' && <FriendsView />}
-          {view === 'edit' && (
-            <EditProfileForm
-              user={user}
-              onSaved={async () => {
-                await refreshUser().catch(() => {});
-                setView('menu');
-              }}
-            />
-          )}
         </View>
       </View>
+
+      {/* Edit profile (same modal the profile page uses) */}
+      <EditProfileModal
+        visible={showEdit}
+        onClose={() => setShowEdit(false)}
+        onSaved={async () => {
+          setShowEdit(false);
+          await refreshUser().catch(() => {});
+        }}
+      />
     </Modal>
   );
 }

@@ -40,7 +40,8 @@ export function EditProfileForm({
       await api.updateUser({
         displayName: displayName.trim(),
         handle: handleClean,
-        bio: bio.trim() || undefined,
+        // Send '' (not undefined) so clearing the bio actually removes it.
+        bio: bio.trim(),
       });
       onSaved();
     } catch (e: any) {
