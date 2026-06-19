@@ -31,8 +31,9 @@ export default function AlbumCardPage() {
         const authRes = await fetch('/api/auth/me');
         if (authRes.ok) {
           const authData = await authRes.json();
-          const ownerStatus = authData.userId === data.albumReview.userId;
-          console.log('Album owner check:', { currentUserId: authData.userId, albumReviewUserId: data.albumReview.userId, isOwner: ownerStatus });
+          const currentUserId = authData.user?.id;
+          const ownerStatus = currentUserId === data.albumReview.userId;
+          console.log('Album owner check:', { currentUserId, albumReviewUserId: data.albumReview.userId, isOwner: ownerStatus });
           setIsOwner(ownerStatus);
         }
       } catch (error) {

@@ -33,8 +33,9 @@ export default function CardPage() {
         const authRes = await fetch('/api/auth/me');
         if (authRes.ok) {
           const authData = await authRes.json();
-          const ownerStatus = authData.userId === data.review.userId;
-          console.log('Owner check:', { currentUserId: authData.userId, reviewUserId: data.review.userId, isOwner: ownerStatus });
+          const currentUserId = authData.user?.id;
+          const ownerStatus = currentUserId === data.review.userId;
+          console.log('Owner check:', { currentUserId, reviewUserId: data.review.userId, isOwner: ownerStatus });
           setIsOwner(ownerStatus);
         }
       } catch (error) {
