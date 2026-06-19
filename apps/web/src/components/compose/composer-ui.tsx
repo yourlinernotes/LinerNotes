@@ -67,9 +67,9 @@ export function StarsInput({
   );
 }
 
-export type DraftMoment = { seconds: number; note: string };
+export type DraftMoment = { seconds: number; label: string; note: string };
 
-// ── mm:ss moments editor ─────────────────────────────────────
+// ── mm:ss moments editor (with optional label; defaults to "moment") ──
 export function MomentsEditor({
   moments,
   onAdd,
@@ -79,33 +79,73 @@ export function MomentsEditor({
   onAdd: (m: DraftMoment) => void;
   onRemove: (idx: number) => void;
 }) {
-  const [m, setM] = useState({ mm: "", ss: "", note: "" });
+  const [m, setM] = useState({ mm: "", ss: "", label: "", note: "" });
   const add = () => {
-    if (!m.note.trim()) return;
+    if (!m.note.trim() && !m.label.trim()) return;
     const seconds = (parseInt(m.mm || "0", 10) || 0) * 60 + (parseInt(m.ss || "0", 10) || 0);
-    onAdd({ seconds, note: m.note.trim() });
-    setM({ mm: "", ss: "", note: "" });
+    onAdd({ seconds, label: m.label.trim() || "moment", note: m.note.trim() });
+    setM({ mm: "", ss: "", label: "", note: "" });
   };
-  const ready = !!m.note.trim();
+  const ready = !!(m.note.trim() || m.label.trim());
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {moments.map((mm, idx) => (
-        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 10, background: "rgba(var(--ln-fg-rgb),0.05)", border: "1px solid rgba(var(--ln-fg-rgb),0.08)" }}>
-          <span style={{ fontFamily: "var(--ln-mono)", fontSize: 12, color: "#1a0a04", background: GOLD, borderRadius: 6, padding: "2px 7px", flexShrink: 0, fontWeight: 600 }}>{lnFmt(mm.seconds)}</span>
-          <span style={{ flex: 1, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "rgba(var(--ln-fg-rgb),0.85)", minWidth: 0 }}>{mm.note}</span>
-          <button type="button" onClick={() => onRemove(idx)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }}>
-            <LNIcon name="close" size={14} color="rgba(var(--ln-fg-rgb),0.45)" />
-          </button>
-        </div>
-      ))}
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-        <input value={m.mm} onChange={(e) => setM((s) => ({ ...s, mm: e.target.value.replace(/\D/g, "").slice(0, 2) }))} placeholder="m" inputMode="numeric" style={{ ...cmpInput, width: 46, padding: "10px 0", textAlign: "center", fontFamily: "var(--ln-mono)" }} />
+      {moments.map((mm, idx) => {
+        const hasLabel = !!mm.label && mm.label !== "moment";
+        return (
+          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 10, background: "rgba(var(--ln-fg-rgb),0.05)", border: "1px solid rgba(var(--ln-fg-rgb),0.08)" }}>
+            <span style={{ fontFamily: "var(--ln-mono)", fontSize: 12, color: "#1a0a04", background: GOLD, borderRadius: 6, padding: "2px 7px", flexShrink: 0, fontWeight: 600 }}>{lnFmt(mm.seconds)}</span>
+            <span style={{ flex: 1, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "rgba(var(--ln-fg-rgb),0.85)", minWidth: 0 }}>
+              {hasLabel && <span style={{ color: GOLD, fontWeight: 600 }}>{mm.label}</span>}
+              {hasLabel && mm.note ? " · " : ""}
+              {mm.note || (!hasLabel ? mm.label : "")}
+            </span>
+            <button type="button" onClick={() => onRemove(idx)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex" }}>
+              <LNIcon name="close" size={14} color="rgba(var(--ln-fg-rgb),0.45)" />
+            </button>
+          </div>
+        );
+      })}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <input value={m.mm} onChange={(e) => setM((s) => ({ ...s, mm: e.target.value.replace(/\D/g, "").slice(0, 2) }))} placeholder="m" inputMode="numeric" style={{ ...cmpInput, width: 42, padding: "10px 0", textAlign: "center", fontFamily: "var(--ln-mono)" }} />
         <span style={{ fontFamily: "var(--ln-mono)", fontSize: 16, color: GOLD }}>:</span>
-        <input value={m.ss} onChange={(e) => setM((s) => ({ ...s, ss: e.target.value.replace(/\D/g, "").slice(0, 2) }))} placeholder="ss" inputMode="numeric" style={{ ...cmpInput, width: 46, padding: "10px 0", textAlign: "center", fontFamily: "var(--ln-mono)" }} />
-        <input value={m.note} onChange={(e) => setM((s) => ({ ...s, note: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="What happens here?" style={{ ...cmpInput, flex: 1, padding: "10px 12px", fontSize: 13.5 }} />
+        <input value={m.ss} onChange={(e) => setM((s) => ({ ...s, ss: e.target.value.replace(/\D/g, "").slice(0, 2) }))} placeholder="ss" inputMode="numeric" style={{ ...cmpInput, width: 42, padding: "10px 0", textAlign: "center", fontFamily: "var(--ln-mono)" }} />
+        <input value={m.label} onChange={(e) => setM((s) => ({ ...s, label: e.target.value.slice(0, 30) }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="label" style={{ ...cmpInput, width: 96, padding: "10px 11px", fontSize: 13 }} />
+        <input value={m.note} onChange={(e) => setM((s) => ({ ...s, note: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="What happens here?" style={{ ...cmpInput, flex: 1, minWidth: 120, padding: "10px 12px", fontSize: 13.5 }} />
         <button type="button" onClick={add} className="ln-press" style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 10, border: "none", cursor: ready ? "pointer" : "default", background: ready ? GOLD : "rgba(var(--ln-fg-rgb),0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke={ready ? "#1a0a04" : "rgba(var(--ln-fg-rgb),0.4)"} strokeWidth="2.4" strokeLinecap="round" /></svg>
         </button>
+      </div>
+      <div style={{ fontFamily: "var(--ln-mono)", fontSize: 9.5, letterSpacing: "0.04em", color: "rgba(var(--ln-fg-rgb),0.4)" }}>
+        Label is optional — left blank, it&apos;s saved as “moment”.
+      </div>
+    </div>
+  );
+}
+
+// ── Caption picker — choose which line of your note leads the card ──
+export function CaptionPicker({
+  lines,
+  selected,
+  onSelect,
+}: {
+  lines: string[];
+  selected: number;
+  onSelect: (i: number) => void;
+}) {
+  if (lines.length < 2) return null;
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.06em", color: "rgba(var(--ln-fg-rgb),0.5)", textTransform: "uppercase", marginBottom: 8 }}>lead your card with</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {lines.map((ln, i) => {
+          const sel = i === selected;
+          return (
+            <button key={i} type="button" onClick={() => onSelect(i)} style={{ display: "flex", alignItems: "flex-start", gap: 10, textAlign: "left", padding: "10px 12px", borderRadius: 10, cursor: "pointer", border: `1px solid ${sel ? GOLD + "99" : "rgba(var(--ln-fg-rgb),0.12)"}`, background: sel ? `${GOLD}14` : "transparent" }}>
+              <span style={{ width: 15, height: 15, borderRadius: "50%", flexShrink: 0, marginTop: 2, border: `1.5px solid ${sel ? GOLD : "rgba(var(--ln-fg-rgb),0.3)"}`, background: sel ? GOLD : "transparent" }} />
+              <span style={{ fontFamily: "var(--ln-preview)", fontStyle: "italic", fontSize: 15, lineHeight: 1.35, color: sel ? "var(--ln-fg)" : "rgba(var(--ln-fg-rgb),0.68)" }}>{ln}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

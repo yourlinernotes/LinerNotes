@@ -152,7 +152,7 @@ export function LNWFeedCard({ vm, accent = GOLD, onOpen }: { vm: ReviewVM; accen
           <span style={{ fontFamily: "var(--ln-body)", fontSize: 14, color: "var(--ln-muted)" }}>{album.artist}{album.year ? ` · ${album.year}` : ""}</span>
         </div>
 
-        {vm.take && <p style={{ position: "relative", margin: 0, fontFamily: "var(--ln-preview)", fontStyle: "italic", fontWeight: 500, fontSize: 19, lineHeight: 1.38, color: "var(--ln-fg)" }}>{vm.take}</p>}
+        {vm.take && <p style={{ position: "relative", margin: 0, fontFamily: "var(--ln-preview)", fontStyle: "italic", fontWeight: 500, fontSize: 19, lineHeight: 1.38, color: "var(--ln-fg)" }}>{vm.take.split("\n")[0]}</p>}
 
         {fm && (
           <div style={{ position: "relative" }}>
@@ -227,7 +227,7 @@ export function LNWCard({ vm, accent = GOLD, onOpen }: { vm: ReviewVM; accent?: 
           <span style={{ fontFamily: "var(--ln-body)", fontSize: 14, color: "var(--ln-muted)" }}>{album.artist}</span>
         </div>
 
-        {vm.take && <p style={{ margin: 0, fontFamily: "var(--ln-preview)", fontStyle: "italic", fontWeight: 500, fontSize: 18.5, lineHeight: 1.4, color: "var(--ln-fg)" }}>{vm.take}</p>}
+        {vm.take && <p style={{ margin: 0, fontFamily: "var(--ln-preview)", fontStyle: "italic", fontWeight: 500, fontSize: 18.5, lineHeight: 1.4, color: "var(--ln-fg)" }}>{vm.take.split("\n")[0]}</p>}
 
         {depth === "floor" && album.kind !== "playlist" && vm.rating > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 1 }}>

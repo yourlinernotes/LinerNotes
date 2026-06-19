@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import type { Track, Review } from "@/lib/types";
 import { TrackSearch } from "./TrackSearch";
-import { StarsInput, MomentsEditor, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type DraftMoment, type Depth } from "./composer-ui";
+import { StarsInput, MomentsEditor, CaptionPicker, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type DraftMoment, type Depth } from "./composer-ui";
 import { LNArt, LNIcon } from "@/components/ln/atoms";
 import { LNWCard } from "@/components/ln/cards";
 import { paletteFromString } from "@/lib/palette";
@@ -24,10 +24,14 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
   const [line, setLine] = useState("");
   const [showMoments, setShowMoments] = useState(false);
   const [moments, setMoments] = useState<DraftMoment[]>([]);
+  const [captionIdx, setCaptionIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  const take = line.trim();
-  const multiline = take.split("\n").filter((s) => s.trim()).length > 1;
+  // Lines of the note; the chosen caption leads the card (stored first in `take`).
+  const lines = line.split("\n").map((s) => s.trim()).filter(Boolean);
+  const capIdx = lines.length ? Math.min(captionIdx, lines.length - 1) : 0;
+  const take = lines.length > 1 ? [lines[capIdx], ...lines.filter((_, i) => i !== capIdx)].join("\n") : lines[0] || "";
+  const multiline = lines.length > 1;
   const depth: Depth = multiline ? "full" : take ? "caption" : rating > 0 ? "floor" : null;
   const canPost = !!track && rating > 0;
 
@@ -49,7 +53,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
       rating,
       take: take || undefined,
       body: undefined,
-      notes: moments.map((m) => ({ sec: m.seconds, label: "moment", note: m.note })),
+      notes: moments.map((m) => ({ sec: m.seconds, label: m.label || "moment", note: m.note })),
       via: null,
       likeCount: 0,
       repostCount: 0,
@@ -74,7 +78,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
         previewUrl: track.previewUrl,
         rating,
         take: take || undefined,
-        notes: moments.length > 0 ? moments.map((m) => ({ seconds: m.seconds, label: "moment", note: m.note })) : undefined,
+        notes: moments.length > 0 ? moments.map((m) => ({ seconds: m.seconds, label: m.label || "moment", note: m.note || undefined })) : undefined,
       };
 
       if (onSubmit) {
@@ -89,6 +93,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
       setRating(0);
       setLine("");
       setMoments([]);
+      setCaptionIdx(0);
       setShowLine(false);
       setShowMoments(false);
 
@@ -155,7 +160,8 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
 
             {showLine && (
               <div style={{ marginTop: 13 }}>
-                <textarea value={line} onChange={(e) => setLine(e.target.value)} rows={4} placeholder="Write as much as you want — one line, or the whole thing…" style={cmpInput} maxLength={1000} />
+                <textarea value={line} onChange={(e) => setLine(e.target.value)} rows={4} placeholder="Write as much as you want — one line, or the whole thing. Each line can be your caption…" style={cmpInput} maxLength={1000} />
+                <CaptionPicker lines={lines} selected={capIdx} onSelect={setCaptionIdx} />
               </div>
             )}
 

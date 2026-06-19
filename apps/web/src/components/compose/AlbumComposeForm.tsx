@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Album, Track, Reaction, AlbumReview } from "@/lib/types";
 import { AlbumSearch } from "./AlbumSearch";
-import { StarsInput, MomentsEditor, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type Depth } from "./composer-ui";
+import { StarsInput, MomentsEditor, CaptionPicker, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type Depth } from "./composer-ui";
 import { LNArt, LNReact, LNIcon } from "@/components/ln/atoms";
 import { LNWCard } from "@/components/ln/cards";
 import { paletteFromString } from "@/lib/palette";
@@ -34,6 +34,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
   const [overallRating, setOverallRating] = useState(0);
   const [showTake, setShowTake] = useState(false);
   const [albumTake, setAlbumTake] = useState("");
+  const [captionIdx, setCaptionIdx] = useState(0);
   const [showTracks, setShowTracks] = useState(true);
   const [trackReactions, setTrackReactions] = useState<TrackReaction[]>([]);
   const [openTrack, setOpenTrack] = useState<number | null>(null);
@@ -79,8 +80,10 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
   const isIncluded = (tr: TrackReaction) => !!(tr.reaction || tr.notes.length || tr.take);
   const includedCount = trackReactions.filter(isIncluded).length;
 
-  const take = albumTake.trim();
-  const multiline = take.split("\n").filter((s) => s.trim()).length > 1;
+  const takeLines = albumTake.split("\n").map((s) => s.trim()).filter(Boolean);
+  const capIdx = takeLines.length ? Math.min(captionIdx, takeLines.length - 1) : 0;
+  const take = takeLines.length > 1 ? [takeLines[capIdx], ...takeLines.filter((_, i) => i !== capIdx)].join("\n") : takeLines[0] || "";
+  const multiline = takeLines.length > 1;
   const depth: Depth = multiline ? "full" : take ? "caption" : overallRating > 0 || includedCount > 0 ? "floor" : null;
   const canPost = overallRating > 0 || includedCount > 0;
 
@@ -91,6 +94,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
     setAlbumTake("");
     setTrackReactions([]);
     setOpenTrack(null);
+    setCaptionIdx(0);
   };
 
   const draft: ReviewVM | null = useMemo(() => {
@@ -249,7 +253,8 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
 
               {showTake && (
                 <div style={{ marginTop: 13 }}>
-                  <textarea value={albumTake} onChange={(e) => setAlbumTake(e.target.value)} rows={3} placeholder="What did you think of the album as a whole?" style={cmpInput} maxLength={1000} />
+                  <textarea value={albumTake} onChange={(e) => setAlbumTake(e.target.value)} rows={3} placeholder="What did you think of the album as a whole? Each line can be your caption…" style={cmpInput} maxLength={1000} />
+                  <CaptionPicker lines={takeLines} selected={capIdx} onSelect={setCaptionIdx} />
                 </div>
               )}
 
@@ -280,8 +285,8 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                           <div style={{ padding: "2px 14px 14px", display: "flex", flexDirection: "column", gap: 9, background: `${gold}07` }}>
                             <textarea value={tr.take || ""} onChange={(e) => upd(i, { take: e.target.value })} rows={2} placeholder={`A note on “${tr.track.name}”…`} style={{ ...cmpInput, fontSize: 13.5 }} />
                             <MomentsEditor
-                              moments={tr.notes.map((n) => ({ seconds: n.seconds, note: n.note || "" }))}
-                              onAdd={(m) => upd(i, { notes: [...tr.notes, { seconds: m.seconds, label: "moment", note: m.note }].sort((a, b) => a.seconds - b.seconds) })}
+                              moments={tr.notes.map((n) => ({ seconds: n.seconds, label: n.label || "moment", note: n.note || "" }))}
+                              onAdd={(m) => upd(i, { notes: [...tr.notes, { seconds: m.seconds, label: m.label || "moment", note: m.note }].sort((a, b) => a.seconds - b.seconds) })}
                               onRemove={(idx) => upd(i, { notes: tr.notes.filter((_, j) => j !== idx) })}
                             />
                           </div>
