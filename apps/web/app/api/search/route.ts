@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth-helpers";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://beta-linernotes.vercel.app/api";
+
 /**
  * GET /api/search - Search for tracks or albums
- *
- * TODO: Implement open API stack (iTunes/Deezer/MusicBrainz)
- * Spotify OAuth is removed in favor of open APIs for beta
+ * Proxies to the NestJS backend music search endpoints
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q");
   const type = searchParams.get("type") || "track"; // "track" or "album"
+  const limit = searchParams.get("limit") || "20";
 
   if (!query || query.trim().length < 2) {
     return NextResponse.json(
@@ -30,10 +31,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: "Search not yet implemented - open API stack pending" },
-      { status: 501 }
-    );
+    // Proxy to the NestJS backend music search endpoints
+    const endpoint = type === "album" ? "albums" : "tracks";
+    const backendUrl = `${API_BASE_URL}/music/search/${endpoint}?q=${encodeURIComponent(query)}&limit=${limit}`;
+
+    const response = await fetch(backendUrl);
+
+    if (!response.ok) {
+      throw new Error(`Backend search failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Backend returns { results: [...], count: N }
+    // Transform to match web app format
+    if (type === "album") {
+      return NextResponse.json({
+        albums: data.results || [],
+      });
+    } else {
+      return NextResponse.json({
+        tracks: data.results || [],
+      });
+    }
   } catch (error) {
     console.error("Search error:", error);
     return NextResponse.json(
