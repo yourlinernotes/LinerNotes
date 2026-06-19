@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     if (type === "album") {
       // Normalize field names to match Album type
       const albums = (data.results || []).map((album: any) => ({
-        albumId: album.albumId || album.id,
+        albumId: String(album.albumId ?? album.id ?? ""),
         name: album.name,
         artist: album.artist,
         artworkUrl: album.artworkUrl,
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Normalize field names to match Track type
       const tracks = (data.results || []).map((track: any) => ({
-        trackId: track.trackId || track.id,
+        trackId: String(track.trackId ?? track.id ?? ""),
         name: track.name,
         artist: track.artist,
         album: track.album,

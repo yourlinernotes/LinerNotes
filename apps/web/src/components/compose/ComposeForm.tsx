@@ -70,7 +70,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
     setSubmitting(true);
     try {
       const reviewData = {
-        trackId: track.trackId,
+        trackId: String(track.trackId),
         trackName: track.name,
         trackArtist: track.artist,
         trackAlbum: track.album,
@@ -104,7 +104,8 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps
       }
     } catch (error) {
       console.error("Failed to submit review:", error);
-      alert("Failed to submit. Please try again.");
+      const msg = error instanceof Error ? error.message : "Failed to submit";
+      alert(msg === "Authentication required" || /unauthor/i.test(msg) ? "Please log in to post a note." : `Couldn't post: ${msg}`);
     } finally {
       setSubmitting(false);
     }

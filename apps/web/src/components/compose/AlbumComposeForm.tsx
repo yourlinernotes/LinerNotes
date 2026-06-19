@@ -141,7 +141,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
     try {
       const reviewedTracks = trackReactions.filter(isIncluded);
       const albumReviewData = {
-        albumId: selectedAlbum.albumId,
+        albumId: String(selectedAlbum.albumId),
         albumName: selectedAlbum.name,
         albumArtist: selectedAlbum.artist,
         artworkUrl: selectedAlbum.artworkUrl,
@@ -150,7 +150,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
         overallRating: overallRating || undefined,
         take: take || undefined,
         trackReviews: reviewedTracks.map((tr) => ({
-          trackId: tr.track.trackId,
+          trackId: String(tr.track.trackId),
           trackName: tr.track.name,
           trackArtist: tr.track.artist,
           artworkUrl: tr.track.artworkUrl,
@@ -181,7 +181,8 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
       reset();
     } catch (error) {
       console.error("Failed to submit album review:", error);
-      alert("Failed to submit album review. Please try again.");
+      const msg = error instanceof Error ? error.message : "Failed to submit";
+      alert(/unauthor/i.test(msg) ? "Please log in to post a review." : `Couldn't post: ${msg}`);
     } finally {
       setSubmitting(false);
     }
