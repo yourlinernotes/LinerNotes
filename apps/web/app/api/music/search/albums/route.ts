@@ -38,12 +38,12 @@ export async function GET(request: NextRequest) {
             if (!seenAlbums.has(key)) {
               seenAlbums.add(key);
               results.push({
-                id: rg.id,
+                albumId: rg.id,
                 name: rg.title,
                 artist: rg["artist-credit"][0].name,
                 artworkUrl: `https://coverartarchive.org/release-group/${rg.id}/front-500`,
                 releaseDate: rg["first-release-date"],
-                trackCount: null,
+                totalTracks: null,
                 genre: null,
                 source: "musicbrainz",
                 score: rg.score || 100, // MusicBrainz results get highest priority
@@ -70,12 +70,12 @@ export async function GET(request: NextRequest) {
             if (!seenAlbums.has(key)) {
               seenAlbums.add(key);
               results.push({
-                id: album.collectionId,
+                albumId: album.collectionId,
                 name: album.collectionName,
                 artist: album.artistName,
                 artworkUrl: (album.artworkUrl100 || "").replace("100x100", "600x600"),
                 releaseDate: album.releaseDate,
-                trackCount: album.trackCount,
+                totalTracks: album.trackCount,
                 genre: album.primaryGenreName,
                 source: "itunes",
                 score: 50, // iTunes results as fallback

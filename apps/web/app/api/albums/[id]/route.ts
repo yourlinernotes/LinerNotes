@@ -76,12 +76,19 @@ export async function GET(
       return NextResponse.json({
         album: {
           albumId: albumId,
-          title: rgData.title,
+          name: rgData.title,
           artist: releaseData["artist-credit"]?.[0]?.name || "Unknown Artist",
           artworkUrl: `https://coverartarchive.org/release-group/${albumId}/front-500`,
           releaseDate: rgData["first-release-date"],
-          trackCount: allTracks.length,
-          tracks: allTracks,
+          totalTracks: allTracks.length,
+          tracks: allTracks.map((track: any) => ({
+            trackId: track.trackId,
+            name: track.title,
+            artist: track.artist,
+            album: rgData.title,
+            artworkUrl: `https://coverartarchive.org/release-group/${albumId}/front-500`,
+            previewUrl: track.previewUrl,
+          })),
         },
       });
     } else {
@@ -103,17 +110,17 @@ export async function GET(
       return NextResponse.json({
         album: {
           albumId: albumData.collectionId,
-          title: albumData.collectionName,
+          name: albumData.collectionName,
           artist: albumData.artistName,
           artworkUrl: (albumData.artworkUrl100 || "").replace("100x100", "600x600"),
           releaseDate: albumData.releaseDate,
-          trackCount: albumData.trackCount,
+          totalTracks: albumData.trackCount,
           tracks: tracks.map((track: any, index: number) => ({
             trackId: track.trackId,
-            trackNumber: track.trackNumber || index + 1,
-            title: track.trackName,
+            name: track.trackName,
             artist: track.artistName,
-            duration: track.trackTimeMillis,
+            album: albumData.collectionName,
+            artworkUrl: (albumData.artworkUrl100 || "").replace("100x100", "600x600"),
             previewUrl: track.previewUrl,
           })),
         },

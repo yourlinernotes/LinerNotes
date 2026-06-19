@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
                 : null;
 
               results.push({
-                id: rec.id,
+                trackId: rec.id,
                 name: rec.title,
                 artist: rec["artist-credit"][0].name,
                 album: release?.title || "",
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
             if (!seenTracks.has(key)) {
               seenTracks.add(key);
               results.push({
-                id: track.trackId,
+                trackId: track.trackId,
                 name: track.trackName,
                 artist: track.artistName,
                 album: track.collectionName,

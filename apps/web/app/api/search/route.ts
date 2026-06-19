@@ -61,18 +61,18 @@ export async function GET(request: NextRequest) {
       if (type === "album") {
         data = {
           results: (itunesData.results || []).map((r: any) => ({
-            id: r.collectionId,
+            albumId: r.collectionId,
             name: r.collectionName,
             artist: r.artistName,
             artworkUrl: (r.artworkUrl100 || "").replace("100x100", "600x600"),
             releaseDate: r.releaseDate,
-            trackCount: r.trackCount,
+            totalTracks: r.trackCount,
           })),
         };
       } else {
         data = {
           results: (itunesData.results || []).map((r: any) => ({
-            id: r.trackId,
+            trackId: r.trackId,
             name: r.trackName,
             artist: r.artistName,
             album: r.collectionName,
@@ -86,13 +86,29 @@ export async function GET(request: NextRequest) {
     // Backend returns { results: [...], count: N }
     // Transform to match web app format
     if (type === "album") {
-      return NextResponse.json({
-        albums: data.results || [],
-      });
+      // Normalize field names to match Album type
+      const albums = (data.results || []).map((album: any) => ({
+        albumId: album.albumId || album.id,
+        name: album.name,
+        artist: album.artist,
+        artworkUrl: album.artworkUrl,
+        releaseDate: album.releaseDate,
+        totalTracks: album.totalTracks || album.trackCount,
+      }));
+
+      return NextResponse.json({ albums });
     } else {
-      return NextResponse.json({
-        tracks: data.results || [],
-      });
+      // Normalize field names to match Track type
+      const tracks = (data.results || []).map((track: any) => ({
+        trackId: track.trackId || track.id,
+        name: track.name,
+        artist: track.artist,
+        album: track.album,
+        artworkUrl: track.artworkUrl,
+        previewUrl: track.previewUrl,
+      }));
+
+      return NextResponse.json({ tracks });
     }
   } catch (error) {
     console.error("Search error:", error);
