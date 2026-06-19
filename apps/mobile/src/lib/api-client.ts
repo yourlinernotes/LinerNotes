@@ -110,6 +110,8 @@ class APIClient {
       requestHeaders['Authorization'] = `Bearer ${this.authToken}`;
     }
 
+    console.log(`[API] ${method} ${url}`, body ? JSON.stringify(body, null, 2) : '');
+
     const response = await fetch(url, {
       method,
       headers: requestHeaders,
@@ -117,8 +119,20 @@ class APIClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      const errorText = await response.text();
+      console.error(`[API] ${method} ${url} failed with ${response.status}`);
+      console.error(`[API] Response body:`, errorText);
+
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorJson.message || errorMessage;
+      } catch {
+        // If not JSON, use the text as-is
+        if (errorText) errorMessage = errorText;
+      }
+
+      throw new Error(errorMessage);
     }
 
     return response.json();

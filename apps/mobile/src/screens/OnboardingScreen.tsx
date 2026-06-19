@@ -132,13 +132,17 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     try {
       setIsSaving(true);
 
-      // Update user profile on backend
-      await api.updateUser({
+      const payload = {
         handle: handleClean,
         displayName: displayName.trim(),
         bio: bio.trim() || undefined,
         // TODO: Upload avatar image if provided
-      });
+      };
+
+      console.log('Saving profile with payload:', JSON.stringify(payload, null, 2));
+
+      // Update user profile on backend
+      await api.updateUser(payload);
 
       // Refresh user data in context
       await refreshUser();
@@ -147,9 +151,15 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       setStep(2);
     } catch (error: any) {
       console.error('Failed to save profile:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+
+      // Show detailed error to help debug
+      const errorDetails = `Error: ${error.message || 'Unknown error'}\n\nPayload sent:\nHandle: ${payload.handle}\nDisplay: ${payload.displayName}\nBio: ${payload.bio || '(none)'}`;
+
       Alert.alert(
-        'Error',
-        error.message || 'Failed to save profile. Please try again.'
+        'Profile Update Failed',
+        errorDetails,
+        [{ text: 'OK' }]
       );
     } finally {
       setIsSaving(false);
