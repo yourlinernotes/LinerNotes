@@ -30,6 +30,10 @@ onboarding (3 steps incl. Top-4 search), and a pile of API/endpoint correctness 
       instead. Implement the open-API stack server-side only if search should be centralized.
 - [ ] Continue aligning `apps/mobile/src/lib/api-client.ts` with the **Next.js** routes —
       core paths are fixed; untested ones (album-reviews, `/music/*`) may still 404.
+- [ ] **No playlist endpoint** — the composer's Playlist tab (name + external
+      Spotify/Apple link) posts via `api.createPlaylist()` → `POST /playlists`,
+      which does not exist yet. Add the route + Prisma model so playlist posts
+      persist; until then playlist "Post" 404/500s.
 
 ## 🟡 Mobile features (client-side)
 - [ ] **Avatar upload** — onboarding/edit only keep the local image uri

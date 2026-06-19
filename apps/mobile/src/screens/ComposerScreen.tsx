@@ -36,6 +36,22 @@ const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 type ComposerMode = 'track' | 'album' | 'playlist';
 
+// Accept Spotify / Apple Music playlist links (and Spotify URIs).
+function isPlaylistLink(url: string): boolean {
+  const u = url.trim();
+  return (
+    /open\.spotify\.com\/playlist\//i.test(u) ||
+    /spotify:playlist:/i.test(u) ||
+    /music\.apple\.com\/[^/]+\/playlist\//i.test(u)
+  );
+}
+
+function linkPlatform(url: string): string {
+  if (/spotify/i.test(url)) return 'Spotify';
+  if (/music\.apple\.com/i.test(url)) return 'Apple Music';
+  return 'Playlist';
+}
+
 interface TrackData {
   n: number;
   name: string;
@@ -74,11 +90,24 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   // const [openTrack, setOpenTrack] = useState<number | null>(null);
   // const [fullAlbum, setFullAlbum] = useState(false);
 
-  // Track/Album search
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  // Track search (track mode) — its own box + state
+  const [trackQuery, setTrackQuery] = useState('');
+  const [trackResults, setTrackResults] = useState<any[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [searchingTrack, setSearchingTrack] = useState(false);
+
+  // Album search (album mode) — separate box + state
+  const [albumQuery, setAlbumQuery] = useState('');
+  const [albumResults, setAlbumResults] = useState<any[]>([]);
+  const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
+  const [searchingAlbum, setSearchingAlbum] = useState(false);
+
+  // Playlist (playlist mode) — name + external Spotify/Apple link
+  const [playlistName, setPlaylistName] = useState('');
+  const [playlistLink, setPlaylistLink] = useState('');
+
+  // The item the shared bits (rating, preview, post) act on.
+  const selectedItem = mode === 'album' ? selectedAlbum : selectedTrack;
 
   const gold = tokens.colors.gold;
   const scrollRef = useRef<ScrollView>(null);
@@ -98,7 +127,10 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const hasBody = lines.length > 1;
   const depth = hasBody ? 'full' : preview ? 'caption' : rating > 0 ? 'floor' : null;
 
-  const canPost = selectedTrack && (mode === 'track' ? rating > 0 : mode === 'album' ? rating > 0 : true);
+  const canPost =
+    mode === 'playlist'
+      ? playlistName.trim().length > 0 && isPlaylistLink(playlistLink)
+      : !!selectedItem && rating > 0;
 
   // Swipe down from the top (header): the sheet tracks the finger and snaps
   // closed past a threshold, otherwise springs back.
@@ -127,19 +159,19 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
     })
   ).current;
 
-  // Live preview of the note — only once a song and rating are chosen.
+  // Live preview of the note — only once a song/album and rating are chosen.
   const previewReview =
-    selectedTrack && rating > 0
+    mode !== 'playlist' && selectedItem && rating > 0
       ? reviewToFeedReview(
           {
             id: 'preview',
             userId: user?.id ?? '',
             track: {
-              id: String(selectedTrack.id),
-              name: selectedTrack.name,
-              artist: selectedTrack.artist,
-              album: selectedTrack.album || '',
-              artworkUrl: selectedTrack.artworkUrl,
+              id: String(selectedItem.id),
+              name: selectedItem.name,
+              artist: selectedItem.artist,
+              album: selectedItem.album || '',
+              artworkUrl: selectedItem.artworkUrl,
             },
             rating,
             take: orderedTake || undefined,
@@ -152,62 +184,74 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
         )
       : null;
 
-  async function searchTracks(query: string) {
+  // Shared search used by both the track box and the album box. Tries the
+  // backend (MusicBrainz + iTunes) first, falls back to iTunes directly.
+  async function searchMusic(query: string, kind: 'track' | 'album') {
+    const setResults = kind === 'album' ? setAlbumResults : setTrackResults;
+    const setBusy = kind === 'album' ? setSearchingAlbum : setSearchingTrack;
     if (!query.trim()) {
-      setSearchResults([]);
+      setResults([]);
       return;
     }
-
-    setIsSearching(true);
+    setBusy(true);
     try {
-      const data = mode === 'album'
-        ? await api.searchAlbums(query, 10)
-        : await api.searchTracks(query, 10);
-
-      // API now returns { results: [...], count: N }
-      setSearchResults(data.results || []);
+      let results: any[] = [];
+      try {
+        const data = kind === 'album'
+          ? await api.searchAlbums(query, 10)
+          : await api.searchTracks(query, 10);
+        results = data.results || data || [];
+      } catch {
+        console.log('Backend search failed, falling back to iTunes API');
+        const res = await fetch(
+          `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${kind === 'album' ? 'album' : 'song'}&limit=10`
+        );
+        const data = await res.json();
+        results = data.results || [];
+      }
+      setResults(results);
     } catch (error) {
       console.error('Search failed:', error);
-      Alert.alert('Search Failed', 'Could not search. Please try again.');
-      setSearchResults([]);
+      setResults([]);
     } finally {
-      setIsSearching(false);
+      setBusy(false);
     }
   }
 
-  async function selectTrack(result: any) {
-    const selectedAlbum = {
-      // Web API returns consistent field names: albumId/trackId, name, artist, artworkUrl
-      id: String(result.albumId || result.trackId),
-      name: result.name,
-      artist: result.artist,
-      album: result.album || result.name, // For albums, album field = album name
-      artworkUrl: result.artworkUrl,
-    };
+  // Normalize a backend/iTunes result into our selected-item shape.
+  const normalizeResult = (result: any) => ({
+    id: String(result.id || result.albumId || result.trackId || result.collectionId),
+    name: result.name || result.trackName || result.collectionName,
+    artist: result.artist || result.artistName,
+    album: result.album || result.collectionName,
+    artworkUrl: result.artworkUrl || (result.artworkUrl100 || '').replace('100x100', '600x600'),
+  });
 
-    setSelectedTrack(selectedAlbum);
-    setSearchResults([]);
-    setSearchQuery('');
+  function selectTrack(result: any) {
+    setSelectedTrack(normalizeResult(result));
+    setTrackResults([]);
+    setTrackQuery('');
+  }
 
-    // If album mode, fetch tracks for the album
-    if (mode === 'album' && result.albumId) {
+  async function selectAlbum(result: any) {
+    setSelectedAlbum(normalizeResult(result));
+    setAlbumResults([]);
+    setAlbumQuery('');
+
+    // If we have an album id, fetch its tracklist so the album review can
+    // carry per-track entries.
+    const albumId = result.albumId || result.id || result.collectionId;
+    if (albumId) {
       try {
-        const { album, tracks: albumTracks } = await api.getAlbumTracks(result.albumId);
-
-        // Initialize tracks state with fetched track data
+        const { tracks: albumTracks } = await api.getAlbumTracks(String(albumId));
         const tracksMap: Record<number, TrackData> = {};
-        albumTracks.forEach((track: any, index: number) => {
-          tracksMap[track.trackNumber || index + 1] = {
-            n: track.trackNumber || index + 1,
-            name: track.name,
-            moments: [],
-            reaction: null,
-          };
+        (albumTracks || []).forEach((track: any, index: number) => {
+          const n = track.trackNumber || index + 1;
+          tracksMap[n] = { n, name: track.name, moments: [], reaction: null, review: '' };
         });
         setTracks(tracksMap);
       } catch (error) {
         console.error('Failed to fetch album tracks:', error);
-        Alert.alert('Notice', 'Could not load album tracks. You can still post an album review.');
       }
     }
   }
@@ -220,13 +264,19 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
     try {
       const body = hasBody ? orderedTake.split('\n').slice(1).join('\n') : undefined;
 
-      if (mode === 'album') {
+      if (mode === 'playlist') {
+        await api.createPlaylist({
+          name: playlistName.trim(),
+          url: playlistLink.trim(),
+          note: orderedTake || undefined,
+        });
+      } else if (mode === 'album') {
         await api.createAlbumReview({
           album: {
-            id: selectedTrack.id,
-            name: selectedTrack.name,
-            artist: selectedTrack.artist,
-            artworkUrl: selectedTrack.artworkUrl,
+            id: selectedAlbum.id,
+            name: selectedAlbum.name,
+            artist: selectedAlbum.artist,
+            artworkUrl: selectedAlbum.artworkUrl,
           },
           overallRating: rating,
           body,
@@ -323,60 +373,83 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
             ))}
           </View>
 
-          {/* Track/Album Search */}
-          {!selectedTrack ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>
-                SEARCH {mode === 'album' ? 'ALBUM' : 'TRACK'}
-              </Text>
-              <TextInput
-                style={styles.textArea}
-                value={searchQuery}
-                onChangeText={(q) => {
-                  setSearchQuery(q);
-                  searchTracks(q);
-                }}
-                placeholder={`search for ${mode === 'album' ? 'an album' : 'a track'}...`}
-                placeholderTextColor="rgba(241,235,224,0.3)"
-                autoCorrect={false}
-              />
-              {isSearching && (
-                <Text style={styles.hint}>searching...</Text>
-              )}
-              {searchResults.map((result, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.searchResult}
-                  onPress={() => selectTrack(result)}
-                >
-                  <Text style={styles.searchResultName} numberOfLines={1}>
-                    {result.name || result.trackName || result.collectionName}
-                  </Text>
-                  <Text style={styles.searchResultArtist} numberOfLines={1}>
-                    {result.artist || result.artistName}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>
-                {mode === 'album' ? 'ALBUM' : 'TRACK'}
-              </Text>
-              <View style={styles.selectedTrack}>
-                <View style={styles.selectedTrackInfo}>
-                  <Text style={styles.selectedTrackName} numberOfLines={1}>
-                    {selectedTrack.name}
-                  </Text>
-                  <Text style={styles.selectedTrackArtist} numberOfLines={1}>
-                    {selectedTrack.artist}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => setSelectedTrack(null)}>
-                  <Text style={styles.changeButton}>Change</Text>
-                </TouchableOpacity>
+          {/* Track search box — only on the track tab */}
+          {mode === 'track' && (
+            <SearchSection
+              label="SEARCH TRACK"
+              selectedLabel="TRACK"
+              placeholder="search for a track..."
+              query={trackQuery}
+              onChangeQuery={(q) => {
+                setTrackQuery(q);
+                searchMusic(q, 'track');
+              }}
+              searching={searchingTrack}
+              results={trackResults}
+              selected={selectedTrack}
+              onSelect={selectTrack}
+              onClear={() => setSelectedTrack(null)}
+            />
+          )}
+
+          {/* Album search box — separate, only on the album tab */}
+          {mode === 'album' && (
+            <SearchSection
+              label="SEARCH ALBUM"
+              selectedLabel="ALBUM"
+              placeholder="search for an album..."
+              query={albumQuery}
+              onChangeQuery={(q) => {
+                setAlbumQuery(q);
+                searchMusic(q, 'album');
+              }}
+              searching={searchingAlbum}
+              results={albumResults}
+              selected={selectedAlbum}
+              onSelect={selectAlbum}
+              onClear={() => setSelectedAlbum(null)}
+            />
+          )}
+
+          {/* Playlist — name + external Spotify/Apple Music link (no search) */}
+          {mode === 'playlist' && (
+            <>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>PLAYLIST NAME</Text>
+                <TextInput
+                  style={styles.lineInput}
+                  value={playlistName}
+                  onChangeText={setPlaylistName}
+                  placeholder="name your playlist..."
+                  placeholderTextColor="rgba(241,235,224,0.3)"
+                  onFocus={scrollToInput}
+                />
               </View>
-            </View>
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>PLAYLIST LINK</Text>
+                <TextInput
+                  style={styles.lineInput}
+                  value={playlistLink}
+                  onChangeText={setPlaylistLink}
+                  placeholder="paste a Spotify or Apple Music link..."
+                  placeholderTextColor="rgba(241,235,224,0.3)"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  onFocus={scrollToInput}
+                />
+                {playlistLink.trim().length > 0 &&
+                  (isPlaylistLink(playlistLink) ? (
+                    <Text style={[styles.linkOk, { color: gold }]}>
+                      {linkPlatform(playlistLink)} playlist linked
+                    </Text>
+                  ) : (
+                    <Text style={styles.linkWarn}>
+                      paste a Spotify or Apple Music playlist link
+                    </Text>
+                  ))}
+              </View>
+            </>
           )}
 
           {/* Rating */}
@@ -506,6 +579,82 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 }
 
 // ─── Sub-Components ─────────────────────────────────────────────────────────
+
+interface SearchSectionProps {
+  label: string;
+  selectedLabel: string;
+  placeholder: string;
+  query: string;
+  onChangeQuery: (q: string) => void;
+  searching: boolean;
+  results: any[];
+  selected: any | null;
+  onSelect: (result: any) => void;
+  onClear: () => void;
+}
+
+function SearchSection({
+  label,
+  selectedLabel,
+  placeholder,
+  query,
+  onChangeQuery,
+  searching,
+  results,
+  selected,
+  onSelect,
+  onClear,
+}: SearchSectionProps) {
+  if (selected) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{selectedLabel}</Text>
+        <View style={styles.selectedTrack}>
+          <View style={styles.selectedTrackInfo}>
+            <Text style={styles.selectedTrackName} numberOfLines={1}>
+              {selected.name}
+            </Text>
+            <Text style={styles.selectedTrackArtist} numberOfLines={1}>
+              {selected.artist}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onClear}>
+            <Text style={styles.changeButton}>Change</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionLabel}>{label}</Text>
+      <TextInput
+        style={styles.lineInput}
+        value={query}
+        onChangeText={onChangeQuery}
+        placeholder={placeholder}
+        placeholderTextColor="rgba(241,235,224,0.3)"
+        autoCorrect={false}
+      />
+      {searching && <Text style={styles.hint}>searching...</Text>}
+      {results.map((result, i) => (
+        <TouchableOpacity
+          key={i}
+          style={styles.searchResult}
+          onPress={() => onSelect(result)}
+        >
+          <Text style={styles.searchResultName} numberOfLines={1}>
+            {result.name || result.trackName || result.collectionName}
+          </Text>
+          <Text style={styles.searchResultArtist} numberOfLines={1}>
+            {result.artist || result.artistName}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
 
 interface StarsInputProps {
   rating: number;
@@ -734,6 +883,28 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     color: tokens.colors.fg,
     minHeight: 100,
+  },
+  lineInput: {
+    backgroundColor: 'rgba(241,235,224,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.14)',
+    borderRadius: 12,
+    padding: 12,
+    fontFamily: 'System',
+    fontSize: 14.5,
+    color: tokens.colors.fg,
+  },
+  linkOk: {
+    fontFamily: 'System',
+    fontSize: 12.5,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  linkWarn: {
+    fontFamily: 'System',
+    fontSize: 12.5,
+    color: '#e0762f',
+    marginTop: 8,
   },
   captionPicker: {
     gap: 6,
