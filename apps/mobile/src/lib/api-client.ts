@@ -273,7 +273,9 @@ class APIClient {
   }
 
   async getSavedReviews(): Promise<Review[]> {
-    return this.request('/reviews/saved');
+    // No backend endpoint for saved reviews yet; return [] instead of hitting
+    // /reviews/saved (which the Next.js [id] route resolves to "Review not found").
+    return [];
   }
 
   // ==========================================================================
