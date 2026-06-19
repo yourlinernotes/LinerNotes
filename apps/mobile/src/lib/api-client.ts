@@ -189,7 +189,8 @@ class APIClient {
   // ==========================================================================
 
   async getUser(handle: string): Promise<User> {
-    return this.request(`/users/${handle}`);
+    const res = await this.request<{ user: User }>(`/users/${handle}`);
+    return res.user;
   }
 
   async updateUser(data: Partial<User>): Promise<User> {

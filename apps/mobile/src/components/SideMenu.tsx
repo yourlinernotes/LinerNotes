@@ -14,13 +14,18 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Share,
   StyleSheet,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../lib/api-client';
+import { api, API_BASE_URL } from '../lib/api-client';
 import { tokens } from '../lib/tokens';
 import { Icon } from './atoms/Icon';
 import type { User } from '../lib/types';
+
+// Web origin for shareable profile links (strip the trailing /api).
+const WEB_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
 
 type MenuView = 'menu' | 'friends';
 
@@ -49,6 +54,27 @@ export function SideMenu({
       /* logout is local; ignore */
     }
     onClose();
+  };
+
+  // Share your profile: copy your @handle and open the native share sheet
+  // with a link to your web profile.
+  const shareProfile = async () => {
+    const handle = user?.handle;
+    if (!handle) {
+      Alert.alert('No handle yet', 'Set a handle in Edit profile first.');
+      return;
+    }
+    const url = `${WEB_ORIGIN}/profile/${handle}`;
+    try {
+      await Clipboard.setStringAsync(`@${handle}`);
+      await Share.share({
+        message: `Find me on LinerNotes — @${handle}\n${url}`,
+        url,
+      });
+    } catch {
+      // Share dismissed/failed — the handle is still on the clipboard.
+      Alert.alert('Handle copied', `@${handle} copied to clipboard.`);
+    }
   };
 
   return (
@@ -98,6 +124,7 @@ export function SideMenu({
 
               <View style={styles.menuList}>
                 <MenuRow label="Friends & requests" onPress={() => setView('friends')} gold={gold} />
+                <MenuRow label="Share profile" onPress={shareProfile} gold={gold} />
                 <MenuRow label="Edit profile" onPress={onEditProfile} gold={gold} />
                 <MenuRow label="Log out" onPress={handleLogout} gold={gold} danger />
               </View>
@@ -136,6 +163,10 @@ function FriendsView() {
   const [friends, setFriends] = useState<User[]>([]);
   const [requests, setRequests] = useState<Array<{ id: string; requester: User }>>([]);
   const [loading, setLoading] = useState(true);
+  const [handleInput, setHandleInput] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const gold = tokens.colors.gold;
 
   async function load() {
     setLoading(true);
@@ -151,6 +182,33 @@ function FriendsView() {
   useEffect(() => {
     load();
   }, []);
+
+  // Add a friend by handle: resolve the handle to a user, then send a request.
+  async function addFriend() {
+    const handle = handleInput.trim().replace(/^@+/, '').toLowerCase();
+    if (!handle || adding) return;
+    setAdding(true);
+    setAddMsg(null);
+    try {
+      const target = await api.getUser(handle);
+      await api.sendFriendRequest(target.id);
+      setAddMsg({ text: `Request sent to @${target.handle}`, ok: true });
+      setHandleInput('');
+      load();
+    } catch (e: any) {
+      const m = (e?.message || '').toLowerCase();
+      const text = m.includes('not found')
+        ? `No user @${handle}`
+        : m.includes('yourself')
+        ? "That's you!"
+        : m.includes('already')
+        ? 'Already friends or request pending'
+        : 'Could not send request';
+      setAddMsg({ text, ok: false });
+    } finally {
+      setAdding(false);
+    }
+  }
 
   async function respond(requesterId: string, accept: boolean) {
     try {
@@ -170,8 +228,39 @@ function FriendsView() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.viewContent}>
-      <Text style={styles.sectionLabel}>REQUESTS · {requests.length}</Text>
+    <ScrollView contentContainerStyle={styles.viewContent} keyboardShouldPersistTaps="handled">
+      <Text style={styles.sectionLabel}>ADD A FRIEND</Text>
+      <View style={styles.addRow}>
+        <TextInput
+          style={[styles.input, { flex: 1 }]}
+          value={handleInput}
+          onChangeText={setHandleInput}
+          placeholder="@handle"
+          placeholderTextColor="rgba(241,235,224,0.3)"
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="send"
+          onSubmitEditing={addFriend}
+        />
+        <TouchableOpacity
+          style={[styles.addBtn, { backgroundColor: gold }, (adding || !handleInput.trim()) && { opacity: 0.5 }]}
+          onPress={addFriend}
+          disabled={adding || !handleInput.trim()}
+        >
+          {adding ? (
+            <ActivityIndicator size="small" color={tokens.colors.nearBlack} />
+          ) : (
+            <Text style={styles.addBtnText}>Add</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+      {addMsg && (
+        <Text style={[styles.addMsg, { color: addMsg.ok ? gold : '#e0762f' }]}>
+          {addMsg.text}
+        </Text>
+      )}
+
+      <Text style={[styles.sectionLabel, { marginTop: 22 }]}>REQUESTS · {requests.length}</Text>
       {requests.length === 0 && <Text style={styles.empty}>no pending requests</Text>}
       {requests.map((req) => (
         <View key={req.id} style={styles.personRow}>
@@ -291,6 +380,16 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   empty: { fontFamily: 'System', fontSize: 13, color: 'rgba(241,235,224,0.4)', marginBottom: 8 },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addBtn: {
+    paddingHorizontal: 18,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addBtnText: { fontFamily: 'System', fontSize: 14, fontWeight: '600', color: tokens.colors.nearBlack },
+  addMsg: { fontFamily: 'System', fontSize: 12.5, marginTop: 8 },
   personRow: { marginBottom: 14 },
   personInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   personAvatar: { width: 38, height: 38, borderRadius: 19 },
