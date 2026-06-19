@@ -17,6 +17,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   PanResponder,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +31,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { reviewToFeedReview } from '../lib/feed-adapter';
 import type { Moment, ReactionType } from '../lib/types';
 import { tokens } from '../lib/tokens';
+
+const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 type ComposerMode = 'track' | 'album' | 'playlist';
 
@@ -86,12 +90,29 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
   const canPost = selectedTrack && (mode === 'track' ? rating > 0 : mode === 'album' ? rating > 0 : true);
 
-  // Swipe down from the top (header) to dismiss the sheet.
+  // Swipe down from the top (header): the sheet tracks the finger and snaps
+  // closed past a threshold, otherwise springs back.
+  const translateY = useRef(new Animated.Value(0)).current;
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx),
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 8 && g.dy > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) translateY.setValue(g.dy);
+      },
       onPanResponderRelease: (_, g) => {
-        if (g.dy > 80) onClose();
+        if (g.dy > 120 || g.vy > 0.6) {
+          Animated.timing(translateY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 220,
+            useNativeDriver: false,
+          }).start(() => onClose());
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            bounciness: 2,
+            useNativeDriver: false,
+          }).start();
+        }
       },
     })
   ).current;
@@ -209,7 +230,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   }
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
       <LinearGradient
         colors={[`${gold}1c`, 'transparent']}
         style={styles.headerGradient}
@@ -409,7 +430,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
         </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -483,6 +504,8 @@ function MomentsInput({ moments, onAdd, onRemove, onFieldFocus, gold }: MomentsI
           keyboardType="number-pad"
           maxLength={2}
           returnKeyType="next"
+          blurOnSubmit={false}
+          onSubmitEditing={() => ssRef.current?.focus()}
         />
         <Text style={[styles.momentColon, { color: gold }]}>:</Text>
         <TextInput
@@ -499,6 +522,8 @@ function MomentsInput({ moments, onAdd, onRemove, onFieldFocus, gold }: MomentsI
           keyboardType="number-pad"
           maxLength={2}
           returnKeyType="next"
+          blurOnSubmit={false}
+          onSubmitEditing={() => noteRef.current?.focus()}
         />
         <TextInput
           ref={noteRef}
