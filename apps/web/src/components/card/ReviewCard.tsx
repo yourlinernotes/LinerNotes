@@ -179,7 +179,7 @@ export function ReviewCard({ review, className = "", hideLinks = false }: Review
             className="text-xl italic leading-relaxed border-l-4 pl-4"
             style={{ borderColor: colors.accent }}
           >
-            "{review.take}"
+            "{review.take.split("\n")[0]}"
           </blockquote>
         )}
 

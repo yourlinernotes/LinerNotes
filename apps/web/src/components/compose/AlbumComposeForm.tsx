@@ -82,7 +82,8 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
 
   const takeLines = albumTake.split("\n").map((s) => s.trim()).filter(Boolean);
   const capIdx = takeLines.length ? Math.min(captionIdx, takeLines.length - 1) : 0;
-  const take = takeLines.length > 1 ? [takeLines[capIdx], ...takeLines.filter((_, i) => i !== capIdx)].join("\n") : takeLines[0] || "";
+  // Caption is prepended as a pull-quote; the full review follows in written order.
+  const take = takeLines.length > 1 ? [takeLines[capIdx], ...takeLines].join("\n") : takeLines[0] || "";
   const multiline = takeLines.length > 1;
   const depth: Depth = multiline ? "full" : take ? "caption" : overallRating > 0 || includedCount > 0 ? "floor" : null;
   const canPost = overallRating > 0 || includedCount > 0;
