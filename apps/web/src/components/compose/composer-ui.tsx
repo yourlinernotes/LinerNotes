@@ -23,6 +23,22 @@ export const cmpInput: CSSProperties = {
 
 const GOLD = "var(--ln-accent)";
 
+// Quick ideas for a moment's label — tap to fill the label field.
+const LABEL_IDEAS = [
+  "the drop",
+  "beat switch",
+  "the build",
+  "key change",
+  "the hook",
+  "the bridge",
+  "the bass",
+  "vocal run",
+  "breakdown",
+  "tempo shift",
+  "the outro",
+  "gave me chills",
+];
+
 // ── Tap-to-rate stars (click left half = .5) ─────────────────
 export function StarsInput({
   rating,
@@ -114,6 +130,16 @@ export function MomentsEditor({
         <button type="button" onClick={add} className="ln-press" style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 10, border: "none", cursor: ready ? "pointer" : "default", background: ready ? GOLD : "rgba(var(--ln-fg-rgb),0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke={ready ? "#1a0a04" : "rgba(var(--ln-fg-rgb),0.4)"} strokeWidth="2.4" strokeLinecap="round" /></svg>
         </button>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontFamily: "var(--ln-mono)", fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--ln-fg-rgb),0.4)", flexShrink: 0 }}>ideas</span>
+        <div className="ln-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+          {LABEL_IDEAS.map((idea) => (
+            <button key={idea} type="button" onClick={() => setM((s) => ({ ...s, label: idea }))} className="ln-press" style={{ flexShrink: 0, padding: "5px 11px", borderRadius: 999, cursor: "pointer", border: `1px solid ${m.label === idea ? GOLD + "99" : "rgba(var(--ln-fg-rgb),0.14)"}`, background: m.label === idea ? `${GOLD}14` : "transparent", color: m.label === idea ? GOLD : "rgba(var(--ln-fg-rgb),0.6)", fontFamily: "var(--ln-body)", fontSize: 11.5, whiteSpace: "nowrap" }}>
+              {idea}
+            </button>
+          ))}
+        </div>
       </div>
       <div style={{ fontFamily: "var(--ln-mono)", fontSize: 9.5, letterSpacing: "0.04em", color: "rgba(var(--ln-fg-rgb),0.4)" }}>
         Label is optional — left blank, it&apos;s saved as “moment”.

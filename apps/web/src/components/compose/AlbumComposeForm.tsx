@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { Album, Track, Reaction, AlbumReview } from "@/lib/types";
 import { AlbumSearch } from "./AlbumSearch";
 import { StarsInput, MomentsEditor, CaptionPicker, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type Depth } from "./composer-ui";
-import { LNArt, LNReact, LNIcon } from "@/components/ln/atoms";
+import { LNArt, LNReact, LN_REACT, LNIcon } from "@/components/ln/atoms";
 import { LNWCard } from "@/components/ln/cards";
 import { paletteFromString } from "@/lib/palette";
 import type { ReviewVM, TrackVM } from "@/lib/view-adapter";
@@ -25,8 +25,6 @@ interface TrackReaction {
   notes: TrackNote[];
   showNoteForm: boolean;
 }
-
-const CYCLE: (Reaction | null)[] = [null, "flame", "love", "skip"];
 
 export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumComposeFormProps) {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
@@ -73,10 +71,6 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
 
   const upd = (i: number, patch: Partial<TrackReaction>) =>
     setTrackReactions((arr) => arr.map((t, j) => (j === i ? { ...t, ...patch } : t)));
-  const cycle = (i: number) => {
-    const cur = trackReactions[i].reaction;
-    upd(i, { reaction: CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length] });
-  };
   const isIncluded = (tr: TrackReaction) => !!(tr.reaction || tr.notes.length || tr.take);
   const includedCount = trackReactions.filter(isIncluded).length;
 
@@ -271,13 +265,20 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                     return (
                       <div key={tr.track.trackId} style={{ borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.06)" }}>
                         <div style={{ display: "flex", alignItems: "center" }}>
-                          <div onClick={() => cycle(i)} style={{ flex: 1, display: "flex", alignItems: "center", gap: 11, padding: "12px 14px", cursor: "pointer", minWidth: 0 }}>
+                          <div onClick={() => setOpenTrack((o) => (o === i ? null : i))} style={{ flex: 1, display: "flex", alignItems: "center", gap: 11, padding: "12px 6px 12px 14px", cursor: "pointer", minWidth: 0 }}>
                             <span style={{ fontFamily: "var(--ln-mono)", fontSize: 11, color: included ? "rgba(var(--ln-fg-rgb),0.45)" : "rgba(var(--ln-fg-rgb),0.28)", width: 16 }}>{String(tr.trackNumber).padStart(2, "0")}</span>
                             <span style={{ flex: 1, fontFamily: "var(--ln-body)", fontSize: 14.5, color: included ? "var(--ln-fg)" : "rgba(var(--ln-fg-rgb),0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{tr.track.name}</span>
                           </div>
-                          <button type="button" onClick={() => cycle(i)} style={{ padding: "12px 11px", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}>
-                            {tr.reaction ? <LNReact kind={tr.reaction} size={18} /> : <span style={{ width: 18, height: 18, borderRadius: "50%", border: "1.5px dashed rgba(var(--ln-fg-rgb),0.25)" }} />}
-                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0, paddingRight: 4 }}>
+                            {(["flame", "love", "skip"] as const).map((k) => {
+                              const active = tr.reaction === k;
+                              return (
+                                <button key={k} type="button" title={LN_REACT[k].label} onClick={() => upd(i, { reaction: active ? null : k })} className="ln-press" style={{ padding: 7, borderRadius: 9, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: active ? `${LN_REACT[k].color}22` : "transparent", opacity: active ? 1 : 0.42, transition: "opacity 0.15s, background 0.15s" }}>
+                                  <LNReact kind={k} size={18} />
+                                </button>
+                              );
+                            })}
+                          </div>
                           <button type="button" onClick={() => setOpenTrack((o) => (o === i ? null : i))} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "12px 13px", background: "none", border: "none", borderLeft: "1px solid rgba(var(--ln-fg-rgb),0.06)", cursor: "pointer" }}>
                             {(mc > 0 || tr.take) && <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10, color: gold }}>{mc || "·"}</span>}
                             <LNIcon name="save" size={16} color={mc || tr.take || open ? gold : "rgba(var(--ln-fg-rgb),0.4)"} />
