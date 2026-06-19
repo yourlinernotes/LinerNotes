@@ -130,11 +130,11 @@ export function ProfileScreen() {
 
   if (!profile) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.container}>
         <View style={styles.loading}>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -150,7 +150,7 @@ export function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -255,7 +255,7 @@ export function ProfileScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 18,
-    paddingTop: 60,
+    paddingTop: 116, // Account for App.tsx sticky header (104px + 12px spacing)
     paddingBottom: 120,
   },
   header: {
