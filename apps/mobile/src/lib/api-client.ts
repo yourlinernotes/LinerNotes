@@ -368,12 +368,12 @@ class APIClient {
   // MUSIC SEARCH
   // ==========================================================================
 
-  async searchTracks(query: string, limit = 20): Promise<any[]> {
+  async searchTracks(query: string, limit = 20): Promise<any> {
     const params = new URLSearchParams({ q: query, limit: limit.toString() });
     return this.request(`/music/search/tracks?${params}`);
   }
 
-  async searchAlbums(query: string, limit = 20): Promise<any[]> {
+  async searchAlbums(query: string, limit = 20): Promise<any> {
     const params = new URLSearchParams({ q: query, limit: limit.toString() });
     return this.request(`/music/search/albums?${params}`);
   }
