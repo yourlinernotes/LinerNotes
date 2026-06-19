@@ -67,24 +67,14 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [isSaving, setIsSaving] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Album search via iTunes + MusicBrainz fallback
+  // Album search - MusicBrainz primary (comprehensive), iTunes fallback for artwork
   const runAlbumSearch = async (q: string) => {
     setSearching(true);
     try {
-      // Try iTunes first (has artwork)
-      const itunesRes = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=10`
-      );
-      const itunesData = await itunesRes.json();
-      const itunesAlbums: AlbumPick[] = (itunesData.results || []).map((r: any) => ({
-        name: r.collectionName,
-        artist: r.artistName,
-        artworkUrl: (r.artworkUrl100 || '').replace('100x100', '300x300'),
-      }));
-
-      // Also search MusicBrainz for indie/underground releases
+      // Search MusicBrainz first - actually has real music indexing
       const mbRes = await fetch(
-        `https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(q)}&fmt=json&limit=10`
+        `https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(q)}&fmt=json&limit=20`,
+        { headers: { 'User-Agent': 'LinerNotes/0.2.0 (contact@linernotes.app)' } }
       );
       const mbData = await mbRes.json();
       const mbAlbums: AlbumPick[] = (mbData['release-groups'] || [])
@@ -95,20 +85,23 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           artworkUrl: `https://coverartarchive.org/release-group/${rg.id}/front-250`,
         }));
 
-      // Merge results, iTunes first (better artwork), then MusicBrainz
-      const allAlbums = [...itunesAlbums, ...mbAlbums];
-
-      // Dedupe by name + artist
-      const seen = new Set<string>();
-      const unique = allAlbums.filter(a => {
-        const key = `${a.name.toLowerCase()}:${a.artist.toLowerCase()}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-      setAlbumResults(unique.slice(0, 15));
-    } catch {
+      // If MusicBrainz found nothing, try iTunes as last resort
+      if (mbAlbums.length === 0) {
+        const itunesRes = await fetch(
+          `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=10`
+        );
+        const itunesData = await itunesRes.json();
+        const itunesAlbums: AlbumPick[] = (itunesData.results || []).map((r: any) => ({
+          name: r.collectionName,
+          artist: r.artistName,
+          artworkUrl: (r.artworkUrl100 || '').replace('100x100', '300x300'),
+        }));
+        setAlbumResults(itunesAlbums.slice(0, 15));
+      } else {
+        setAlbumResults(mbAlbums.slice(0, 15));
+      }
+    } catch (error) {
+      console.error('Album search failed:', error);
       setAlbumResults([]);
     } finally {
       setSearching(false);
