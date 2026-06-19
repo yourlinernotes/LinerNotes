@@ -56,27 +56,6 @@ export function SideMenu({
     onClose();
   };
 
-  // Share your profile: copy your @handle and open the native share sheet
-  // with a link to your web profile.
-  const shareProfile = async () => {
-    const handle = user?.handle;
-    if (!handle) {
-      Alert.alert('No handle yet', 'Set a handle in Edit profile first.');
-      return;
-    }
-    const url = `${WEB_ORIGIN}/profile/${handle}`;
-    try {
-      await Clipboard.setStringAsync(`@${handle}`);
-      await Share.share({
-        message: `Find me on LinerNotes — @${handle}\n${url}`,
-        url,
-      });
-    } catch {
-      // Share dismissed/failed — the handle is still on the clipboard.
-      Alert.alert('Handle copied', `@${handle} copied to clipboard.`);
-    }
-  };
-
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.root}>
@@ -124,7 +103,6 @@ export function SideMenu({
 
               <View style={styles.menuList}>
                 <MenuRow label="Friends & requests" onPress={() => setView('friends')} gold={gold} />
-                <MenuRow label="Share profile" onPress={shareProfile} gold={gold} />
                 <MenuRow label="Edit profile" onPress={onEditProfile} gold={gold} />
                 <MenuRow label="Log out" onPress={handleLogout} gold={gold} danger />
               </View>
@@ -160,6 +138,7 @@ function MenuRow({
 // ─── Friends & requests ─────────────────────────────────────────────────────
 
 function FriendsView() {
+  const { user } = useAuth();
   const [friends, setFriends] = useState<User[]>([]);
   const [requests, setRequests] = useState<Array<{ id: string; requester: User }>>([]);
   const [loading, setLoading] = useState(true);
@@ -167,6 +146,27 @@ function FriendsView() {
   const [adding, setAdding] = useState(false);
   const [addMsg, setAddMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const gold = tokens.colors.gold;
+
+  // Share your profile: copy your @handle and open the native share sheet
+  // with a link to your web profile.
+  async function shareProfile() {
+    const handle = user?.handle;
+    if (!handle) {
+      Alert.alert('No handle yet', 'Set a handle in Edit profile first.');
+      return;
+    }
+    const url = `${WEB_ORIGIN}/profile/${handle}`;
+    try {
+      await Clipboard.setStringAsync(`@${handle}`);
+      await Share.share({
+        message: `Find me on LinerNotes — @${handle}\n${url}`,
+        url,
+      });
+    } catch {
+      // Share dismissed/failed — the handle is still on the clipboard.
+      Alert.alert('Handle copied', `@${handle} copied to clipboard.`);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -259,6 +259,11 @@ function FriendsView() {
           {addMsg.text}
         </Text>
       )}
+
+      <TouchableOpacity style={styles.shareProfileBtn} onPress={shareProfile} activeOpacity={0.8}>
+        <Icon name="share" size={15} color={gold} />
+        <Text style={[styles.shareProfileText, { color: gold }]}>Share my profile</Text>
+      </TouchableOpacity>
 
       <Text style={[styles.sectionLabel, { marginTop: 22 }]}>REQUESTS · {requests.length}</Text>
       {requests.length === 0 && <Text style={styles.empty}>no pending requests</Text>}
@@ -390,6 +395,19 @@ const styles = StyleSheet.create({
   },
   addBtnText: { fontFamily: 'System', fontSize: 14, fontWeight: '600', color: tokens.colors.nearBlack },
   addMsg: { fontFamily: 'System', fontSize: 12.5, marginTop: 8 },
+  shareProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(217,178,90,0.4)',
+    backgroundColor: 'rgba(217,178,90,0.10)',
+  },
+  shareProfileText: { fontFamily: 'System', fontSize: 14, fontWeight: '600' },
   personRow: { marginBottom: 14 },
   personInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   personAvatar: { width: 38, height: 38, borderRadius: 19 },
