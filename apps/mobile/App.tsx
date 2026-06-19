@@ -27,6 +27,9 @@ function AppContent() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [hasRequests, setHasRequests] = useState(false);
+  // Bumping this remounts the active screen so it re-fetches after an action.
+  const [contentKey, setContentKey] = useState(0);
+  const refreshContent = () => setContentKey((k) => k + 1);
 
   // Show the header dot only when there are pending friend requests.
   const refreshRequests = () => {
@@ -141,11 +144,12 @@ function AppContent() {
         {/* Tab content */}
         {activeTab === 'feed' && (
           <FeedScreen
+            key={contentKey}
             onOpenReview={openReview}
             onOpenComposer={() => setComposerOpen(true)}
           />
         )}
-        {activeTab === 'profile' && <ProfileScreen />}
+        {activeTab === 'profile' && <ProfileScreen key={contentKey} />}
 
         {/* Bottom tab bar */}
         <View style={styles.tabBar}>
@@ -173,7 +177,12 @@ function AppContent() {
       {/* Composer sheet */}
       {composerOpen && (
         <View style={styles.composerOverlay}>
-          <ComposerScreen onClose={() => setComposerOpen(false)} />
+          <ComposerScreen
+            onClose={() => {
+              setComposerOpen(false);
+              refreshContent();
+            }}
+          />
         </View>
       )}
 
@@ -197,6 +206,7 @@ function AppContent() {
         onSaved={async () => {
           setEditProfileOpen(false);
           await refreshUser().catch(() => {});
+          refreshContent();
         }}
       />
     </View>

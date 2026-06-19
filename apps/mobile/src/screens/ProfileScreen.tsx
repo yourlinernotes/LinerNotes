@@ -17,6 +17,7 @@ import {
   Alert,
   Image,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../components/ReviewCard';
@@ -66,7 +67,14 @@ export function ProfileScreen() {
   const [tab, setTab] = useState<TabType>('notes');
   const [showEdit, setShowEdit] = useState(false);
   const [fullUser, setFullUser] = useState<User | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const gold = tokens.colors.gold;
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await loadProfile();
+    setRefreshing(false);
+  }
   const top4CardRef = useRef(null);
 
   useEffect(() => {
@@ -161,7 +169,17 @@ export function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={tokens.colors.fg}
+          />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={[styles.avatarContainer, { backgroundColor: `${profile.user.tint}22`, borderColor: `${profile.user.tint}66` }]}>
