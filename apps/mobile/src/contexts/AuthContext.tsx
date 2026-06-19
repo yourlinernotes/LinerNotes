@@ -44,6 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await api.setUserData(user);
 
         // Check onboarding status from server data
+        // NOTE: This check depends on the backend persisting and returning the
+        // `favourites` field. Currently PATCH /api/users/me ignores `favourites`,
+        // so Top-4 selections during onboarding are not saved. This means the check
+        // will fall back to bio-only until the backend is fixed. See TODO.md.
         const hasCompletedOnboarding = !!(
           user.bio ||
           user.favourites?.tracks?.length ||
@@ -87,6 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // A user needs onboarding if they haven't customized their profile yet.
       // We check if bio exists OR if favourites (Top 4) is set - both are only
       // populated during onboarding.
+      //
+      // NOTE: This check depends on the backend persisting and returning the
+      // `favourites` field. Currently PATCH /api/users/me ignores `favourites`,
+      // so Top-4 selections during onboarding are not saved. This means the check
+      // will fall back to bio-only until the backend is fixed. See TODO.md.
       const hasCompletedOnboarding = !!(
         response.user.bio ||
         response.user.favourites?.tracks?.length ||
