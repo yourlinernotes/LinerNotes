@@ -1,59 +1,47 @@
 import { prisma } from '../src/lib/prisma';
 
-async function deleteUser(email: string) {
+async function deleteUser(handleOrEmail: string) {
   try {
-    console.log(`Looking for user with email: ${email}`);
-
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        accounts: true,
-        sessions: true,
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { handle: handleOrEmail },
+          { email: handleOrEmail },
+        ],
       },
     });
 
     if (!user) {
-      console.log('User not found');
+      console.log(`❌ User not found: ${handleOrEmail}`);
       return;
     }
 
-    console.log('Found user:', {
+    console.log(`Found user:`, {
       id: user.id,
       email: user.email,
-      name: user.name,
       handle: user.handle,
+      displayName: user.displayName,
     });
 
-    // Delete related records first
-    console.log('Deleting accounts...');
-    await prisma.account.deleteMany({
-      where: { userId: user.id },
-    });
+    console.log('\n🗑️  Deleting user data...');
 
-    console.log('Deleting sessions...');
-    await prisma.session.deleteMany({
-      where: { userId: user.id },
-    });
+    const reviewsDeleted = await prisma.review.deleteMany({ where: { userId: user.id } });
+    console.log(`  ✓ Deleted ${reviewsDeleted.count} reviews`);
 
-    // Delete the user
-    console.log('Deleting user...');
-    await prisma.user.delete({
-      where: { id: user.id },
-    });
+    const accountsDeleted = await prisma.account.deleteMany({ where: { userId: user.id } });
+    console.log(`  ✓ Deleted ${accountsDeleted.count} OAuth accounts`);
 
-    console.log('✅ User deleted successfully');
+    const sessionsDeleted = await prisma.session.deleteMany({ where: { userId: user.id } });
+    console.log(`  ✓ Deleted ${sessionsDeleted.count} sessions`);
+
+    await prisma.user.delete({ where: { id: user.id } });
+
+    console.log(`\n✅ Deleted user: ${user.handle}`);
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error('❌ Error:', error);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Get email from command line
-const email = process.argv[2];
-if (!email) {
-  console.error('Usage: tsx scripts/delete-user.ts <email>');
-  process.exit(1);
-}
-
-deleteUser(email);
+deleteUser(process.argv[2] || 'anushaisawesome');

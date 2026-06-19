@@ -67,20 +67,47 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [isSaving, setIsSaving] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Album search via the iTunes Search API (free, no auth, returns artwork).
+  // Album search via iTunes + MusicBrainz fallback
   const runAlbumSearch = async (q: string) => {
     setSearching(true);
     try {
-      const res = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=15`
+      // Try iTunes first (has artwork)
+      const itunesRes = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=10`
       );
-      const data = await res.json();
-      const albums: AlbumPick[] = (data.results || []).map((r: any) => ({
+      const itunesData = await itunesRes.json();
+      const itunesAlbums: AlbumPick[] = (itunesData.results || []).map((r: any) => ({
         name: r.collectionName,
         artist: r.artistName,
         artworkUrl: (r.artworkUrl100 || '').replace('100x100', '300x300'),
       }));
-      setAlbumResults(albums);
+
+      // Also search MusicBrainz for indie/underground releases
+      const mbRes = await fetch(
+        `https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(q)}&fmt=json&limit=10`
+      );
+      const mbData = await mbRes.json();
+      const mbAlbums: AlbumPick[] = (mbData['release-groups'] || [])
+        .filter((rg: any) => rg['primary-type'] === 'Album' && rg['artist-credit']?.[0]?.name)
+        .map((rg: any) => ({
+          name: rg.title,
+          artist: rg['artist-credit'][0].name,
+          artworkUrl: `https://coverartarchive.org/release-group/${rg.id}/front-250`,
+        }));
+
+      // Merge results, iTunes first (better artwork), then MusicBrainz
+      const allAlbums = [...itunesAlbums, ...mbAlbums];
+
+      // Dedupe by name + artist
+      const seen = new Set<string>();
+      const unique = allAlbums.filter(a => {
+        const key = `${a.name.toLowerCase()}:${a.artist.toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      setAlbumResults(unique.slice(0, 15));
     } catch {
       setAlbumResults([]);
     } finally {
