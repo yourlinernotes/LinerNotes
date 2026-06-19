@@ -21,8 +21,39 @@ export async function GET(request: NextRequest) {
     const results = [];
     const seenAlbums = new Set<string>(); // Dedupe by artist+album
 
-    // 1. Search MusicBrainz first (most comprehensive)
+    // 1. Search iTunes first (more popular/mainstream results)
     try {
+      const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=album&limit=${limit}`;
+      const itunesResponse = await fetch(itunesUrl);
+
+      if (itunesResponse.ok) {
+        const itunesData = await itunesResponse.json();
+
+        for (const album of itunesData.results || []) {
+          const key = `${album.artistName.toLowerCase()}-${album.collectionName.toLowerCase()}`;
+          if (!seenAlbums.has(key)) {
+            seenAlbums.add(key);
+            results.push({
+              id: album.collectionId,
+              name: album.collectionName,
+              artist: album.artistName,
+              artworkUrl: (album.artworkUrl100 || "").replace("100x100", "600x600"),
+              releaseDate: album.releaseDate,
+              trackCount: album.trackCount,
+              genre: album.primaryGenreName,
+              source: "itunes",
+              score: 100, // iTunes results get highest priority
+            });
+          }
+        }
+      }
+    } catch (itunesError) {
+      console.error("iTunes search failed:", itunesError);
+    }
+
+    // 2. Fill gaps with MusicBrainz (indie/underground)
+    if (results.length < limit) {
+      try {
       const mbUrl = `https://musicbrainz.org/ws/2/release-group/?query=${encodeURIComponent(query)}&fmt=json&limit=${limit}`;
       const mbResponse = await fetch(mbUrl, {
         headers: { "User-Agent": "LinerNotes/1.0 (contact@linernotes.app)" },
@@ -46,6 +77,7 @@ export async function GET(request: NextRequest) {
                 trackCount: null,
                 genre: null,
                 source: "musicbrainz",
+                score: rg.score || 50, // MusicBrainz has relevance scores
               });
             }
           }
@@ -54,37 +86,7 @@ export async function GET(request: NextRequest) {
     } catch (mbError) {
       console.error("MusicBrainz search failed:", mbError);
     }
-
-    // 2. Fill gaps with iTunes if needed
-    if (results.length < limit / 2) {
-      try {
-        const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=album&limit=${limit}`;
-        const itunesResponse = await fetch(itunesUrl);
-
-        if (itunesResponse.ok) {
-          const itunesData = await itunesResponse.json();
-
-          for (const album of itunesData.results || []) {
-            const key = `${album.artistName.toLowerCase()}-${album.collectionName.toLowerCase()}`;
-            if (!seenAlbums.has(key)) {
-              seenAlbums.add(key);
-              results.push({
-                id: album.collectionId,
-                name: album.collectionName,
-                artist: album.artistName,
-                artworkUrl: (album.artworkUrl100 || "").replace("100x100", "600x600"),
-                releaseDate: album.releaseDate,
-                trackCount: album.trackCount,
-                genre: album.primaryGenreName,
-                source: "itunes",
-              });
-            }
-          }
-        }
-      } catch (itunesError) {
-        console.error("iTunes search failed:", itunesError);
-      }
-    }
+  }
 
     return NextResponse.json({
       results: results.slice(0, limit),
