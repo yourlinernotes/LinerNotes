@@ -159,23 +159,14 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
     setIsSearching(true);
     try {
-      console.log('[Composer] Searching for:', query, 'mode:', mode);
-
-      // Use the backend API which calls iTunes Search API
-      const data = mode === 'album'
-        ? await api.searchAlbums(query, 10)
-        : await api.searchTracks(query, 10);
-
-      console.log('[Composer] Search response:', JSON.stringify(data, null, 2));
-
-      // Backend returns { results: [...], count: N }
-      const results = data.results || data || [];
-      console.log('[Composer] Processed results count:', results.length);
-
-      setSearchResults(results);
+      // Use iTunes Search API directly (backend music endpoints not deployed yet)
+      const res = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${mode === 'album' ? 'album' : 'song'}&limit=10`
+      );
+      const data = await res.json();
+      setSearchResults(data.results || []);
     } catch (error) {
-      console.error('[Composer] Search failed:', error);
-      console.error('[Composer] Error details:', JSON.stringify(error, null, 2));
+      console.error('Search failed:', error);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -184,13 +175,11 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
   function selectTrack(result: any) {
     setSelectedTrack({
-      // Backend returns 'id' directly instead of trackId/collectionId
-      id: String(result.id || result.trackId || result.collectionId),
-      name: result.name || result.trackName || result.collectionName,
-      artist: result.artist || result.artistName,
-      album: result.album || result.collectionName,
-      // Backend already returns 600x600 artwork
-      artworkUrl: result.artworkUrl || (result.artworkUrl100 || '').replace('100x100', '600x600'),
+      id: String(result.trackId || result.collectionId),
+      name: result.trackName || result.collectionName,
+      artist: result.artistName,
+      album: result.collectionName,
+      artworkUrl: (result.artworkUrl100 || '').replace('100x100', '600x600'),
     });
     setSearchResults([]);
     setSearchQuery('');
@@ -328,10 +317,10 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
                   onPress={() => selectTrack(result)}
                 >
                   <Text style={styles.searchResultName} numberOfLines={1}>
-                    {result.name || result.trackName || result.collectionName}
+                    {result.trackName || result.collectionName}
                   </Text>
                   <Text style={styles.searchResultArtist} numberOfLines={1}>
-                    {result.artist || result.artistName}
+                    {result.artistName}
                   </Text>
                 </TouchableOpacity>
               ))}
