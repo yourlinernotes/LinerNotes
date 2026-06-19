@@ -145,7 +145,12 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header with logo */}
+      <View style={styles.header}>
+        <Text style={styles.logo}>LinerNotes</Text>
+      </View>
+
       <FlatList
         data={feedItems}
         renderItem={({ item }) => (
@@ -353,6 +358,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(241,235,224,0.08)',
+  },
+  logo: {
+    fontFamily: 'System',
+    fontSize: 17,
+    fontWeight: '600',
+    color: tokens.colors.fg,
+    letterSpacing: -0.4,
   },
   headerTitle: {
     fontFamily: 'System',

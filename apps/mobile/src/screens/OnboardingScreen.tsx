@@ -82,7 +82,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         .map((rg: any) => ({
           name: rg.title,
           artist: rg['artist-credit'][0].name,
+          // Try Cover Art Archive, fallback to placeholder
           artworkUrl: `https://coverartarchive.org/release-group/${rg.id}/front-250`,
+          fallbackArtwork: 'https://via.placeholder.com/250x250/1a1a1a/d4af37?text=No+Art',
         }));
 
       // If MusicBrainz found nothing, try iTunes as last resort
