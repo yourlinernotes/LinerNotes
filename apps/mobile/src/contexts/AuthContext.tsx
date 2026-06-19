@@ -42,6 +42,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const user = await api.getCurrentUser();
         setUser(user);
         await api.setUserData(user);
+
+        // Check onboarding status from server data
+        const hasCompletedOnboarding = !!(
+          user.bio ||
+          user.favourites?.tracks?.length ||
+          user.favourites?.albums?.length
+        );
+
+        setNeedsOnboarding(!hasCompletedOnboarding);
+
+        // Sync local flag
+        if (hasCompletedOnboarding) {
+          await api.setOnboarded();
+        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -69,11 +83,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       api.setAuthToken(response.token);
       setUser(response.user);
 
-      // The backend auto-generates a handle/displayName for new Google users, so
-      // those fields can't distinguish a first sign-in. Use a local onboarding
-      // flag instead: onboard until this device has completed it once.
-      const onboarded = await api.isOnboarded();
-      setNeedsOnboarding(!onboarded);
+      // Check if user needs onboarding by looking at server-side data.
+      // A user needs onboarding if they haven't customized their profile yet.
+      // We check if bio exists OR if favourites (Top 4) is set - both are only
+      // populated during onboarding.
+      const hasCompletedOnboarding = !!(
+        response.user.bio ||
+        response.user.favourites?.tracks?.length ||
+        response.user.favourites?.albums?.length
+      );
+
+      setNeedsOnboarding(!hasCompletedOnboarding);
+
+      // Sync local flag with server state
+      if (hasCompletedOnboarding) {
+        await api.setOnboarded();
+      }
     } catch (error) {
       console.error('Google login failed:', error);
       throw error;
