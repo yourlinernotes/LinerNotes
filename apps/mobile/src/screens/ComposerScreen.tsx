@@ -159,12 +159,14 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
     setIsSearching(true);
     try {
-      // Use iTunes Search API directly (backend music endpoints not deployed yet)
-      const res = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${mode === 'album' ? 'album' : 'song'}&limit=10`
-      );
-      const data = await res.json();
-      setSearchResults(data.results || []);
+      // Use the backend API which calls iTunes Search API
+      const data = mode === 'album'
+        ? await api.searchAlbums(query, 10)
+        : await api.searchTracks(query, 10);
+
+      // Backend returns { results: [...], count: N }
+      const results = data.results || data || [];
+      setSearchResults(results);
     } catch (error) {
       console.error('Search failed:', error);
       setSearchResults([]);
@@ -175,11 +177,13 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
   function selectTrack(result: any) {
     setSelectedTrack({
-      id: String(result.trackId || result.collectionId),
-      name: result.trackName || result.collectionName,
-      artist: result.artistName,
-      album: result.collectionName,
-      artworkUrl: (result.artworkUrl100 || '').replace('100x100', '600x600'),
+      // Backend returns 'id', 'name', 'artist' - fallback to iTunes format
+      id: String(result.id || result.trackId || result.collectionId),
+      name: result.name || result.trackName || result.collectionName,
+      artist: result.artist || result.artistName,
+      album: result.album || result.collectionName,
+      // Backend already returns 600x600 artwork
+      artworkUrl: result.artworkUrl || (result.artworkUrl100 || '').replace('100x100', '600x600'),
     });
     setSearchResults([]);
     setSearchQuery('');
@@ -317,10 +321,10 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
                   onPress={() => selectTrack(result)}
                 >
                   <Text style={styles.searchResultName} numberOfLines={1}>
-                    {result.trackName || result.collectionName}
+                    {result.name || result.trackName || result.collectionName}
                   </Text>
                   <Text style={styles.searchResultArtist} numberOfLines={1}>
-                    {result.artistName}
+                    {result.artist || result.artistName}
                   </Text>
                 </TouchableOpacity>
               ))}

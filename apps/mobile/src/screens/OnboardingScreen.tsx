@@ -67,19 +67,21 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [isSaving, setIsSaving] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Album search - use iTunes Search API directly (backend not deployed yet)
+  // Album search - use backend API which calls iTunes Search
   const runAlbumSearch = async (q: string) => {
     setSearching(true);
     try {
-      const res = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=album&limit=15`
-      );
-      const data = await res.json();
-      const albums: AlbumPick[] = (data.results || []).map((r: any) => ({
-        name: r.collectionName,
-        artist: r.artistName,
-        artworkUrl: (r.artworkUrl100 || '').replace('100x100', '300x300'),
+      // Use the backend API which calls iTunes Search API
+      const data = await api.searchAlbums(q, 15);
+
+      // Backend returns { results: [...], count: N }
+      const results = data.results || data || [];
+      const albums: AlbumPick[] = results.map((r: any) => ({
+        name: r.name || r.collectionName,
+        artist: r.artist || r.artistName,
+        artworkUrl: r.artworkUrl || (r.artworkUrl100 || '').replace('100x100', '300x300'),
       }));
+
       setAlbumResults(albums);
     } catch (error) {
       console.error('Album search failed:', error);
