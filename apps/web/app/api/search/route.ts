@@ -31,17 +31,57 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Proxy to the NestJS backend music search endpoints
+    // Try backend first, fallback to iTunes API if backend not deployed yet
     const endpoint = type === "album" ? "albums" : "tracks";
     const backendUrl = `${API_BASE_URL}/music/search/${endpoint}?q=${encodeURIComponent(query)}&limit=${limit}`;
 
-    const response = await fetch(backendUrl);
+    let data;
+    try {
+      const response = await fetch(backendUrl);
 
-    if (!response.ok) {
-      throw new Error(`Backend search failed with status ${response.status}`);
+      if (response.ok) {
+        data = await response.json();
+      } else {
+        throw new Error(`Backend returned ${response.status}`);
+      }
+    } catch (backendError) {
+      console.log("Backend search failed, falling back to iTunes API:", backendError);
+
+      // Fallback to iTunes Search API directly
+      const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${type === "album" ? "album" : "song"}&limit=${limit}`;
+      const itunesResponse = await fetch(itunesUrl);
+
+      if (!itunesResponse.ok) {
+        throw new Error("Both backend and iTunes API failed");
+      }
+
+      const itunesData = await itunesResponse.json();
+
+      // Transform iTunes format to backend format
+      if (type === "album") {
+        data = {
+          results: (itunesData.results || []).map((r: any) => ({
+            id: r.collectionId,
+            name: r.collectionName,
+            artist: r.artistName,
+            artworkUrl: (r.artworkUrl100 || "").replace("100x100", "600x600"),
+            releaseDate: r.releaseDate,
+            trackCount: r.trackCount,
+          })),
+        };
+      } else {
+        data = {
+          results: (itunesData.results || []).map((r: any) => ({
+            id: r.trackId,
+            name: r.trackName,
+            artist: r.artistName,
+            album: r.collectionName,
+            artworkUrl: (r.artworkUrl100 || "").replace("100x100", "600x600"),
+            previewUrl: r.previewUrl,
+          })),
+        };
+      }
     }
-
-    const data = await response.json();
 
     // Backend returns { results: [...], count: N }
     // Transform to match web app format
