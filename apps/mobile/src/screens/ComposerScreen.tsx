@@ -70,8 +70,9 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
   // Album/Playlist track management
   const [tracks, setTracks] = useState<Record<number, TrackData>>({});
-  const [openTrack, setOpenTrack] = useState<number | null>(null);
-  const [fullAlbum, setFullAlbum] = useState(false);
+  // TODO: Implement track selection UI for album mode
+  // const [openTrack, setOpenTrack] = useState<number | null>(null);
+  // const [fullAlbum, setFullAlbum] = useState(false);
 
   // Track/Album search
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,47 +160,56 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
     setIsSearching(true);
     try {
-      // Try backend API first, fallback to iTunes if not deployed yet
-      let results = [];
-      try {
-        const data = mode === 'album'
-          ? await api.searchAlbums(query, 10)
-          : await api.searchTracks(query, 10);
+      const data = mode === 'album'
+        ? await api.searchAlbums(query, 10)
+        : await api.searchTracks(query, 10);
 
-        // Backend returns { results: [...], count: N }
-        results = data.results || data || [];
-      } catch (backendError) {
-        console.log('Backend search failed, falling back to iTunes API');
-
-        // Fallback to iTunes Search API directly
-        const res = await fetch(
-          `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${mode === 'album' ? 'album' : 'song'}&limit=10`
-        );
-        const data = await res.json();
-        results = data.results || [];
-      }
-
-      setSearchResults(results);
+      // API now returns { results: [...], count: N }
+      setSearchResults(data.results || []);
     } catch (error) {
       console.error('Search failed:', error);
+      Alert.alert('Search Failed', 'Could not search. Please try again.');
       setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
   }
 
-  function selectTrack(result: any) {
-    setSelectedTrack({
-      // Backend returns 'id', 'name', 'artist' - fallback to iTunes format
-      id: String(result.id || result.trackId || result.collectionId),
-      name: result.name || result.trackName || result.collectionName,
-      artist: result.artist || result.artistName,
-      album: result.album || result.collectionName,
-      // Backend already returns 600x600 artwork
-      artworkUrl: result.artworkUrl || (result.artworkUrl100 || '').replace('100x100', '600x600'),
-    });
+  async function selectTrack(result: any) {
+    const selectedAlbum = {
+      // Web API returns consistent field names: albumId/trackId, name, artist, artworkUrl
+      id: String(result.albumId || result.trackId),
+      name: result.name,
+      artist: result.artist,
+      album: result.album || result.name, // For albums, album field = album name
+      artworkUrl: result.artworkUrl,
+    };
+
+    setSelectedTrack(selectedAlbum);
     setSearchResults([]);
     setSearchQuery('');
+
+    // If album mode, fetch tracks for the album
+    if (mode === 'album' && result.albumId) {
+      try {
+        const { album, tracks: albumTracks } = await api.getAlbumTracks(result.albumId);
+
+        // Initialize tracks state with fetched track data
+        const tracksMap: Record<number, TrackData> = {};
+        albumTracks.forEach((track: any, index: number) => {
+          tracksMap[track.trackNumber || index + 1] = {
+            n: track.trackNumber || index + 1,
+            name: track.name,
+            moments: [],
+            reaction: null,
+          };
+        });
+        setTracks(tracksMap);
+      } catch (error) {
+        console.error('Failed to fetch album tracks:', error);
+        Alert.alert('Notice', 'Could not load album tracks. You can still post an album review.');
+      }
+    }
   }
 
   async function handlePost() {
@@ -246,10 +256,16 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
         });
       }
 
-      onClose();
+      // Success feedback
+      Alert.alert(
+        'Success!',
+        mode === 'album' ? 'Album review posted!' : 'Track review posted!',
+        [{ text: 'OK', onPress: onClose }]
+      );
     } catch (error) {
       console.error('Failed to post review:', error);
-      Alert.alert('Error', 'Failed to post review. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert('Error', `Failed to post review: ${errorMessage}`);
     } finally {
       setIsPosting(false);
     }

@@ -367,19 +367,24 @@ class APIClient {
   // ==========================================================================
   // MUSIC SEARCH
   // ==========================================================================
-
-  async searchTracks(query: string, limit = 20): Promise<any> {
+  async searchTracks(query: string, limit = 20): Promise<{ results: any[]; count: number }> {
     const params = new URLSearchParams({ q: query, limit: limit.toString() });
-    return this.request(`/music/search/tracks?${params}`);
+    const data = await this.request<{ tracks: any[] }>(`/music/search/tracks?${params}`);
+    // Web API returns { tracks: [...] }, convert to { results, count }
+    return { results: data.tracks || [], count: (data.tracks || []).length };
   }
 
-  async searchAlbums(query: string, limit = 20): Promise<any> {
+  async searchAlbums(query: string, limit = 20): Promise<{ results: any[]; count: number }> {
     const params = new URLSearchParams({ q: query, limit: limit.toString() });
-    return this.request(`/music/search/albums?${params}`);
+    const data = await this.request<{ albums: any[] }>(`/music/search/albums?${params}`);
+    // Web API returns { albums: [...] }, convert to { results, count }
+    return { results: data.albums || [], count: (data.albums || []).length };
   }
 
-  async getAlbumTracks(albumId: string): Promise<any[]> {
-    return this.request(`/music/albums/${albumId}/tracks`);
+  async getAlbumTracks(albumId: string): Promise<{ album: any; tracks: any[] }> {
+    const data = await this.request<{ album: any }>(`/albums/${albumId}`);
+    // Web API returns { album: { albumId, name, artist, artworkUrl, tracks: [...] } }
+    return { album: data.album, tracks: data.album?.tracks || [] };
   }
 }
 
