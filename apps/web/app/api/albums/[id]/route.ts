@@ -1,37 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSession } from "@/lib/auth-helpers";
 
 /**
  * GET /api/albums/[id] - Get album details with full tracklist
- *
- * TODO: Implement open API stack (iTunes/Deezer/MusicBrainz)
- * Spotify OAuth is removed in favor of open APIs for beta
+ * Uses iTunes Lookup API for track listings
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: albumId } = await params;
+
+  if (!albumId) {
+    return NextResponse.json(
+      { error: "Album ID is required" },
+      { status: 400 }
+    );
+  }
+
   try {
-    const { id } = await params;
+    // Use iTunes Lookup API to get album tracks
+    const itunesUrl = `https://itunes.apple.com/lookup?id=${albumId}&entity=song`;
+    const response = await fetch(itunesUrl);
 
-    const session = await getAuthSession();
-    const currentUserId = session?.user?.id;
-
-    if (!currentUserId) {
-      return NextResponse.json(
-        { error: "Not authenticated", requiresAuth: true },
-        { status: 401 }
-      );
+    if (!response.ok) {
+      throw new Error(`iTunes API returned ${response.status}`);
     }
 
-    return NextResponse.json(
-      { error: "Album lookup not yet implemented - open API stack pending" },
-      { status: 501 }
-    );
+    const data = await response.json();
+    const results = data.results || [];
+
+    // First result is the album itself, rest are tracks
+    const albumData = results[0];
+    const tracks = results.slice(1);
+
+    return NextResponse.json({
+      album: {
+        albumId: albumData.collectionId,
+        title: albumData.collectionName,
+        artist: albumData.artistName,
+        artworkUrl: (albumData.artworkUrl100 || "").replace("100x100", "600x600"),
+        releaseDate: albumData.releaseDate,
+        trackCount: albumData.trackCount,
+        tracks: tracks.map((track: any, index: number) => ({
+          trackId: track.trackId,
+          trackNumber: track.trackNumber || index + 1,
+          title: track.trackName,
+          artist: track.artistName,
+          duration: track.trackTimeMillis,
+          previewUrl: track.previewUrl,
+        })),
+      },
+    });
   } catch (error) {
-    console.error("Get album error:", error);
+    console.error("Album tracks error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch album" },
+      { error: "Failed to fetch album tracks" },
       { status: 500 }
     );
   }
