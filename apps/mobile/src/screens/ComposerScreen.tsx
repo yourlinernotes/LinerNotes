@@ -14,6 +14,8 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -54,6 +56,8 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const [take, setTake] = useState('');
   const [soloMoments, setSoloMoments] = useState<Moment[]>([]);
   const [isPosting, setIsPosting] = useState(false);
+  const [showTake, setShowTake] = useState(false);
+  const [showMoments, setShowMoments] = useState(false);
 
   // Album/Playlist track management
   const [tracks, setTracks] = useState<Record<number, TrackData>>({});
@@ -184,7 +188,16 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
           </View>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           {/* Mode Tabs */}
           <View style={styles.modeTabs}>
             {(['track', 'album', 'playlist'] as ComposerMode[]).map(m => (
@@ -267,32 +280,57 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
             </View>
           )}
 
-          {/* Take/Note */}
+          {/* Take/Note (optional) */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>
-              {mode === 'track' ? 'YOUR TAKE' : 'YOUR NOTE'}
-            </Text>
-            <TextInput
-              style={styles.textArea}
-              value={take}
-              onChangeText={setTake}
-              placeholder="what did you think?"
-              placeholderTextColor="rgba(241,235,224,0.3)"
-              multiline
-              textAlignVertical="top"
-            />
+            {showTake ? (
+              <>
+                <Text style={styles.sectionLabel}>
+                  {mode === 'track' ? 'YOUR TAKE' : 'YOUR NOTE'}
+                </Text>
+                <TextInput
+                  style={styles.textArea}
+                  value={take}
+                  onChangeText={setTake}
+                  placeholder="what did you think?"
+                  placeholderTextColor="rgba(241,235,224,0.3)"
+                  multiline
+                  textAlignVertical="top"
+                  autoFocus
+                />
+              </>
+            ) : (
+              <TouchableOpacity style={styles.addButton} onPress={() => setShowTake(true)}>
+                <Text style={[styles.addButtonPlus, { color: gold }]}>+</Text>
+                <Text style={[styles.addButtonText, { color: gold }]}>
+                  {mode === 'track' ? 'add your take' : 'add a note'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Moments (Track mode only) */}
+          {/* Moments (Track mode only, optional) */}
           {mode === 'track' && (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>MOMENTS</Text>
-              <MomentsInput
-                moments={soloMoments}
-                onAdd={(m) => setSoloMoments([...soloMoments, m])}
-                onRemove={(idx) => setSoloMoments(soloMoments.filter((_, i) => i !== idx))}
-                gold={gold}
-              />
+              {showMoments ? (
+                <>
+                  <Text style={styles.sectionLabel}>MOMENTS</Text>
+                  <MomentsInput
+                    moments={soloMoments}
+                    onAdd={(m) =>
+                      setSoloMoments((prev) =>
+                        [...prev, m].sort((a, b) => a.seconds - b.seconds)
+                      )
+                    }
+                    onRemove={(idx) => setSoloMoments(soloMoments.filter((_, i) => i !== idx))}
+                    gold={gold}
+                  />
+                </>
+              ) : (
+                <TouchableOpacity style={styles.addButton} onPress={() => setShowMoments(true)}>
+                  <Text style={[styles.addButtonPlus, { color: gold }]}>+</Text>
+                  <Text style={[styles.addButtonText, { color: gold }]}>add moments</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -315,6 +353,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
             )}
           </TouchableOpacity>
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -519,6 +558,28 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     color: tokens.colors.fg,
     minHeight: 100,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(241,235,224,0.22)',
+    backgroundColor: 'rgba(241,235,224,0.03)',
+  },
+  addButtonPlus: {
+    fontSize: 18,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  addButtonText: {
+    fontFamily: 'System',
+    fontSize: 13.5,
+    fontWeight: '600',
   },
   momentsContainer: {
     gap: 8,
