@@ -106,7 +106,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const onAlbumQueryChange = (q: string) => {
     setAlbumQuery(q);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (q.trim().length < 2) {
+    if (q.trim().length < 1) {
       setAlbumResults([]);
       return;
     }

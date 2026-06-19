@@ -10,9 +10,9 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get("q");
   const limit = parseInt(searchParams.get("limit") || "20");
 
-  if (!query || query.trim().length < 2) {
+  if (!query || query.trim().length < 1) {
     return NextResponse.json(
-      { error: "Query must be at least 2 characters" },
+      { error: "Query must be at least 1 character" },
       { status: 400 }
     );
   }
