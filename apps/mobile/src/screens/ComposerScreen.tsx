@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,6 +25,8 @@ import { Stars } from '../components/atoms/Stars';
 import { ReviewCard } from '../components/ReviewCard';
 import { formatTimestamp } from '../lib/time-utils';
 import { api } from '../lib/api-client';
+import { useAuth } from '../contexts/AuthContext';
+import { reviewToFeedReview } from '../lib/feed-adapter';
 import type { Moment, ReactionType } from '../lib/types';
 import { tokens } from '../lib/tokens';
 
@@ -51,6 +54,7 @@ interface ComposerScreenProps {
 }
 
 export function ComposerScreen({ onClose, mode: initialMode = 'track' }: ComposerScreenProps) {
+  const { user } = useAuth();
   const [mode, setMode] = useState<ComposerMode>(initialMode);
   const [rating, setRating] = useState(0);
   const [take, setTake] = useState('');
@@ -81,6 +85,41 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const depth = hasBody ? 'full' : preview ? 'caption' : rating > 0 ? 'floor' : null;
 
   const canPost = selectedTrack && (mode === 'track' ? rating > 0 : mode === 'album' ? rating > 0 : true);
+
+  // Swipe down from the top (header) to dismiss the sheet.
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 80) onClose();
+      },
+    })
+  ).current;
+
+  // Live preview of the note — only once a song and rating are chosen.
+  const previewReview =
+    selectedTrack && rating > 0
+      ? reviewToFeedReview(
+          {
+            id: 'preview',
+            userId: user?.id ?? '',
+            track: {
+              id: String(selectedTrack.id),
+              name: selectedTrack.name,
+              artist: selectedTrack.artist,
+              album: selectedTrack.album || '',
+              artworkUrl: selectedTrack.artworkUrl,
+            },
+            rating,
+            take: take.trim() || undefined,
+            notes: soloMoments,
+            featuredNoteIdx: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          { name: user?.displayName || 'You', handle: user?.handle || 'you', tint: gold }
+        )
+      : null;
 
   async function searchTracks(query: string) {
     if (!query.trim()) {
@@ -179,7 +218,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={styles.header} {...panResponder.panHandlers}>
           <View style={styles.handle} />
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>
@@ -359,6 +398,14 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Live preview — only once a song + rating are selected */}
+          {previewReview && (
+            <View style={styles.previewSection}>
+              <Text style={styles.sectionLabel}>PREVIEW</Text>
+              <ReviewCard review={previewReview} accent={gold} context="feed" />
+            </View>
+          )}
         </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -558,6 +605,13 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 8,
+  },
+  previewSection: {
+    gap: 10,
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(241,235,224,0.08)',
   },
   sectionLabel: {
     fontFamily: 'Menlo',
