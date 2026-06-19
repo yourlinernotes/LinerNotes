@@ -60,6 +60,12 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const [openTrack, setOpenTrack] = useState<number | null>(null);
   const [fullAlbum, setFullAlbum] = useState(false);
 
+  // Track/Album search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedTrack, setSelectedTrack] = useState<any>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
   const gold = tokens.colors.gold;
 
   const lines = take.split('\n').filter(l => l.trim());
@@ -67,7 +73,41 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const hasBody = lines.length > 1;
   const depth = hasBody ? 'full' : preview ? 'caption' : rating > 0 ? 'floor' : null;
 
-  const canPost = mode === 'track' ? rating > 0 : mode === 'album' ? rating > 0 : true;
+  const canPost = selectedTrack && (mode === 'track' ? rating > 0 : mode === 'album' ? rating > 0 : true);
+
+  async function searchTracks(query: string) {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // Use iTunes Search API (same as onboarding for now)
+      const res = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=${mode === 'album' ? 'album' : 'song'}&limit=10`
+      );
+      const data = await res.json();
+      setSearchResults(data.results || []);
+    } catch (error) {
+      console.error('Search failed:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  function selectTrack(result: any) {
+    setSelectedTrack({
+      id: String(result.trackId || result.collectionId),
+      name: result.trackName || result.collectionName,
+      artist: result.artistName,
+      album: result.collectionName,
+      artworkUrl: (result.artworkUrl100 || '').replace('100x100', '600x600'),
+    });
+    setSearchResults([]);
+    setSearchQuery('');
+  }
 
   async function handlePost() {
     if (isPosting) return;
@@ -79,8 +119,12 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
       if (mode === 'album') {
         await api.createAlbumReview({
-          // TODO: replace placeholder album metadata once track/album search is wired
-          album: { id: '', name: '', artist: '', artworkUrl: '' },
+          album: {
+            id: selectedTrack.id,
+            name: selectedTrack.name,
+            artist: selectedTrack.artist,
+            artworkUrl: selectedTrack.artworkUrl,
+          },
           overallRating: rating,
           body,
           tracks: Object.values(tracks).map((t) => ({
@@ -95,8 +139,13 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
         });
       } else {
         await api.createReview({
-          // TODO: replace placeholder track metadata once track search is wired
-          track: { id: '', name: '', artist: '', album: '', artworkUrl: '' },
+          track: {
+            id: selectedTrack.id,
+            name: selectedTrack.name,
+            artist: selectedTrack.artist,
+            album: selectedTrack.album || '',
+            artworkUrl: selectedTrack.artworkUrl,
+          },
           rating,
           take: take.trim() || undefined,
           notes: soloMoments,
@@ -153,6 +202,62 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
               </TouchableOpacity>
             ))}
           </View>
+
+          {/* Track/Album Search */}
+          {!selectedTrack ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>
+                SEARCH {mode === 'album' ? 'ALBUM' : 'TRACK'}
+              </Text>
+              <TextInput
+                style={styles.textArea}
+                value={searchQuery}
+                onChangeText={(q) => {
+                  setSearchQuery(q);
+                  searchTracks(q);
+                }}
+                placeholder={`search for ${mode === 'album' ? 'an album' : 'a track'}...`}
+                placeholderTextColor="rgba(241,235,224,0.3)"
+                autoCorrect={false}
+              />
+              {isSearching && (
+                <Text style={styles.hint}>searching...</Text>
+              )}
+              {searchResults.map((result, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.searchResult}
+                  onPress={() => selectTrack(result)}
+                >
+                  <Text style={styles.searchResultName} numberOfLines={1}>
+                    {result.trackName || result.collectionName}
+                  </Text>
+                  <Text style={styles.searchResultArtist} numberOfLines={1}>
+                    {result.artistName}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>
+                {mode === 'album' ? 'ALBUM' : 'TRACK'}
+              </Text>
+              <View style={styles.selectedTrack}>
+                <View style={styles.selectedTrackInfo}>
+                  <Text style={styles.selectedTrackName} numberOfLines={1}>
+                    {selectedTrack.name}
+                  </Text>
+                  <Text style={styles.selectedTrackArtist} numberOfLines={1}>
+                    {selectedTrack.artist}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setSelectedTrack(null)}>
+                  <Text style={styles.changeButton}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Rating */}
           {mode !== 'playlist' && (
@@ -507,5 +612,55 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: tokens.colors.nearBlack,
+  },
+  hint: {
+    fontSize: 13,
+    color: 'rgba(241,235,224,0.4)',
+    marginTop: 8,
+  },
+  searchResult: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(241,235,224,0.04)',
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  searchResultName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: tokens.colors.fg,
+    marginBottom: 2,
+  },
+  searchResultArtist: {
+    fontSize: 13,
+    color: 'rgba(241,235,224,0.6)',
+  },
+  selectedTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.2)',
+  },
+  selectedTrackInfo: {
+    flex: 1,
+  },
+  selectedTrackName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.colors.fg,
+    marginBottom: 2,
+  },
+  selectedTrackArtist: {
+    fontSize: 13,
+    color: 'rgba(241,235,224,0.7)',
+  },
+  changeButton: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: tokens.colors.gold,
   },
 });

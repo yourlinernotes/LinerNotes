@@ -42,9 +42,10 @@ interface FeedItemData {
 
 interface FeedScreenProps {
   onOpenReview?: (review: FeedReview) => void;
+  onOpenComposer?: () => void;
 }
 
-export function FeedScreen({ onOpenReview }: FeedScreenProps) {
+export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
   const { user } = useAuth();
   const [feedItems, setFeedItems] = useState<FeedItemData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -126,9 +127,11 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
   }
 
   function handleOpenComposer(prompt: PromptTrigger) {
-    // TODO: Open composer with track/album pre-filled from prompt
     console.log('Opening composer for prompt:', prompt);
-    // This will be wired to the actual composer when integrated
+    // Open the composer - track/album pre-filling will be implemented when we add prompt data structure
+    if (onOpenComposer) {
+      onOpenComposer();
+    }
   }
 
   async function handleDismissPrompt(promptId: string) {
@@ -145,12 +148,7 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header with logo */}
-      <View style={styles.header}>
-        <Text style={styles.logo}>LinerNotes</Text>
-      </View>
-
+    <View style={styles.container}>
       <FlatList
         data={feedItems}
         renderItem={({ item }) => (
@@ -181,7 +179,7 @@ export function FeedScreen({ onOpenReview }: FeedScreenProps) {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -375,7 +373,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 116, // Account for App.tsx sticky header (104px + 12px spacing)
     paddingBottom: 110,
     gap: 28,
   },

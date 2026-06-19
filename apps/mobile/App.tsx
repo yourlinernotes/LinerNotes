@@ -121,7 +121,10 @@ function AppContent() {
 
         {/* Tab content */}
         {activeTab === 'feed' && (
-          <FeedScreen onOpenReview={openReview} />
+          <FeedScreen
+            onOpenReview={openReview}
+            onOpenComposer={() => setComposerOpen(true)}
+          />
         )}
         {activeTab === 'profile' && <ProfileScreen />}
 
