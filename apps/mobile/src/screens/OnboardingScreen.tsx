@@ -110,9 +110,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     setTop4((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Handle validation
-  const handleClean = handle.replace(/[^a-z0-9._]/gi, '').toLowerCase();
-  const handleOk = handleClean.length >= 3;
+  // Handle validation - must match backend: lowercase letters, numbers, underscores only, 3-20 chars
+  const handleClean = handle.replace(/[^a-z0-9_]/gi, '').toLowerCase();
+  const handleOk = handleClean.length >= 3 && handleClean.length <= 20;
   const canContinue = displayName.trim().length >= 1 && handleOk;
 
   const pickImage = async () => {
@@ -368,7 +368,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                           </>
                         ) : (
                           <Text style={[styles.validationText, { color: 'rgba(241,235,224,0.4)' }]}>
-                            3+ characters
+                            3-20 chars (letters, numbers, _)
                           </Text>
                         )}
                       </View>
