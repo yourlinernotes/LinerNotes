@@ -129,16 +129,15 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   };
 
   const saveProfileData = async () => {
+    const payload = {
+      handle: handleClean,
+      displayName: displayName.trim(),
+      bio: bio.trim() || undefined,
+      // TODO: Upload avatar image if provided
+    };
+
     try {
       setIsSaving(true);
-
-      const payload = {
-        handle: handleClean,
-        displayName: displayName.trim(),
-        bio: bio.trim() || undefined,
-        // TODO: Upload avatar image if provided
-      };
-
       console.log('Saving profile with payload:', JSON.stringify(payload, null, 2));
 
       // Update user profile on backend
