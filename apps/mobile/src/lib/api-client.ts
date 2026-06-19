@@ -307,35 +307,33 @@ class APIClient {
   // FRIENDS
   // ==========================================================================
 
-  async sendFriendRequest(addresseeId: string): Promise<Friendship> {
-    return this.request('/friends/request', {
-      method: 'POST',
-      body: { addresseeId },
-    });
+  async sendFriendRequest(userId: string): Promise<void> {
+    await this.request(`/friends/${userId}`, { method: 'POST' });
   }
 
-  async respondToFriendRequest(
-    friendshipId: string,
-    accept: boolean
-  ): Promise<Friendship> {
-    return this.request(`/friends/${friendshipId}`, {
-      method: 'PATCH',
-      body: { status: accept ? 'ACCEPTED' : 'REJECTED' },
+  /** Accept/reject a received request. `requesterId` is the sender's user id. */
+  async respondToFriendRequest(requesterId: string, accept: boolean): Promise<void> {
+    await this.request(`/friends/${requesterId}`, {
+      method: 'PUT',
+      body: { action: accept ? 'accept' : 'reject' },
     });
   }
 
   async getFriends(): Promise<User[]> {
-    return this.request('/friends');
+    const data = await this.request<{ friends: User[] }>('/friends');
+    return data.friends ?? [];
   }
 
-  async getPendingRequests(): Promise<Friendship[]> {
-    return this.request('/friends/pending');
+  /** Pending friend requests received (each item has a `requester` user). */
+  async getReceivedRequests(): Promise<Array<{ id: string; requester: User }>> {
+    const data = await this.request<{ requests: Array<{ id: string; requester: User }> }>(
+      '/friends?type=requests'
+    );
+    return data.requests ?? [];
   }
 
-  async removeFriend(friendshipId: string): Promise<void> {
-    return this.request(`/friends/${friendshipId}`, {
-      method: 'DELETE',
-    });
+  async removeFriend(userId: string): Promise<void> {
+    await this.request(`/friends/${userId}`, { method: 'DELETE' });
   }
 
   // ==========================================================================

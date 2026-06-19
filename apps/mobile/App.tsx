@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScreen, OnboardingScreen } from './src/screens';
 import { MenuIcon, PlusIcon } from './src/components/atoms';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { SideMenu } from './src/components/SideMenu';
 import { tokens } from './src/lib/tokens';
 import type { FeedReview } from './src/lib/feed-types';
 // Push notifications are temporarily disabled on BOTH platforms pending an
@@ -21,6 +22,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
   const [activeReview, setActiveReview] = useState<FeedReview | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // TODO: Re-enable after updating provisioning profile with push notifications
   // Initialize notifications when user is logged in
@@ -112,7 +114,7 @@ function AppContent() {
               </View>
             </View>
 
-            <TouchableOpacity style={styles.menuButton}>
+            <TouchableOpacity style={styles.menuButton} onPress={() => setMenuOpen(true)}>
               <MenuIcon size={20} color={tokens.colors.fg} />
               <View style={styles.notificationDot} />
             </TouchableOpacity>
@@ -157,6 +159,9 @@ function AppContent() {
           <ComposerScreen onClose={() => setComposerOpen(false)} />
         </View>
       )}
+
+      {/* Side menu (friends, edit profile, log out) */}
+      <SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </View>
   );
 }
