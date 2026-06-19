@@ -6,6 +6,7 @@ import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScree
 import { MenuIcon, PlusIcon } from './src/components/atoms';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { SideMenu } from './src/components/SideMenu';
+import { api } from './src/lib/api-client';
 import { tokens } from './src/lib/tokens';
 import type { FeedReview } from './src/lib/feed-types';
 // Push notifications are temporarily disabled on BOTH platforms pending an
@@ -23,6 +24,20 @@ function AppContent() {
   const [activeReview, setActiveReview] = useState<FeedReview | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hasRequests, setHasRequests] = useState(false);
+
+  // Show the header dot only when there are pending friend requests.
+  const refreshRequests = () => {
+    if (!user) {
+      setHasRequests(false);
+      return;
+    }
+    api
+      .getReceivedRequests()
+      .then((r) => setHasRequests(r.length > 0))
+      .catch(() => {});
+  };
+  useEffect(refreshRequests, [user]);
 
   // TODO: Re-enable after updating provisioning profile with push notifications
   // Initialize notifications when user is logged in
@@ -116,7 +131,7 @@ function AppContent() {
 
             <TouchableOpacity style={styles.menuButton} onPress={() => setMenuOpen(true)}>
               <MenuIcon size={20} color={tokens.colors.fg} />
-              <View style={styles.notificationDot} />
+              {hasRequests && <View style={styles.notificationDot} />}
             </TouchableOpacity>
           </View>
         </View>
@@ -161,7 +176,13 @@ function AppContent() {
       )}
 
       {/* Side menu (friends, edit profile, log out) */}
-      <SideMenu visible={menuOpen} onClose={() => setMenuOpen(false)} />
+      <SideMenu
+        visible={menuOpen}
+        onClose={() => {
+          setMenuOpen(false);
+          refreshRequests();
+        }}
+      />
     </View>
   );
 }

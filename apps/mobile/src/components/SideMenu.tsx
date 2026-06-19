@@ -66,10 +66,33 @@ export function SideMenu({ visible, onClose }: { visible: boolean; onClose: () =
           </View>
 
           {view === 'menu' && (
-            <View style={styles.menuList}>
-              <MenuRow label="Friends & requests" onPress={() => setView('friends')} gold={gold} />
-              <MenuRow label="Edit profile" onPress={() => setView('edit')} gold={gold} />
-              <MenuRow label="Log out" onPress={handleLogout} gold={gold} danger />
+            <View>
+              {/* Profile summary */}
+              <View style={styles.profileHeader}>
+                {user?.avatarUrl ? (
+                  <Image source={{ uri: user.avatarUrl }} style={styles.profileAvatar} />
+                ) : (
+                  <View style={[styles.profileAvatar, styles.profileAvatarFallback]}>
+                    <Text style={styles.profileMonogram}>
+                      {(user?.displayName || user?.handle || '?')[0]?.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.profileName} numberOfLines={1}>
+                    {user?.displayName || 'User'}
+                  </Text>
+                  <Text style={styles.profileHandle} numberOfLines={1}>
+                    @{user?.handle || 'user'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.menuList}>
+                <MenuRow label="Friends & requests" onPress={() => setView('friends')} gold={gold} />
+                <MenuRow label="Edit profile" onPress={() => setView('edit')} gold={gold} />
+                <MenuRow label="Log out" onPress={handleLogout} gold={gold} danger />
+              </View>
             </View>
           )}
 
@@ -305,6 +328,24 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   panelTitle: { fontFamily: 'System', fontSize: 16, fontWeight: '600', color: tokens.colors.fg },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(241,235,224,0.08)',
+  },
+  profileAvatar: { width: 52, height: 52, borderRadius: 26 },
+  profileAvatarFallback: {
+    backgroundColor: 'rgba(217,178,90,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileMonogram: { color: tokens.colors.gold, fontWeight: '600', fontSize: 22 },
+  profileName: { fontFamily: 'System', fontSize: 17, fontWeight: '600', color: tokens.colors.fg },
+  profileHandle: { fontFamily: 'Menlo', fontSize: 12, color: 'rgba(241,235,224,0.5)', marginTop: 2 },
   menuList: { paddingTop: 8 },
   menuRow: {
     flexDirection: 'row',
