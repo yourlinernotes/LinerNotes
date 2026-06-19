@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { Album } from "@/lib/types";
+import { cmpInput } from "./composer-ui";
 
 interface AlbumSearchProps {
   onAlbumSelect: (album: Album) => void;
@@ -19,38 +20,31 @@ export function AlbumSearch({ onAlbumSelect, searchAPI }: AlbumSearchProps) {
       setResults([]);
       return;
     }
-
     const timeoutId = setTimeout(async () => {
       setLoading(true);
       setError(null);
-
       try {
         let albums: Album[];
-
         if (searchAPI) {
           albums = await searchAPI(query);
         } else {
           const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=album`);
-
           if (!res.ok) {
             const data = await res.json();
             throw new Error(data.error || "Search failed");
           }
-
           const data = await res.json();
           albums = data.albums;
         }
-
         setResults(albums);
-      } catch (err: any) {
+      } catch (err) {
         console.error("Search error:", err);
-        setError(err.message || "Failed to search albums");
+        setError(err instanceof Error ? err.message : "Failed to search albums");
         setResults([]);
       } finally {
         setLoading(false);
       }
-    }, 300); // Debounce
-
+    }, 300);
     return () => clearTimeout(timeoutId);
   }, [query, searchAPI]);
 
@@ -61,60 +55,37 @@ export function AlbumSearch({ onAlbumSelect, searchAPI }: AlbumSearchProps) {
   };
 
   return (
-    <div className="relative">
+    <div style={{ position: "relative" }}>
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search for an album..."
-        className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2"
-        style={{
-          backgroundColor: "var(--ln-surface)",
-          color: "var(--ln-ink)",
-          borderColor: "var(--ln-line)",
-        }}
+        placeholder="Search for an album…"
+        style={cmpInput}
       />
 
       {loading && (
-        <div className="absolute right-4 top-4">
-          <div
-            className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: "var(--ln-accent)" }}
-          />
+        <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)" }}>
+          <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(var(--ln-fg-rgb),0.2)", borderTopColor: "var(--ln-accent)", animation: "ln-spin 0.8s linear infinite" }} />
         </div>
       )}
 
       {error && (
-        <div className="mt-2 p-3 rounded-lg text-sm" style={{ backgroundColor: "rgba(255,0,0,0.1)", color: "#ff4444" }}>
-          {error}
-        </div>
+        <div style={{ marginTop: 8, padding: "11px 13px", borderRadius: 12, fontFamily: "var(--ln-body)", fontSize: 13, background: "rgba(220,38,38,0.12)", border: "1px solid rgba(220,38,38,0.4)", color: "#ffb4b4" }}>{error}</div>
       )}
 
       {results.length > 0 && (
-        <div
-          className="absolute z-10 w-full mt-2 rounded-lg overflow-hidden shadow-lg max-h-96 overflow-y-auto"
-          style={{ backgroundColor: "var(--ln-surface)" }}
-        >
+        <div className="ln-scroll" style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 8, borderRadius: 14, overflow: "hidden", overflowY: "auto", maxHeight: 360, zIndex: 20, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.14)", boxShadow: "0 26px 56px -26px var(--ln-shadow)" }}>
           {results.map((album) => (
-            <button
-              key={album.albumId}
-              onClick={() => handleSelect(album)}
-              className="w-full p-3 flex items-center gap-3 hover:opacity-80 transition-opacity text-left"
-              style={{ borderBottom: "1px solid var(--ln-line)" }}
-            >
-              <img
-                src={album.artworkUrl}
-                alt={album.name}
-                className="w-12 h-12 rounded object-cover"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate" style={{ color: "var(--ln-ink)" }}>
-                  {album.name}
-                </div>
-                <div className="text-sm truncate" style={{ color: "var(--ln-ink-soft)" }}>
+            <button key={album.albumId} type="button" onClick={() => handleSelect(album)} style={{ width: "100%", padding: "11px 13px", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "none", border: "none", borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.06)", cursor: "pointer" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={album.artworkUrl} alt={album.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 600, color: "var(--ln-fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{album.name}</div>
+                <div style={{ fontFamily: "var(--ln-mono)", fontSize: 11, color: "var(--ln-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {album.artist}
-                  {album.releaseDate && ` • ${new Date(album.releaseDate).getFullYear()}`}
-                  {album.totalTracks && ` • ${album.totalTracks} tracks`}
+                  {album.releaseDate && ` · ${new Date(album.releaseDate).getFullYear()}`}
+                  {album.totalTracks && ` · ${album.totalTracks} tracks`}
                 </div>
               </div>
             </button>

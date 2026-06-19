@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Album, Track, Reaction, AlbumReview } from "@/lib/types";
 import { AlbumSearch } from "./AlbumSearch";
-import { RatingSelector } from "./RatingSelector";
+import { StarsInput, MomentsEditor, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type Depth } from "./composer-ui";
+import { LNArt, LNReact, LNIcon } from "@/components/ln/atoms";
+import { LNWCard } from "@/components/ln/cards";
+import { paletteFromString } from "@/lib/palette";
+import type { ReviewVM, TrackVM } from "@/lib/view-adapter";
 
 interface AlbumComposeFormProps {
   onSubmit?: (albumReview: Partial<AlbumReview>) => Promise<void>;
@@ -11,41 +15,40 @@ interface AlbumComposeFormProps {
   searchAPI?: (query: string) => Promise<Album[]>;
 }
 
+interface TrackNote { seconds: number; label: string; note?: string }
 interface TrackReaction {
   track: Track;
   trackNumber: number;
   reaction: Reaction | null;
   rating: number;
   take?: string;
-  notes: { seconds: number; label: string; note?: string }[];
+  notes: TrackNote[];
   showNoteForm: boolean;
 }
+
+const CYCLE: (Reaction | null)[] = [null, "flame", "love", "skip"];
 
 export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumComposeFormProps) {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [albumWithTracks, setAlbumWithTracks] = useState<Album | null>(null);
-  const [overallRating, setOverallRating] = useState<number | null>(null);
+  const [overallRating, setOverallRating] = useState(0);
+  const [showTake, setShowTake] = useState(false);
   const [albumTake, setAlbumTake] = useState("");
+  const [showTracks, setShowTracks] = useState(true);
   const [trackReactions, setTrackReactions] = useState<TrackReaction[]>([]);
+  const [openTrack, setOpenTrack] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingTracks, setLoadingTracks] = useState(false);
 
   const handleAlbumSelect = async (album: Album) => {
     setSelectedAlbum(album);
     setLoadingTracks(true);
-
     try {
-      // Fetch full album details with tracklist
       const res = await fetch(`/api/albums/${album.albumId}`);
-      if (!res.ok) {
-        throw new Error("Failed to fetch album details");
-      }
-
+      if (!res.ok) throw new Error("Failed to fetch album details");
       const data = await res.json();
       const fullAlbum: Album = data.album;
       setAlbumWithTracks(fullAlbum);
-
-      // Initialize track reactions
       if (fullAlbum.tracks) {
         setTrackReactions(
           fullAlbum.tracks.map((track, index) => ({
@@ -67,64 +70,72 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
     }
   };
 
-  const setReaction = (index: number, reaction: Reaction | null) => {
-    const newReactions = [...trackReactions];
-    newReactions[index].reaction = reaction;
-    setTrackReactions(newReactions);
+  const upd = (i: number, patch: Partial<TrackReaction>) =>
+    setTrackReactions((arr) => arr.map((t, j) => (j === i ? { ...t, ...patch } : t)));
+  const cycle = (i: number) => {
+    const cur = trackReactions[i].reaction;
+    upd(i, { reaction: CYCLE[(CYCLE.indexOf(cur) + 1) % CYCLE.length] });
+  };
+  const isIncluded = (tr: TrackReaction) => !!(tr.reaction || tr.notes.length || tr.take);
+  const includedCount = trackReactions.filter(isIncluded).length;
+
+  const take = albumTake.trim();
+  const multiline = take.split("\n").filter((s) => s.trim()).length > 1;
+  const depth: Depth = multiline ? "full" : take ? "caption" : overallRating > 0 || includedCount > 0 ? "floor" : null;
+  const canPost = overallRating > 0 || includedCount > 0;
+
+  const reset = () => {
+    setSelectedAlbum(null);
+    setAlbumWithTracks(null);
+    setOverallRating(0);
+    setAlbumTake("");
+    setTrackReactions([]);
+    setOpenTrack(null);
   };
 
-  const setTrackRating = (index: number, rating: number) => {
-    const newReactions = [...trackReactions];
-    newReactions[index].rating = rating;
-    setTrackReactions(newReactions);
-  };
-
-  const setTrackTake = (index: number, take: string) => {
-    const newReactions = [...trackReactions];
-    newReactions[index].take = take;
-    setTrackReactions(newReactions);
-  };
-
-  const toggleNoteForm = (index: number) => {
-    const newReactions = [...trackReactions];
-    newReactions[index].showNoteForm = !newReactions[index].showNoteForm;
-    setTrackReactions(newReactions);
-  };
-
-  const addNote = (index: number) => {
-    const newReactions = [...trackReactions];
-    newReactions[index].notes.push({ seconds: 0, label: "", note: "" });
-    setTrackReactions(newReactions);
-  };
-
-  const updateNote = (trackIndex: number, noteIndex: number, field: 'seconds' | 'label' | 'note', value: string | number) => {
-    const newReactions = [...trackReactions];
-    (newReactions[trackIndex].notes[noteIndex] as any)[field] = value;
-    setTrackReactions(newReactions);
-  };
-
-  const removeNote = (trackIndex: number, noteIndex: number) => {
-    const newReactions = [...trackReactions];
-    newReactions[trackIndex].notes.splice(noteIndex, 1);
-    setTrackReactions(newReactions);
-  };
+  const draft: ReviewVM | null = useMemo(() => {
+    if (!selectedAlbum) return null;
+    const tracks: TrackVM[] = trackReactions.filter(isIncluded).map((tr) => ({
+      n: tr.trackNumber,
+      name: tr.track.name,
+      reaction: tr.reaction,
+      moments: tr.notes.map((n) => ({ sec: n.seconds, label: n.label || "moment", note: n.note || "" })),
+      review: tr.take || undefined,
+    }));
+    return {
+      id: "draft",
+      href: "#",
+      kind: "album",
+      album: {
+        title: selectedAlbum.name,
+        artist: selectedAlbum.artist,
+        year: selectedAlbum.releaseDate ? String(new Date(selectedAlbum.releaseDate).getFullYear()) : undefined,
+        artworkUrl: selectedAlbum.artworkUrl || null,
+        palette: paletteFromString(selectedAlbum.albumId || selectedAlbum.name),
+        kind: "album",
+        tracks,
+      },
+      user: { id: "", name: "", handle: "", tint: "#bd9183" },
+      rating: overallRating,
+      take: take || undefined,
+      notes: [],
+      via: null,
+      likeCount: 0,
+      repostCount: 0,
+      at: "",
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAlbum, trackReactions, overallRating, take]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!selectedAlbum || !albumWithTracks) {
       alert("Please select an album first");
       return;
     }
-
     setSubmitting(true);
-
     try {
-      // Only include tracks with reactions or notes
-      const reviewedTracks = trackReactions.filter(
-        tr => tr.reaction !== null || tr.notes.length > 0 || tr.take
-      );
-
+      const reviewedTracks = trackReactions.filter(isIncluded);
       const albumReviewData = {
         albumId: selectedAlbum.albumId,
         albumName: selectedAlbum.name,
@@ -133,8 +144,8 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
         releaseDate: selectedAlbum.releaseDate,
         totalTracks: selectedAlbum.totalTracks,
         overallRating: overallRating || undefined,
-        take: albumTake.trim() || undefined,
-        trackReviews: reviewedTracks.map(tr => ({
+        take: take || undefined,
+        trackReviews: reviewedTracks.map((tr) => ({
           trackId: tr.track.trackId,
           trackName: tr.track.name,
           trackArtist: tr.track.artist,
@@ -144,40 +155,26 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
           take: tr.take || undefined,
           reaction: tr.reaction || undefined,
           trackNumber: tr.trackNumber,
-          notes: tr.notes.filter(n => n.label).map(n => ({
-            seconds: n.seconds,
-            label: n.label,
-            note: n.note || undefined,
-          })),
+          notes: tr.notes
+            .filter((n) => n.label || n.note)
+            .map((n) => ({ seconds: n.seconds, label: n.label || "moment", note: n.note || undefined })),
         })),
       };
 
       if (onSubmit) {
-        await onSubmit(albumReviewData as any);
+        await onSubmit(albumReviewData as unknown as Partial<AlbumReview>);
       } else {
         const res = await fetch("/api/album-reviews", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(albumReviewData),
         });
-
-        if (!res.ok) {
-          throw new Error("Failed to create album review");
-        }
-
+        if (!res.ok) throw new Error("Failed to create album review");
         const data = await res.json();
-
-        // Redirect to album card page to view the review
         window.location.href = `/album-card/${data.albumReview.id}`;
         return;
       }
-
-      // Reset form
-      setSelectedAlbum(null);
-      setAlbumWithTracks(null);
-      setOverallRating(null);
-      setAlbumTake("");
-      setTrackReactions([]);
+      reset();
     } catch (error) {
       console.error("Failed to submit album review:", error);
       alert("Failed to submit album review. Please try again.");
@@ -186,317 +183,136 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  const gold = "var(--ln-accent)";
 
-  const parseTime = (timeStr: string): number => {
-    const parts = timeStr.split(':');
-    if (parts.length === 2) {
-      const mins = parseInt(parts[0]) || 0;
-      const secs = parseInt(parts[1]) || 0;
-      return mins * 60 + secs;
-    }
-    return 0;
-  };
+  if (!selectedAlbum) {
+    return (
+      <div>
+        <ModeTabs active="album" />
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontFamily: "var(--ln-mono)", fontSize: 9.5, letterSpacing: "0.06em", color: gold, textTransform: "uppercase", marginBottom: 8 }}>which record did you sit with?</div>
+          <AlbumSearch onAlbumSelect={handleAlbumSelect} searchAPI={searchAPI} />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Album Selection */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-          Search for an album
-        </label>
-        <AlbumSearch onAlbumSelect={handleAlbumSelect} searchAPI={searchAPI} />
-      </div>
+    <div>
+      <ModeTabs active="album" />
 
-      {/* Selected Album Preview */}
-      {selectedAlbum && (
-        <div
-          className="p-4 rounded-lg flex items-center gap-4"
-          style={{ backgroundColor: "var(--ln-surface)" }}
-        >
-          <img
-            src={selectedAlbum.artworkUrl}
-            alt={selectedAlbum.name}
-            className="w-20 h-20 rounded object-cover"
-          />
-          <div className="flex-1">
-            <div className="font-bold text-lg" style={{ color: "var(--ln-ink)" }}>
-              {selectedAlbum.name}
+      <form onSubmit={handleSubmit} className="lnw-cmp" style={{ marginTop: 18, display: "grid", gridTemplateColumns: "1fr 340px", gap: 28, alignItems: "start" }}>
+        {/* EDITOR */}
+        <div style={{ minWidth: 0 }}>
+          {/* proposed album */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 12, borderRadius: 14, background: "rgba(var(--ln-fg-rgb),0.04)", border: "1px solid rgba(var(--ln-fg-rgb),0.09)" }}>
+            <div style={{ width: 60, height: 60, borderRadius: 9, overflow: "hidden", flexShrink: 0 }}>
+              <LNArt palette={paletteFromString(selectedAlbum.albumId || selectedAlbum.name)} src={selectedAlbum.artworkUrl} label="" radius={9} noTag />
             </div>
-            <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-              {selectedAlbum.artist}
-              {selectedAlbum.releaseDate && ` • ${new Date(selectedAlbum.releaseDate).getFullYear()}`}
-              {selectedAlbum.totalTracks && ` • ${selectedAlbum.totalTracks} tracks`}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "var(--ln-album)", fontWeight: 600, fontSize: 18, color: "var(--ln-fg)", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedAlbum.name}</div>
+              <div style={{ fontFamily: "var(--ln-body)", fontSize: 13, color: "var(--ln-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {selectedAlbum.artist}
+                {selectedAlbum.releaseDate && ` · ${new Date(selectedAlbum.releaseDate).getFullYear()}`}
+              </div>
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedAlbum(null);
-              setAlbumWithTracks(null);
-              setTrackReactions([]);
-            }}
-            className="px-3 py-1 rounded text-sm"
-            style={{
-              backgroundColor: "var(--ln-line)",
-              color: "var(--ln-ink-soft)",
-            }}
-          >
-            Change
-          </button>
-        </div>
-      )}
-
-      {loadingTracks && (
-        <div className="flex items-center justify-center p-8">
-          <div
-            className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: "var(--ln-accent)" }}
-          />
-        </div>
-      )}
-
-      {/* Album Review Form */}
-      {albumWithTracks && !loadingTracks && (
-        <>
-          {/* Overall Rating (Optional) */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Overall album rating (optional - auto-calculated from tracks if not set)
-            </label>
-            <div className="flex items-center gap-4">
-              <RatingSelector
-                rating={overallRating || 0}
-                onChange={setOverallRating}
-              />
-              {overallRating !== null && (
-                <button
-                  type="button"
-                  onClick={() => setOverallRating(null)}
-                  className="text-sm opacity-75 hover:opacity-100"
-                  style={{ color: "var(--ln-ink-soft)" }}
-                >
-                  Clear (use auto-calculate)
-                </button>
-              )}
-            </div>
+            <button type="button" onClick={reset} className="ln-press" style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 999, cursor: "pointer", background: "rgba(var(--ln-fg-rgb),0.06)", color: "rgba(var(--ln-fg-rgb),0.7)", border: "1px solid rgba(var(--ln-fg-rgb),0.16)", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600 }}>Change</button>
           </div>
 
-          {/* Album Take (Optional) */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Overall thoughts (optional)
-            </label>
-            <textarea
-              value={albumTake}
-              onChange={(e) => setAlbumTake(e.target.value)}
-              placeholder="What did you think of the album as a whole?"
-              maxLength={500}
-              rows={3}
-              className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2"
-              style={{
-                backgroundColor: "var(--ln-surface)",
-                color: "var(--ln-ink)",
-                borderColor: "var(--ln-line)",
-              }}
-            />
-            <div className="text-xs text-right" style={{ color: "var(--ln-ink-soft)" }}>
-              {albumTake.length}/500
+          {loadingTracks ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
+              <div style={{ width: 26, height: 26, borderRadius: "50%", border: "3px solid rgba(var(--ln-fg-rgb),0.15)", borderTopColor: gold, animation: "ln-spin 0.8s linear infinite" }} />
             </div>
-          </div>
-
-          {/* The Strip - Per-Track Reactions */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Track-by-track (optional - react to the ones that stuck)
-            </label>
-            <p className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>
-              Tap a reaction to mark standout tracks. Add notes via the bookmark icon.
-            </p>
-
-            <div className="space-y-2">
-              {trackReactions.map((tr, index) => (
-                <div
-                  key={tr.track.trackId}
-                  className="p-3 rounded-lg space-y-3"
-                  style={{ backgroundColor: "var(--ln-surface)" }}
-                >
-                  {/* Track row with reactions */}
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm opacity-50 w-6">{tr.trackNumber}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate text-sm" style={{ color: "var(--ln-ink)" }}>
-                        {tr.track.name}
-                      </div>
-                    </div>
-
-                    {/* Reactions */}
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setReaction(index, tr.reaction === "flame" ? null : "flame")}
-                        className="p-2 rounded hover:bg-opacity-80 transition-all"
-                        style={{
-                          backgroundColor: tr.reaction === "flame" ? "rgba(255,100,0,0.2)" : "transparent",
-                        }}
-                      >
-                        🔥
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setReaction(index, tr.reaction === "love" ? null : "love")}
-                        className="p-2 rounded hover:bg-opacity-80 transition-all"
-                        style={{
-                          backgroundColor: tr.reaction === "love" ? "rgba(255,0,100,0.2)" : "transparent",
-                        }}
-                      >
-                        ❤️
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setReaction(index, tr.reaction === "skip" ? null : "skip")}
-                        className="p-2 rounded hover:bg-opacity-80 transition-all"
-                        style={{
-                          backgroundColor: tr.reaction === "skip" ? "rgba(100,100,100,0.2)" : "transparent",
-                        }}
-                      >
-                        ⏭️
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleNoteForm(index)}
-                        className="p-2 rounded hover:bg-opacity-80 transition-all"
-                        style={{
-                          backgroundColor: tr.showNoteForm || tr.notes.length > 0 ? "rgba(100,100,255,0.2)" : "transparent",
-                        }}
-                      >
-                        🔖
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Expanded note form */}
-                  {tr.showNoteForm && (
-                    <div className="space-y-2 pl-9">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          step="0.5"
-                          min="0.5"
-                          max="5"
-                          value={tr.rating}
-                          onChange={(e) => setTrackRating(index, parseFloat(e.target.value))}
-                          className="w-20 px-2 py-1 rounded text-sm"
-                          style={{
-                            backgroundColor: "var(--ln-bg)",
-                            color: "var(--ln-ink)",
-                          }}
-                        />
-                        <span className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>stars</span>
-                      </div>
-
-                      <textarea
-                        value={tr.take}
-                        onChange={(e) => setTrackTake(index, e.target.value)}
-                        placeholder="Your thoughts on this track (as long or short as you want)..."
-                        rows={3}
-                        className="w-full px-3 py-2 rounded text-sm"
-                        style={{
-                          backgroundColor: "var(--ln-bg)",
-                          color: "var(--ln-ink)",
-                        }}
-                      />
-
-                      {tr.notes.map((note, noteIdx) => (
-                        <div key={noteIdx} className="space-y-1">
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={note.seconds > 0 ? formatTime(note.seconds) : ""}
-                              onChange={(e) => updateNote(index, noteIdx, 'seconds', parseTime(e.target.value))}
-                              placeholder="0:00"
-                              maxLength={5}
-                              className="w-20 px-2 py-1 rounded text-sm"
-                              style={{
-                                backgroundColor: "var(--ln-bg)",
-                                color: "var(--ln-ink)",
-                              }}
-                            />
-                            <input
-                              type="text"
-                              value={note.label}
-                              onChange={(e) => updateNote(index, noteIdx, 'label', e.target.value)}
-                              placeholder="Label (e.g., 'drop', 'bridge')"
-                              maxLength={30}
-                              className="flex-1 px-2 py-1 rounded text-sm"
-                              style={{
-                                backgroundColor: "var(--ln-bg)",
-                                color: "var(--ln-ink)",
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeNote(index, noteIdx)}
-                              className="px-2 py-1 rounded text-sm"
-                              style={{
-                                backgroundColor: "var(--ln-line)",
-                                color: "var(--ln-ink-soft)",
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                          <input
-                            type="text"
-                            value={note.note || ""}
-                            onChange={(e) => updateNote(index, noteIdx, 'note', e.target.value)}
-                            placeholder="Optional note..."
-                            maxLength={150}
-                            className="w-full px-2 py-1 rounded text-sm"
-                            style={{
-                              backgroundColor: "var(--ln-bg)",
-                              color: "var(--ln-ink)",
-                            }}
-                          />
-                        </div>
-                      ))}
-
-                      <button
-                        type="button"
-                        onClick={() => addNote(index)}
-                        className="text-sm px-3 py-1 rounded"
-                        style={{
-                          backgroundColor: "var(--ln-bg)",
-                          color: "var(--ln-ink)",
-                        }}
-                      >
-                        + Add moment
-                      </button>
-                    </div>
-                  )}
+          ) : (
+            <>
+              {/* overall rating */}
+              <div style={{ marginTop: 24, textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, letterSpacing: "0.1em", color: "rgba(var(--ln-fg-rgb),0.5)", textTransform: "uppercase" }}>overall rating</div>
+                <div style={{ marginTop: 12, display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+                  <StarsInput rating={overallRating} onChange={setOverallRating} />
+                  <span style={{ fontFamily: "var(--ln-mono)", fontSize: 23, color: overallRating ? gold : "rgba(var(--ln-fg-rgb),0.3)", minWidth: 38, textAlign: "left" }}>{overallRating ? overallRating.toFixed(1) : "·"}</span>
                 </div>
-              ))}
-            </div>
-          </div>
+                {overallRating > 0 && (
+                  <button type="button" onClick={() => setOverallRating(0)} style={{ marginTop: 8, background: "none", border: "none", cursor: "pointer", fontFamily: "var(--ln-body)", fontSize: 12, color: "rgba(var(--ln-fg-rgb),0.5)" }}>Clear · auto-calculate from tracks</button>
+                )}
+              </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 rounded-lg font-medium text-lg transition-opacity disabled:opacity-50"
-            style={{
-              backgroundColor: "var(--ln-accent)",
-              color: "white",
-            }}
-          >
-            {submitting ? "Submitting..." : "Submit Album Review"}
-          </button>
-        </>
-      )}
-    </form>
+              <div style={{ marginTop: 22 }}>
+                <DepthMeter depth={depth} badge={includedCount > 0 ? `album · ${includedCount}` : undefined} />
+              </div>
+
+              {/* chips */}
+              <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <Chip label="Write a note" on={showTake} onToggle={() => setShowTake((v) => !v)} />
+                <Chip label={`Review the tracks${includedCount ? ` · ${includedCount}` : ""}`} on={showTracks} onToggle={() => setShowTracks((v) => !v)} />
+              </div>
+
+              {showTake && (
+                <div style={{ marginTop: 13 }}>
+                  <textarea value={albumTake} onChange={(e) => setAlbumTake(e.target.value)} rows={3} placeholder="What did you think of the album as a whole?" style={cmpInput} maxLength={1000} />
+                </div>
+              )}
+
+              {/* track strip */}
+              {showTracks && (
+                <div style={{ marginTop: 13, borderRadius: 14, border: "1px solid rgba(var(--ln-fg-rgb),0.1)", overflow: "hidden" }}>
+                  <div style={{ padding: "9px 14px", fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.06em", color: "rgba(var(--ln-fg-rgb),0.5)", textTransform: "uppercase", borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.08)" }}>tap a track to react · bookmark a note</div>
+                  {trackReactions.map((tr, i) => {
+                    const open = openTrack === i;
+                    const mc = tr.notes.length;
+                    const included = isIncluded(tr);
+                    return (
+                      <div key={tr.track.trackId} style={{ borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.06)" }}>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <div onClick={() => cycle(i)} style={{ flex: 1, display: "flex", alignItems: "center", gap: 11, padding: "12px 14px", cursor: "pointer", minWidth: 0 }}>
+                            <span style={{ fontFamily: "var(--ln-mono)", fontSize: 11, color: included ? "rgba(var(--ln-fg-rgb),0.45)" : "rgba(var(--ln-fg-rgb),0.28)", width: 16 }}>{String(tr.trackNumber).padStart(2, "0")}</span>
+                            <span style={{ flex: 1, fontFamily: "var(--ln-body)", fontSize: 14.5, color: included ? "var(--ln-fg)" : "rgba(var(--ln-fg-rgb),0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{tr.track.name}</span>
+                          </div>
+                          <button type="button" onClick={() => cycle(i)} style={{ padding: "12px 11px", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                            {tr.reaction ? <LNReact kind={tr.reaction} size={18} /> : <span style={{ width: 18, height: 18, borderRadius: "50%", border: "1.5px dashed rgba(var(--ln-fg-rgb),0.25)" }} />}
+                          </button>
+                          <button type="button" onClick={() => setOpenTrack((o) => (o === i ? null : i))} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "12px 13px", background: "none", border: "none", borderLeft: "1px solid rgba(var(--ln-fg-rgb),0.06)", cursor: "pointer" }}>
+                            {(mc > 0 || tr.take) && <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10, color: gold }}>{mc || "·"}</span>}
+                            <LNIcon name="save" size={16} color={mc || tr.take || open ? gold : "rgba(var(--ln-fg-rgb),0.4)"} />
+                          </button>
+                        </div>
+                        {open && (
+                          <div style={{ padding: "2px 14px 14px", display: "flex", flexDirection: "column", gap: 9, background: `${gold}07` }}>
+                            <textarea value={tr.take || ""} onChange={(e) => upd(i, { take: e.target.value })} rows={2} placeholder={`A note on “${tr.track.name}”…`} style={{ ...cmpInput, fontSize: 13.5 }} />
+                            <MomentsEditor
+                              moments={tr.notes.map((n) => ({ seconds: n.seconds, note: n.note || "" }))}
+                              onAdd={(m) => upd(i, { notes: [...tr.notes, { seconds: m.seconds, label: "moment", note: m.note }].sort((a, b) => a.seconds - b.seconds) })}
+                              onRemove={(idx) => upd(i, { notes: tr.notes.filter((_, j) => j !== idx) })}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button type="submit" disabled={!canPost || submitting} className="ln-press" style={{ width: "100%", marginTop: 22, padding: "15px", borderRadius: 14, border: "none", cursor: canPost && !submitting ? "pointer" : "default", fontFamily: "var(--ln-body)", fontSize: 15.5, fontWeight: 700, background: canPost ? gold : "rgba(var(--ln-fg-rgb),0.1)", color: canPost ? "#1a0a04" : "rgba(var(--ln-fg-rgb),0.4)", transition: "background 0.2s" }}>
+                {submitting ? "Posting…" : !canPost ? "React or rate to post" : "Post album review"}
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* LIVE PREVIEW */}
+        <div className="lnw-cmp-prev">
+          <PreviewShell ready={!!draft && canPost}>
+            {draft && <LNWCard vm={draft} />}
+          </PreviewShell>
+        </div>
+      </form>
+
+      <style>{`
+        @media (max-width: 820px) {
+          .lnw-cmp { grid-template-columns: 1fr !important; }
+          .lnw-cmp-prev { display: none !important; }
+        }
+      `}</style>
+    </div>
   );
 }

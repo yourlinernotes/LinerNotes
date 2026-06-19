@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import type { Track, Review, Note } from "@/lib/types";
+import type { Track, Review } from "@/lib/types";
 import { TrackSearch } from "./TrackSearch";
-import { RatingSelector } from "./RatingSelector";
+import { StarsInput, MomentsEditor, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type DraftMoment, type Depth } from "./composer-ui";
+import { LNArt, LNIcon } from "@/components/ln/atoms";
+import { LNWCard } from "@/components/ln/cards";
+import { paletteFromString } from "@/lib/palette";
+import type { ReviewVM } from "@/lib/view-adapter";
 
 interface ComposeFormProps {
   onSubmit?: (review: Partial<Review>) => Promise<void>;
@@ -12,269 +16,183 @@ interface ComposeFormProps {
   searchAPI?: (query: string) => Promise<Track[]>;
 }
 
-interface NoteInput {
-  time: string; // mm:ss format
-  label: string;
-  note?: string;
-}
-
 export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps) {
   const { data: session } = useSession();
-  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
-  const [rating, setRating] = useState(3.5);
-  const [take, setTake] = useState("");
-  const [notes, setNotes] = useState<NoteInput[]>([{ time: "", label: "", note: "" }]);
+  const [track, setTrack] = useState<Track | null>(null);
+  const [rating, setRating] = useState(0);
+  const [showLine, setShowLine] = useState(false);
+  const [line, setLine] = useState("");
+  const [showMoments, setShowMoments] = useState(false);
+  const [moments, setMoments] = useState<DraftMoment[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const take = line.trim();
+  const multiline = take.split("\n").filter((s) => s.trim()).length > 1;
+  const depth: Depth = multiline ? "full" : take ? "caption" : rating > 0 ? "floor" : null;
+  const canPost = !!track && rating > 0;
+
+  const draft: ReviewVM | null = useMemo(() => {
+    if (!track) return null;
+    return {
+      id: "draft",
+      href: "#",
+      kind: "track",
+      album: {
+        title: track.name,
+        artist: track.artist,
+        artworkUrl: track.artworkUrl || null,
+        palette: paletteFromString(track.trackId || track.album || track.name),
+        kind: "track",
+        tracks: [],
+      },
+      user: { id: "", name: "", handle: "", tint: "#bd9183" },
+      rating,
+      take: take || undefined,
+      body: undefined,
+      notes: moments.map((m) => ({ sec: m.seconds, label: "moment", note: m.note })),
+      via: null,
+      likeCount: 0,
+      repostCount: 0,
+      at: "",
+    };
+  }, [track, rating, take, moments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!selectedTrack) {
+    if (!track) {
       alert("Please select a track first");
       return;
     }
-
     setSubmitting(true);
-
     try {
-      // Convert notes from input format to API format
-      const notesData = notes
-        .filter(note => note.time && note.label) // Only include notes with time and label
-        .map(note => {
-          const parts = note.time.split(':');
-          const mins = parts.length === 2 ? parseInt(parts[0]) || 0 : 0;
-          const secs = parts.length === 2 ? parseInt(parts[1]) || 0 : 0;
-          return {
-            seconds: mins * 60 + secs,
-            label: note.label,
-            note: note.note?.trim() || undefined,
-          };
-        });
-
       const reviewData = {
-        trackId: selectedTrack.trackId,
-        trackName: selectedTrack.name,
-        trackArtist: selectedTrack.artist,
-        trackAlbum: selectedTrack.album,
-        artworkUrl: selectedTrack.artworkUrl,
-        previewUrl: selectedTrack.previewUrl,
+        trackId: track.trackId,
+        trackName: track.name,
+        trackArtist: track.artist,
+        trackAlbum: track.album,
+        artworkUrl: track.artworkUrl,
+        previewUrl: track.previewUrl,
         rating,
-        take: take.trim() || undefined,
-        notes: notesData.length > 0 ? notesData : undefined,
+        take: take || undefined,
+        notes: moments.length > 0 ? moments.map((m) => ({ seconds: m.seconds, label: "moment", note: m.note })) : undefined,
       };
 
       if (onSubmit) {
-        await onSubmit(reviewData as any);
+        await onSubmit(reviewData as unknown as Partial<Review>);
       } else {
-        // Use real API
         const { createReview } = await import("@/lib/api");
         const newReview = await createReview(reviewData);
         onSuccess?.(newReview);
       }
 
-      // Reset form
-      setSelectedTrack(null);
-      setRating(3.5);
-      setTake("");
-      setNotes([{ time: "", label: "", note: "" }]);
+      setTrack(null);
+      setRating(0);
+      setLine("");
+      setMoments([]);
+      setShowLine(false);
+      setShowMoments(false);
 
-      // Redirect to profile to see the review
       if (session?.user?.handle) {
         window.location.href = `/profile/${session.user.handle}`;
       } else {
-        alert("Review submitted successfully!");
+        alert("Note posted!");
       }
     } catch (error) {
       console.error("Failed to submit review:", error);
-      alert("Failed to submit review. Please try again.");
+      alert("Failed to submit. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const addNote = () => {
-    setNotes([...notes, { time: "", label: "", note: "" }]);
-  };
-
-  const removeNote = (index: number) => {
-    if (notes.length > 1) {
-      setNotes(notes.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateNote = (index: number, field: keyof NoteInput, value: string) => {
-    const newNotes = [...notes];
-    newNotes[index] = { ...newNotes[index], [field]: value };
-    setNotes(newNotes);
-  };
+  const gold = "var(--ln-accent)";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Track Selection */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-          Search for a track
-        </label>
-        <TrackSearch onTrackSelect={setSelectedTrack} searchAPI={searchAPI} />
-      </div>
+    <div>
+      <ModeTabs active="track" />
 
-      {/* Selected Track Preview */}
-      {selectedTrack && (
-        <div
-          className="p-4 rounded-lg flex items-center gap-4"
-          style={{ backgroundColor: "var(--ln-surface)" }}
-        >
-          <img
-            src={selectedTrack.artworkUrl}
-            alt={selectedTrack.album}
-            className="w-20 h-20 rounded object-cover"
-          />
-          <div className="flex-1">
-            <div className="font-bold text-lg" style={{ color: "var(--ln-ink)" }}>
-              {selectedTrack.name}
-            </div>
-            <div className="text-sm" style={{ color: "var(--ln-ink-soft)" }}>
-              {selectedTrack.artist} • {selectedTrack.album}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSelectedTrack(null)}
-            className="px-3 py-1 rounded text-sm"
-            style={{
-              backgroundColor: "var(--ln-line)",
-              color: "var(--ln-ink-soft)",
-            }}
-          >
-            Change
-          </button>
+      {!track ? (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontFamily: "var(--ln-mono)", fontSize: 9.5, letterSpacing: "0.06em", color: gold, textTransform: "uppercase", marginBottom: 8 }}>what did you just hear?</div>
+          <TrackSearch onTrackSelect={setTrack} searchAPI={searchAPI} />
         </div>
-      )}
-
-      {/* Rating */}
-      {selectedTrack && (
-        <>
-          <RatingSelector rating={rating} onChange={setRating} />
-
-          {/* Take (optional) */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Your take (optional)
-            </label>
-            <input
-              type="text"
-              value={take}
-              onChange={(e) => setTake(e.target.value)}
-              placeholder="What did you think? (one line)"
-              maxLength={150}
-              className="w-full px-4 py-3 rounded-lg focus:outline-none focus:ring-2"
-              style={{
-                backgroundColor: "var(--ln-surface)",
-                color: "var(--ln-ink)",
-                borderColor: "var(--ln-line)",
-              }}
-            />
-            <div className="text-xs text-right" style={{ color: "var(--ln-ink-soft)" }}>
-              {take.length}/150
+      ) : (
+        <form onSubmit={handleSubmit} className="lnw-cmp" style={{ marginTop: 18, display: "grid", gridTemplateColumns: "1fr 340px", gap: 28, alignItems: "start" }}>
+          {/* EDITOR */}
+          <div style={{ minWidth: 0 }}>
+            {/* proposed track */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 12, borderRadius: 14, background: "rgba(var(--ln-fg-rgb),0.04)", border: "1px solid rgba(var(--ln-fg-rgb),0.09)" }}>
+              <div style={{ width: 60, height: 60, borderRadius: 9, overflow: "hidden", flexShrink: 0 }}>
+                <LNArt palette={draft!.album.palette} src={track.artworkUrl} label="" radius={9} noTag />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "var(--ln-album)", fontWeight: 600, fontSize: 18, color: "var(--ln-fg)", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.name}</div>
+                <div style={{ fontFamily: "var(--ln-body)", fontSize: 13, color: "var(--ln-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.artist} · {track.album}</div>
+              </div>
+              <button type="button" onClick={() => { setTrack(null); setRating(0); }} className="ln-press" style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 999, cursor: "pointer", background: "rgba(var(--ln-fg-rgb),0.06)", color: "rgba(var(--ln-fg-rgb),0.7)", border: "1px solid rgba(var(--ln-fg-rgb),0.16)", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600 }}>Change</button>
             </div>
-          </div>
 
-          {/* Notes (optional) */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium" style={{ color: "var(--ln-ink)" }}>
-              Mark moments (optional)
-            </label>
-            {notes.map((note, index) => (
-              <div key={index} className="space-y-2 p-3 rounded-lg" style={{ backgroundColor: "var(--ln-surface)" }}>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={note.time}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9:]/g, '');
-                      updateNote(index, 'time', value);
-                    }}
-                    placeholder="0:00 (mm:ss)"
-                    maxLength={5}
-                    className="w-24 px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
-                    style={{
-                      backgroundColor: "var(--ln-bg)",
-                      color: "var(--ln-ink)",
-                      borderColor: "var(--ln-line)",
-                    }}
-                  />
-                  <input
-                    type="text"
-                    value={note.label}
-                    onChange={(e) => updateNote(index, 'label', e.target.value)}
-                    placeholder="Label (e.g., 'best bit', 'intro', 'drop')"
-                    maxLength={30}
-                    className="flex-1 px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
-                    style={{
-                      backgroundColor: "var(--ln-bg)",
-                      color: "var(--ln-ink)",
-                      borderColor: "var(--ln-line)",
-                    }}
-                  />
-                  {notes.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeNote(index)}
-                      className="px-3 py-2 rounded-lg text-sm"
-                      style={{
-                        backgroundColor: "var(--ln-line)",
-                        color: "var(--ln-ink-soft)",
-                      }}
-                    >
-                      Remove
-                    </button>
-                  )}
+            {/* rate */}
+            <div style={{ marginTop: 24, textAlign: "center" }}>
+              <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, letterSpacing: "0.1em", color: "rgba(var(--ln-fg-rgb),0.5)", textTransform: "uppercase" }}>rate the track</div>
+              <div style={{ marginTop: 12, display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+                <StarsInput rating={rating} onChange={setRating} />
+                <span style={{ fontFamily: "var(--ln-mono)", fontSize: 23, color: rating ? gold : "rgba(var(--ln-fg-rgb),0.3)", minWidth: 38, textAlign: "left" }}>{rating ? rating.toFixed(1) : "·"}</span>
+              </div>
+              <div style={{ marginTop: 8, fontFamily: "var(--ln-body)", fontSize: 12.5, color: "rgba(var(--ln-fg-rgb),0.45)" }}>Tap to rate. That alone is a valid post.</div>
+            </div>
+
+            {/* depth */}
+            <div style={{ marginTop: 22 }}>
+              <DepthMeter depth={depth} />
+            </div>
+
+            {/* chips */}
+            <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Chip label="Write a note" on={showLine} onToggle={() => setShowLine((v) => !v)} />
+              <Chip label={`Mark moments${moments.length ? ` · ${moments.length}` : ""}`} on={showMoments} onToggle={() => setShowMoments((v) => !v)} />
+            </div>
+
+            {showLine && (
+              <div style={{ marginTop: 13 }}>
+                <textarea value={line} onChange={(e) => setLine(e.target.value)} rows={4} placeholder="Write as much as you want — one line, or the whole thing…" style={cmpInput} maxLength={1000} />
+              </div>
+            )}
+
+            {showMoments && (
+              <div style={{ marginTop: 13, padding: 14, borderRadius: 14, border: `1px solid ${gold}33`, background: `${gold}0a` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 11 }}>
+                  <LNIcon name="save" size={16} color={gold} />
+                  <span style={{ fontFamily: "var(--ln-mono)", fontSize: 11, letterSpacing: "0.06em", color: gold, textTransform: "uppercase" }}>the moments that got you</span>
                 </div>
-                <input
-                  type="text"
-                  value={note.note || ""}
-                  onChange={(e) => updateNote(index, 'note', e.target.value)}
-                  placeholder="Optional note or commentary..."
-                  maxLength={150}
-                  className="w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
-                  style={{
-                    backgroundColor: "var(--ln-bg)",
-                    color: "var(--ln-ink)",
-                    borderColor: "var(--ln-line)",
-                  }}
+                <MomentsEditor
+                  moments={moments}
+                  onAdd={(m) => setMoments((a) => [...a, m].sort((x, y) => x.seconds - y.seconds))}
+                  onRemove={(idx) => setMoments((a) => a.filter((_, i) => i !== idx))}
                 />
               </div>
-            ))}
-            <button
-              type="button"
-              onClick={addNote}
-              className="w-full py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-80"
-              style={{
-                backgroundColor: "var(--ln-surface)",
-                color: "var(--ln-ink)",
-              }}
-            >
-              + Add another moment
+            )}
+
+            <button type="submit" disabled={!canPost || submitting} className="ln-press" style={{ width: "100%", marginTop: 22, padding: "15px", borderRadius: 14, border: "none", cursor: canPost && !submitting ? "pointer" : "default", fontFamily: "var(--ln-body)", fontSize: 15.5, fontWeight: 700, background: canPost ? gold : "rgba(var(--ln-fg-rgb),0.1)", color: canPost ? "#1a0a04" : "rgba(var(--ln-fg-rgb),0.4)", transition: "background 0.2s" }}>
+              {submitting ? "Posting…" : !canPost ? "Add a rating to post" : depth === "full" ? "Post note" : depth === "caption" ? "Post" : "Post rating"}
             </button>
-            <p className="text-xs" style={{ color: "var(--ln-ink-soft)" }}>
-              Mark specific moments in the track. Examples: 0:00 (intro), 1:23 (drop), 3:45 (outro)
-            </p>
           </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 rounded-lg font-medium text-lg transition-opacity disabled:opacity-50"
-            style={{
-              backgroundColor: "var(--ln-accent)",
-              color: "white",
-            }}
-          >
-            {submitting ? "Submitting..." : "Submit Review"}
-          </button>
-        </>
+          {/* LIVE PREVIEW */}
+          <div className="lnw-cmp-prev">
+            <PreviewShell ready={!!draft && (rating > 0 || !!take || moments.length > 0)}>
+              {draft && <LNWCard vm={draft} />}
+            </PreviewShell>
+          </div>
+        </form>
       )}
-    </form>
+
+      <style>{`
+        @media (max-width: 820px) {
+          .lnw-cmp { grid-template-columns: 1fr !important; }
+          .lnw-cmp-prev { display: none !important; }
+        }
+      `}</style>
+    </div>
   );
 }
