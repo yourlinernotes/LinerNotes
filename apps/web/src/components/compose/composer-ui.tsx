@@ -4,7 +4,7 @@
 // tap-to-rate stars (half-star aware), the mm:ss moments editor, depth meter,
 // toggle chips, and the editorial input style.
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { LNIcon, lnFmt } from "@/components/ln/atoms";
 
 export const cmpInput: CSSProperties = {
@@ -83,6 +83,54 @@ export function StarsInput({
   );
 }
 
+// Label dropdown: pick an idea, or write your own at the top.
+function LabelPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  return (
+    <div ref={ref} style={{ position: "relative", width: 124, flexShrink: 0 }}>
+      <button type="button" onClick={() => setOpen((o) => !o)} style={{ ...cmpInput, width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, cursor: "pointer", textAlign: "left", padding: "10px 11px", fontSize: 13 }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: value ? "var(--ln-fg)" : "rgba(var(--ln-fg-rgb),0.45)" }}>{value || "Label"}</span>
+        <span style={{ flexShrink: 0, display: "flex", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+          <LNIcon name="chevdown" size={13} color="rgba(var(--ln-fg-rgb),0.5)" />
+        </span>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, marginTop: 6, zIndex: 90, background: "var(--ln-bg)", border: "1px solid rgba(var(--ln-line-rgb),0.18)", borderRadius: 12, boxShadow: "0 22px 48px -24px var(--ln-shadow)", overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: 264 }}>
+          <div style={{ padding: 8, borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.08)" }}>
+            <input
+              autoFocus
+              value={value}
+              onChange={(e) => onChange(e.target.value.slice(0, 30))}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setOpen(false); } }}
+              placeholder="Write your own…"
+              style={{ ...cmpInput, padding: "9px 11px", fontSize: 13 }}
+            />
+          </div>
+          <div className="ln-scroll" style={{ overflowY: "auto" }}>
+            {LABEL_IDEAS.map((idea) => {
+              const sel = value === idea;
+              return (
+                <button key={idea} type="button" onClick={() => { onChange(idea); setOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", background: sel ? `${GOLD}14` : "transparent", border: "none", borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.05)", cursor: "pointer", fontFamily: "var(--ln-body)", fontSize: 13, color: sel ? GOLD : "rgba(var(--ln-fg-rgb),0.82)" }}>
+                  {idea}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export type DraftMoment = { seconds: number; label: string; note: string };
 
 // ── mm:ss moments editor (with optional label; defaults to "moment") ──
@@ -125,24 +173,14 @@ export function MomentsEditor({
         <input value={m.mm} onChange={(e) => setM((s) => ({ ...s, mm: e.target.value.replace(/\D/g, "").slice(0, 2) }))} placeholder="m" inputMode="numeric" style={{ ...cmpInput, width: 42, padding: "10px 0", textAlign: "center", fontFamily: "var(--ln-mono)" }} />
         <span style={{ fontFamily: "var(--ln-mono)", fontSize: 16, color: GOLD }}>:</span>
         <input value={m.ss} onChange={(e) => setM((s) => ({ ...s, ss: e.target.value.replace(/\D/g, "").slice(0, 2) }))} placeholder="ss" inputMode="numeric" style={{ ...cmpInput, width: 42, padding: "10px 0", textAlign: "center", fontFamily: "var(--ln-mono)" }} />
-        <input value={m.label} onChange={(e) => setM((s) => ({ ...s, label: e.target.value.slice(0, 30) }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="label" style={{ ...cmpInput, width: 96, padding: "10px 11px", fontSize: 13 }} />
+        <LabelPicker value={m.label} onChange={(v) => setM((s) => ({ ...s, label: v }))} />
         <input value={m.note} onChange={(e) => setM((s) => ({ ...s, note: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="What happens here?" style={{ ...cmpInput, flex: 1, minWidth: 120, padding: "10px 12px", fontSize: 13.5 }} />
         <button type="button" onClick={add} className="ln-press" style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 10, border: "none", cursor: ready ? "pointer" : "default", background: ready ? GOLD : "rgba(var(--ln-fg-rgb),0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <svg width="17" height="17" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke={ready ? "#1a0a04" : "rgba(var(--ln-fg-rgb),0.4)"} strokeWidth="2.4" strokeLinecap="round" /></svg>
         </button>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontFamily: "var(--ln-mono)", fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--ln-fg-rgb),0.4)", flexShrink: 0 }}>ideas</span>
-        <div className="ln-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-          {LABEL_IDEAS.map((idea) => (
-            <button key={idea} type="button" onClick={() => setM((s) => ({ ...s, label: idea }))} className="ln-press" style={{ flexShrink: 0, padding: "5px 11px", borderRadius: 999, cursor: "pointer", border: `1px solid ${m.label === idea ? GOLD + "99" : "rgba(var(--ln-fg-rgb),0.14)"}`, background: m.label === idea ? `${GOLD}14` : "transparent", color: m.label === idea ? GOLD : "rgba(var(--ln-fg-rgb),0.6)", fontFamily: "var(--ln-body)", fontSize: 11.5, whiteSpace: "nowrap" }}>
-              {idea}
-            </button>
-          ))}
-        </div>
-      </div>
       <div style={{ fontFamily: "var(--ln-mono)", fontSize: 9.5, letterSpacing: "0.04em", color: "rgba(var(--ln-fg-rgb),0.4)" }}>
-        Label is optional — left blank, it&apos;s saved as “moment”.
+        Pick a label idea or write your own — left blank, it&apos;s saved as “moment”.
       </div>
     </div>
   );

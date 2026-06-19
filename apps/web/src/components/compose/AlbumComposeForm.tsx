@@ -256,7 +256,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
 
               {/* track strip */}
               {showTracks && (
-                <div style={{ marginTop: 13, borderRadius: 14, border: "1px solid rgba(var(--ln-fg-rgb),0.1)", overflow: "hidden" }}>
+                <div style={{ marginTop: 13, borderRadius: 14, border: "1px solid rgba(var(--ln-fg-rgb),0.1)" }}>
                   <div style={{ padding: "9px 14px", fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.06em", color: "rgba(var(--ln-fg-rgb),0.5)", textTransform: "uppercase", borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.08)" }}>tap a track to react · bookmark a note</div>
                   {trackReactions.map((tr, i) => {
                     const open = openTrack === i;
