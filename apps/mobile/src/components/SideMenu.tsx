@@ -33,10 +33,12 @@ export function SideMenu({
   visible,
   onClose,
   onEditProfile,
+  onFriendsChanged,
 }: {
   visible: boolean;
   onClose: () => void;
   onEditProfile: () => void;
+  onFriendsChanged?: () => void;
 }) {
   const { user, logout } = useAuth();
   const [view, setView] = useState<MenuView>('menu');
@@ -109,7 +111,7 @@ export function SideMenu({
             </View>
           )}
 
-          {view === 'friends' && <FriendsView />}
+          {view === 'friends' && <FriendsView onFriendsChanged={onFriendsChanged} />}
         </View>
       </View>
     </Modal>
@@ -137,7 +139,7 @@ function MenuRow({
 
 // ─── Friends & requests ─────────────────────────────────────────────────────
 
-function FriendsView() {
+function FriendsView({ onFriendsChanged }: { onFriendsChanged?: () => void }) {
   const { user } = useAuth();
   const [friends, setFriends] = useState<User[]>([]);
   const [requests, setRequests] = useState<Array<{ id: string; requester: User }>>([]);
@@ -214,6 +216,8 @@ function FriendsView() {
     try {
       await api.respondToFriendRequest(requesterId, accept);
       load();
+      // Accepting a request adds a friend — let the profile refresh its count.
+      if (accept) onFriendsChanged?.();
     } catch {
       Alert.alert('Error', 'Could not update that request. Please try again.');
     }

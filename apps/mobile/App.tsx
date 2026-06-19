@@ -204,6 +204,7 @@ function AppContent() {
           setMenuOpen(false);
           setEditProfileOpen(true);
         }}
+        onFriendsChanged={refreshContent}
       />
 
       {/* Edit profile (app-level so it's never nested inside the menu) */}

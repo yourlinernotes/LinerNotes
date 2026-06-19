@@ -94,6 +94,7 @@ export function ProfileScreen({
       const full = await api.getMyProfile().catch(() => null);
       const reviews = await api.getUserReviews(user.id).catch(() => []);
       const saved = await api.getSavedReviews().catch(() => []);
+      const friends = await api.getFriends().catch(() => []);
       const u = full ?? user;
       setFullUser(u);
 
@@ -107,7 +108,7 @@ export function ProfileScreen({
         },
         bio: u.bio || '',
         reviewCount: reviews.length,
-        friends: 0, // Will be populated when friends feature is implemented
+        friends: friends.length,
         joined: new Date(user.createdAt || Date.now()).getFullYear().toString(),
         top4: [], // Will be populated when top albums feature is implemented
         thisWeek: [], // Will be populated when this week feature is implemented
