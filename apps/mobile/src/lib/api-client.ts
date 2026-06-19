@@ -174,7 +174,14 @@ class APIClient {
   }
 
   async getCurrentUser(): Promise<User> {
-    return this.request('/auth/me');
+    // /auth/me returns { authenticated, user } — unwrap it, and treat an
+    // unauthenticated response as an error so it never overwrites a good user
+    // with a garbage object (which left user.id undefined → blank profile).
+    const res = await this.request<{ authenticated?: boolean; user?: User }>('/auth/me');
+    if (!res?.user?.id) {
+      throw new Error('Not authenticated');
+    }
+    return res.user;
   }
 
   // ==========================================================================
@@ -197,9 +204,22 @@ class APIClient {
   // ==========================================================================
 
   async createReview(data: Omit<Review, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<Review> {
+    // Backend expects flat track fields, not a nested `track` object.
+    const body = {
+      trackId: data.track.id,
+      trackName: data.track.name,
+      trackArtist: data.track.artist,
+      trackAlbum: data.track.album,
+      artworkUrl: data.track.artworkUrl,
+      previewUrl: data.track.previewUrl,
+      rating: data.rating,
+      take: data.take,
+      reaction: data.reaction,
+      notes: data.notes,
+    };
     return this.request('/reviews', {
       method: 'POST',
-      body: data,
+      body,
     });
   }
 
