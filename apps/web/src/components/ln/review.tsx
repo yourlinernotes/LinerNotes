@@ -126,6 +126,11 @@ export function ImmersiveReview({
   const isAlbum = album.kind === "album" && album.tracks.length > 0;
   const npTrack = (album.tracks || []).find((t) => t.moments && t.moments.length) || null;
 
+  // The note: first line is the caption (quoted + italic); the rest is the body.
+  const takeLines = (vm.take || "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const caption = takeLines[0] || "";
+  const restLines = takeLines.slice(1);
+
   const [spotify, setSpotify] = useState(false);
   const [follow, setFollow] = useState(false);
   const openSpotify = () => {
@@ -221,15 +226,18 @@ export function ImmersiveReview({
               {album.artist}{album.year ? ` · ${album.year}` : ""} <span style={{ color: muted(0.4) }}>· logged {lnRel(vm.at)}</span>
             </div>
 
-            {vm.take && (
+            {caption && (
               <p style={{ margin: "30px 0 0", fontFamily: "var(--ln-preview)", fontStyle: "italic", fontWeight: 500, fontSize: "clamp(24px, 2.6vw, 34px)", lineHeight: 1.32, color: INK, borderLeft: `3px solid ${gold}`, paddingLeft: 22 }}>
-                “{vm.take}”
+                “{caption}”
               </p>
             )}
 
-            {vm.body && (
-              <div style={{ marginTop: 30, maxWidth: 620 }}>
-                <p style={{ margin: 0, fontFamily: "var(--ln-body)", fontSize: 18.5, lineHeight: 1.72, color: muted(0.86) }}>{vm.body}</p>
+            {(restLines.length > 0 || vm.body) && (
+              <div style={{ marginTop: 26, maxWidth: 620, display: "flex", flexDirection: "column", gap: 16 }}>
+                {restLines.map((ln, i) => (
+                  <p key={i} style={{ margin: 0, fontFamily: "var(--ln-body)", fontStyle: "normal", fontSize: 18.5, lineHeight: 1.72, color: muted(0.86) }}>{ln}</p>
+                ))}
+                {vm.body && <p style={{ margin: 0, fontFamily: "var(--ln-body)", fontStyle: "normal", fontSize: 18.5, lineHeight: 1.72, color: muted(0.86) }}>{vm.body}</p>}
               </div>
             )}
 
