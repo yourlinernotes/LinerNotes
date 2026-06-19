@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import type { AlbumReview } from "@/lib/types";
 
 export default function AlbumCardPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
 
   const [albumReview, setAlbumReview] = useState<AlbumReview | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const loadAlbumReview = async () => {
@@ -78,6 +81,34 @@ export default function AlbumCardPage() {
     }
   };
 
+  const handleClose = () => {
+    router.back();
+  };
+
+  const handleDelete = async () => {
+    if (!albumReview) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/album-reviews/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete album review');
+      }
+
+      // Navigate back to home/feed after successful deletion
+      router.push('/');
+    } catch (error) {
+      console.error('Failed to delete album review:', error);
+      alert('Failed to delete album review: ' + (error as Error).message);
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "#0a0a0a" }}>
@@ -102,6 +133,18 @@ export default function AlbumCardPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-4" style={{ backgroundColor: "#0a0a0a" }}>
+      {/* Close button - fixed top right */}
+      <button
+        onClick={handleClose}
+        className="fixed top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all hover:opacity-80 z-50"
+        style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "white" }}
+        aria-label="Close"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
       {/* Action buttons */}
       <div className="flex flex-col items-center gap-2">
         <div className="flex gap-2 flex-wrap justify-center">
@@ -116,11 +159,60 @@ export default function AlbumCardPage() {
             </svg>
             {copied ? "Copied!" : "Copy Link"}
           </button>
+          {isOwner && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-80 flex items-center gap-2"
+              style={{ backgroundColor: "rgba(220,38,38,0.2)", color: "#ff6b6b" }}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Delete
+            </button>
+          )}
         </div>
         <p className="text-xs text-center" style={{ color: "rgba(255,255,255,0.5)", maxWidth: "320px" }}>
           Share this album review with friends
         </p>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-md p-6 rounded-lg space-y-4" style={{ backgroundColor: "#1a1a1a" }}>
+            <h3 className="text-xl font-bold text-white">Delete Album Review?</h3>
+            <p className="text-white opacity-75">
+              Are you sure you want to delete this album review? This action cannot be undone and will delete all track reviews as well.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-80"
+                style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "white" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-80 flex items-center justify-center gap-2"
+                style={{ backgroundColor: "#dc2626", color: "white" }}
+              >
+                {deleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "white" }} />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Album Review Card */}
       <div
