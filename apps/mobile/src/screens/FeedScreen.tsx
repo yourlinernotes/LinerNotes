@@ -91,10 +91,15 @@ export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
 
   async function loadPrompt() {
     try {
+      // Initialize Last.fm service to load stored username from AsyncStorage
+      await lastfm.initialize();
+
       // Last.fm powers live-listening prompts (optional).
       const isConnected = await lastfm.isConnected();
       setLastFmConnected(isConnected);
       const username = isConnected ? (await lastfm.getUsername()) ?? undefined : undefined;
+
+      console.log('[Feed] Loading prompts - Last.fm connected:', isConnected, 'username:', username);
 
       // Profile Top 4 powers prompts even without Last.fm connected.
       const top4Albums = (user?.favourites?.albums ?? []).map((a) => ({
@@ -102,8 +107,11 @@ export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
         title: a.name,
       }));
 
+      console.log('[Feed] Top 4 albums:', top4Albums.length);
+
       // No cooldown for the in-feed shelf — surface whatever is worth a note.
       const prompts = await askingEngine.getFeedPrompts(username, top4Albums);
+      console.log('[Feed] Got prompts:', prompts.length);
       setCurrentPrompts(prompts);
     } catch (error) {
       console.error('Failed to load asking engine prompt:', error);
