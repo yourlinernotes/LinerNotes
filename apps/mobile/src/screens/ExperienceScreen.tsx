@@ -5,20 +5,23 @@ import { tokens } from '../lib/tokens';
  * Based on Claude Design handoff: experience.jsx
  */
 
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Linking, Alert, Image } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Linking, Alert, Image, Animated, PanResponder } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../components/atoms/Icon';
 import { Stars } from '../components/atoms/Stars';
 import { formatTimestamp } from '../lib/time-utils';
+import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api-client';
 import type { FeedReview } from '../lib/feed-types';
 import { odesli } from '../services/odesli';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface ExperienceScreenProps {
   review: FeedReview;
   onClose: () => void;
+  onDeleted?: () => void;
 }
 
 interface Palette {
@@ -29,15 +32,67 @@ interface Palette {
   glow: string;
 }
 
-export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
+export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScreenProps) {
+  const { user } = useAuth();
   const { album, rating } = review;
   const p: Palette = album.palette;
   const gold = tokens.colors.gold;
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [spotifyOpening, setSpotifyOpening] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isAlbum = !!(album.tracks && album.tracks.length > 0);
   const npTrack = album.tracks?.find((t) => t.moments && t.moments.length > 0);
+
+  // Own note → can delete (backend also enforces ownership).
+  const isOwn = !!user?.handle && review.user?.handle === user.handle;
+
+  // Swipe down from the top bar to dismiss (finger-tracking + snap).
+  const translateY = useRef(new Animated.Value(0)).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 8 && g.dy > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) translateY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 120 || g.vy > 0.6) {
+          Animated.timing(translateY, {
+            toValue: SCREEN_HEIGHT,
+            duration: 220,
+            useNativeDriver: false,
+          }).start(() => onClose());
+        } else {
+          Animated.spring(translateY, { toValue: 0, bounciness: 2, useNativeDriver: false }).start();
+        }
+      },
+    })
+  ).current;
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete note?',
+      'This permanently removes your note. This can’t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (deleting) return;
+            setDeleting(true);
+            try {
+              await api.deleteReview(review.id);
+              (onDeleted ?? onClose)();
+            } catch (e: any) {
+              setDeleting(false);
+              Alert.alert('Could not delete', e?.message || 'Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const openSpotify = async () => {
     setSpotifyOpening(true);
@@ -81,7 +136,7 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
   };
 
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
       {/* Immersive blurred flood */}
       <View style={styles.blurContainer}>
         <LinearGradient
@@ -117,15 +172,6 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top bar */}
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Icon name="chevdown" size={20} color="#f1ebe0" />
-          </TouchableOpacity>
-          <Text style={styles.experienceLabel}>the experience</Text>
-          <View style={{ width: 38 }} />
-        </View>
-
         <View style={styles.contentContainer}>
           {/* Sharp cover */}
           <TouchableOpacity onPress={openSpotify} style={styles.cover}>
@@ -231,9 +277,30 @@ export function ExperienceScreen({ review, onClose }: ExperienceScreenProps) {
               <AlbumTrackStrip tracks={album.tracks} gold={gold} onTapMoment={tapNote} activeNote={activeNote} />
             </View>
           )}
+
+          {/* Delete — only for your own note (backend also enforces ownership) */}
+          {isOwn && (
+            <TouchableOpacity
+              style={[styles.deleteButton, deleting && { opacity: 0.5 }]}
+              onPress={confirmDelete}
+              disabled={deleting}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete note'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
-    </View>
+
+      {/* Fixed top bar — swipe down here to dismiss */}
+      <View style={styles.topBar} {...panResponder.panHandlers}>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <Icon name="chevdown" size={20} color="#f1ebe0" />
+        </TouchableOpacity>
+        <Text style={styles.experienceLabel}>the experience</Text>
+        <View style={{ width: 38 }} />
+      </View>
+    </Animated.View>
   );
 }
 
@@ -325,15 +392,37 @@ const styles = StyleSheet.create({
     transform: [{ scale: 1.1 }],
   },
   scrollContent: {
+    paddingTop: 96,
     paddingBottom: 40,
   },
   topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 54,
     paddingBottom: 8,
+  },
+  deleteButton: {
+    marginTop: 28,
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(224,118,47,0.5)',
+    backgroundColor: 'rgba(224,118,47,0.10)',
+  },
+  deleteButtonText: {
+    fontFamily: 'System',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e0762f',
   },
   closeButton: {
     width: 38,

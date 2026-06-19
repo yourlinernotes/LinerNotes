@@ -170,7 +170,14 @@ function AppContent() {
       {/* Experience overlay (hero expand) */}
       {activeReview && (
         <View style={styles.experienceOverlay}>
-          <ExperienceScreen review={activeReview} onClose={closeReview} />
+          <ExperienceScreen
+            review={activeReview}
+            onClose={closeReview}
+            onDeleted={() => {
+              closeReview();
+              refreshContent();
+            }}
+          />
         </View>
       )}
 
