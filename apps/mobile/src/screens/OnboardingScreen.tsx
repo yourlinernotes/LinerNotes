@@ -174,12 +174,22 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       console.error('Failed to save profile:', error);
       console.error('Error details:', JSON.stringify(error, null, 2));
 
-      // Show detailed error to help debug
-      const errorDetails = `Error: ${error.message || 'Unknown error'}\n\nPayload sent:\nHandle: ${payload.handle}\nDisplay: ${payload.displayName}\nBio: ${payload.bio || '(none)'}`;
+      // Parse the error to provide a user-friendly message
+      const errorMessage = error.message || 'Unknown error';
+      let userMessage = errorMessage;
+
+      // Check if it's a handle conflict error
+      if (errorMessage.toLowerCase().includes('handle') ||
+          errorMessage.toLowerCase().includes('username') ||
+          errorMessage.toLowerCase().includes('taken') ||
+          errorMessage.toLowerCase().includes('exists') ||
+          error.status === 400) {
+        userMessage = `The handle "@${payload.handle}" is already taken. Please choose a different one.`;
+      }
 
       Alert.alert(
-        'Profile Update Failed',
-        errorDetails,
+        'Could Not Save Profile',
+        userMessage,
         [{ text: 'OK' }]
       );
     } finally {
@@ -394,7 +404,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                               />
                             </Svg>
                             <Text style={[styles.validationText, { color: COLORS.confirmGreen }]}>
-                              available
+                              valid format
                             </Text>
                           </>
                         ) : (

@@ -44,14 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await api.setUserData(user);
 
         // Check onboarding status from server data
-        // NOTE: This check depends on the backend persisting and returning the
-        // `favourites` field. Currently PATCH /api/users/me ignores `favourites`,
-        // so Top-4 selections during onboarding are not saved. This means the check
-        // will fall back to bio-only until the backend is fixed. See TODO.md.
+        // Required fields: handle and displayName (bio and favourites are optional).
         const hasCompletedOnboarding = !!(
-          user.bio ||
-          user.favourites?.tracks?.length ||
-          user.favourites?.albums?.length
+          user.handle &&
+          user.displayName
         );
 
         setNeedsOnboarding(!hasCompletedOnboarding);
@@ -85,21 +81,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.loginWithGoogle(token, isAccessToken);
       api.setAuthToken(response.token);
-      setUser(response.user);
+
+      // The login response only includes basic user data from /auth/me (no bio).
+      // Fetch the full profile from /users/me to get bio and favourites.
+      const fullUser = await api.getMyProfile();
+      setUser(fullUser);
+      await api.setUserData(fullUser);
 
       // Check if user needs onboarding by looking at server-side data.
-      // A user needs onboarding if they haven't customized their profile yet.
-      // We check if bio exists OR if favourites (Top 4) is set - both are only
-      // populated during onboarding.
-      //
-      // NOTE: This check depends on the backend persisting and returning the
-      // `favourites` field. Currently PATCH /api/users/me ignores `favourites`,
-      // so Top-4 selections during onboarding are not saved. This means the check
-      // will fall back to bio-only until the backend is fixed. See TODO.md.
+      // A user needs onboarding if they haven't set up their required profile fields.
+      // Required fields: handle and displayName (bio and favourites are optional).
+      // Google OAuth users get an auto-generated handle, so we check if they've
+      // customized it OR set a displayName.
       const hasCompletedOnboarding = !!(
-        response.user.bio ||
-        response.user.favourites?.tracks?.length ||
-        response.user.favourites?.albums?.length
+        fullUser.handle &&
+        fullUser.displayName
       );
 
       setNeedsOnboarding(!hasCompletedOnboarding);
