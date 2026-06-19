@@ -215,7 +215,12 @@ class APIClient {
       rating: data.rating,
       take: data.take,
       reaction: data.reaction,
-      notes: data.notes,
+      // Backend's Note model requires a label; default to '' when none was set.
+      notes: (data.notes ?? []).map((n) => ({
+        seconds: n.seconds,
+        label: n.label ?? '',
+        note: n.note,
+      })),
     };
     return this.request('/reviews', {
       method: 'POST',
