@@ -184,16 +184,30 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
         )
       : null;
 
-  // Shared search used by both the track box and the album box. Tries the
-  // backend (MusicBrainz + iTunes) first, falls back to iTunes directly.
-  async function searchMusic(query: string, kind: 'track' | 'album') {
+  // Debounce typing and guard against out-of-order responses: only the most
+  // recent query (tracked by searchSeq) is allowed to write results, so a slow
+  // stale response can't clobber the latest one.
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeq = useRef(0);
+
+  function queueSearch(query: string, kind: 'track' | 'album') {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
     const setResults = kind === 'album' ? setAlbumResults : setTrackResults;
-    const setBusy = kind === 'album' ? setSearchingAlbum : setSearchingTrack;
     if (!query.trim()) {
+      searchSeq.current++; // cancel any in-flight write
       setResults([]);
+      (kind === 'album' ? setSearchingAlbum : setSearchingTrack)(false);
       return;
     }
-    setBusy(true);
+    (kind === 'album' ? setSearchingAlbum : setSearchingTrack)(true);
+    searchTimer.current = setTimeout(() => runSearch(query, kind), 350);
+  }
+
+  // Tries the backend (MusicBrainz + iTunes) first, falls back to iTunes.
+  async function runSearch(query: string, kind: 'track' | 'album') {
+    const setResults = kind === 'album' ? setAlbumResults : setTrackResults;
+    const setBusy = kind === 'album' ? setSearchingAlbum : setSearchingTrack;
+    const seq = ++searchSeq.current;
     try {
       let results: any[] = [];
       try {
@@ -209,12 +223,12 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
         const data = await res.json();
         results = data.results || [];
       }
-      setResults(results);
+      if (seq === searchSeq.current) setResults(results); // latest query wins
     } catch (error) {
       console.error('Search failed:', error);
-      setResults([]);
+      if (seq === searchSeq.current) setResults([]);
     } finally {
-      setBusy(false);
+      if (seq === searchSeq.current) setBusy(false);
     }
   }
 
@@ -382,7 +396,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
               query={trackQuery}
               onChangeQuery={(q) => {
                 setTrackQuery(q);
-                searchMusic(q, 'track');
+                queueSearch(q, 'track');
               }}
               searching={searchingTrack}
               results={trackResults}
@@ -401,7 +415,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
               query={albumQuery}
               onChangeQuery={(q) => {
                 setAlbumQuery(q);
-                searchMusic(q, 'album');
+                queueSearch(q, 'album');
               }}
               searching={searchingAlbum}
               results={albumResults}
