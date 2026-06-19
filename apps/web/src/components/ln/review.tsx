@@ -126,10 +126,11 @@ export function ImmersiveReview({
   const isAlbum = album.kind === "album" && album.tracks.length > 0;
   const npTrack = (album.tracks || []).find((t) => t.moments && t.moments.length) || null;
 
-  // The note: first line is the caption (quoted + italic); the rest is the body.
+  // The note: the first line headlines as the caption (quoted + italic); the full
+  // review (all lines, caption included) is kept below it in plain text.
   const takeLines = (vm.take || "").split("\n").map((s) => s.trim()).filter(Boolean);
   const caption = takeLines[0] || "";
-  const restLines = takeLines.slice(1);
+  const hasBody = takeLines.length > 1;
 
   const [spotify, setSpotify] = useState(false);
   const [follow, setFollow] = useState(false);
@@ -232,11 +233,12 @@ export function ImmersiveReview({
               </p>
             )}
 
-            {(restLines.length > 0 || vm.body) && (
+            {(hasBody || vm.body) && (
               <div style={{ marginTop: 26, maxWidth: 620, display: "flex", flexDirection: "column", gap: 16 }}>
-                {restLines.map((ln, i) => (
-                  <p key={i} style={{ margin: 0, fontFamily: "var(--ln-body)", fontStyle: "normal", fontSize: 18.5, lineHeight: 1.72, color: muted(0.86) }}>{ln}</p>
-                ))}
+                {hasBody &&
+                  takeLines.map((ln, i) => (
+                    <p key={i} style={{ margin: 0, fontFamily: "var(--ln-body)", fontStyle: "normal", fontSize: 18.5, lineHeight: 1.72, color: muted(0.86) }}>{ln}</p>
+                  ))}
                 {vm.body && <p style={{ margin: 0, fontFamily: "var(--ln-body)", fontStyle: "normal", fontSize: 18.5, lineHeight: 1.72, color: muted(0.86) }}>{vm.body}</p>}
               </div>
             )}
