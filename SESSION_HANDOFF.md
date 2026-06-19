@@ -21,13 +21,16 @@ Google auth, the deployed backend mismatch, and outstanding work.
   two docs at the repo root.
 - **Then:** `corepack pnpm install` (see §1). Read [`TODO.md`](./TODO.md) for the
   prioritized next steps.
-- **Resume point (where we stopped):** the **feed side-menu button** (`apps/mobile/App.tsx`,
-  the `menuButton` with no `onPress`). Start by wiring **logout** (`useAuth().logout()`).
-  See §6 / TODO. Also: the backend auth fix is committed but **not yet deployed to Vercel**
-  (§4) — mobile profile-save + feed will 401 until it is.
+- **Resume point (where we stopped):** the **#1 next action is deploying `apps/web` to Vercel**
+  (§4 / §6) — the backend Bearer-JWT auth fix is committed but undeployed, so authenticated
+  routes only work within a live session. After that, the highest-value items are backend
+  `favourites` persistence (Top-4 prompts) and the saved-reviews endpoint. See §6 / `TODO.md`.
 - **Current state of the Android test on device (Samsung A53):** dev build installs & runs;
-  Google Sign-In redirects back into the app correctly; "Continue" in profile creation and
-  the feed return **401 pending the Vercel deploy** of the auth fix.
+  Google Sign-In works end-to-end (redirects back, lands on onboarding → profile creation);
+  profile (name/handle/photo/bio), the side menu (friends/edit/logout), and the composer
+  (search, rating, optional take/moments, live preview, swipe-to-dismiss) all work in a live
+  session. **Authenticated calls still depend on the pending Vercel deploy** for persistence
+  across cold starts.
 
 ---
 
@@ -117,49 +120,90 @@ api-client was written for, so endpoints differ):
 - `mobile/src/lib/api-client.ts` is broadly misaligned with the Next.js routes — only the
   endpoints used so far were corrected. Expect more 404s on untested calls.
 - `/api/search` is a **501 stub** (Spotify→iTunes/Deezer migration pending). The mobile
-  composer/Top-4 search therefore can't use it — Top-4 uses the **iTunes Search API**
-  directly from the client instead.
+  composer + Top-4 search therefore resolve **client-side** (MusicBrainz-first + iTunes
+  fallback, with Cover Art Archive artwork) instead of hitting the backend.
+- `/auth/me` returns a **limited** user (no `bio`); the full profile (incl. `bio`) comes from
+  `GET /users/me` (`api.getMyProfile`).
 - `PATCH /api/users/me` **ignores `favourites`** → Top-4 won't persist server-side until
   the handler + Prisma are updated to accept it.
 
 ## 5. What was done this session (all on `origin/main`)
 
-- Android Google Sign-In wired (mirrors iOS) + redirect scheme + asset-path fixes + Gradle 8.13.
+**Build / auth / platform**
+- Android Google Sign-In (mirrors iOS) + redirect scheme (= package name) + asset-path fixes + **Gradle 8.13**.
 - Push notifications kept **fully disabled on both platforms** (removed `expo-notifications`
-  dep + dead import; parked `src/services/notifications.ts` via tsconfig exclude) pending the
-  iOS provisioning-profile update. Re-enable steps documented in `App.tsx`.
-- Fixed **all ~32 type errors**; removed all mock data (`mockData.ts`, demo screens).
-- Real album art via stored `track.artworkUrl`; **Odesli/song.link is for deeplinks only**
-  (`odesli.resolve()` cached). Per-album background palette is a deterministic stand-in
-  (TODO: real artwork colour extraction); accent is always gold.
-- Onboarding: new Google users hit profile creation (local `onboarded` flag, since the
-  backend auto-generates handle/displayName); **3 steps** = identity → Last.fm → Top-4.
+  dep + dead import; parked `src/services/notifications.ts` via tsconfig exclude). Re-enable
+  steps in `App.tsx`.
+- Backend `getAuthSession()` accepts the mobile **Bearer JWT** on all protected routes
+  (**NEEDS VERCEL DEPLOY** — §4).
+
+**Data / API correctness (client-side, live via Metro)**
+- Fixed all type errors; removed all mock data (`mockData.ts` + demo screens).
+- `getCurrentUser` now unwraps `/auth/me` `{ user }` and rejects an unauthenticated reply —
+  it was overwriting the good login user with `{authenticated:false}` → blank name/handle/profile.
+- Endpoint fixes: feed → `/reviews?feed=friends`; user reviews → `/reviews?userId=`;
+  `getSavedReviews` → `[]` (no backend route); `createReview` sends **flat** track fields;
+  notes always include a `label` (review-with-moments was **500**ing).
+- Friends api-client aligned: `GET /friends` `{friends}`; `GET /friends?type=requests`
+  `{requests}` (`.requester`); `PUT /friends/[requesterId]` `{action}`; `POST`/`DELETE /friends/[userId]`.
+
+**Onboarding**
+- New Google users hit profile creation (local `onboarded` flag). 3 steps: identity → Last.fm → Top-4.
 - Last.fm connect uses an inline `TextInput` (was `Alert.prompt`, iOS-only no-op on Android).
-- Top-4 = **album search picker** (iTunes API, returns artwork).
-- Feed **PromptShelf** populates from Top-4 + Last.fm via cooldown-free
-  `askingEngine.getFeedPrompts()`; Last.fm track artist/album shapes normalized to strings.
-- Avatar picker renders the real image (was an "IMG" placeholder); `mediaTypes: ['images']`.
-- Composer star duplication fixed (`StarsInput` used interactive `Stars` once).
-- Backend `getAuthSession()` Bearer-JWT fix (needs deploy — see §4).
+- Top-4 = album **search picker** (MusicBrainz-first + iTunes fallback, returns artwork).
+
+**Feed / profile**
+- Real album art via stored `track.artworkUrl`; **Odesli = deeplinks only** (cached `resolve`).
+  Per-album background palette is a deterministic stand-in; **accent is always gold**.
+- `PromptShelf` populates from Top-4 + Last.fm (cooldown-free `getFeedPrompts`); Last.fm
+  artist/album shapes normalized to strings.
+- Profile shows name/handle/**photo** (`avatarUrl`) + **bio** (via `getMyProfile` = `GET /users/me`);
+  **pull-to-refresh**; tap a note → opens the Experience (full review) + "tap to read" CTA.
+- **Auto-refresh**: the active screen remounts after posting a review or saving a profile edit.
+
+**Side menu (header hamburger)**
+- Drawer with profile header (photo/name/handle), **Friends & requests** (accept/ignore),
+  **Edit profile**, **Log out**.
+- Header dot shows **only** when there are pending friend requests.
+- Edit Profile is a shared `EditProfileModal` (full-screen) used by **both** the menu and the
+  profile page, **lifted to App level** (not nested). Bio is editable **and removable** (sends `''`).
+
+**Composer (new note)**
+- Track/album search (MusicBrainz/iTunes), star rating (interactive `Stars`; duplication fixed).
+- "Your take" + "Moments" are **optional behind `+` buttons**. Moments **auto-sort by timestamp**;
+  time fields **auto-advance** m→ss→note (+ next-key where the keyboard has one).
+- **Keyboard-aware** (`behavior="padding"` + scroll-to-focused).
+- **Drag down from the header to dismiss** (finger-tracking + snap).
+- **Live `ReviewCard` preview** at the bottom once a song + rating are chosen.
 
 ## 6. Outstanding / TODO
 
-- **IN PROGRESS — feed side-menu button does nothing** (`App.tsx` ~line 115, `menuButton`
-  has no `onPress`). Needs a menu with: **logout** (wire `useAuth().logout()` — easy, high
-  value), **friend requests** (needs friends endpoint alignment + a screen; backend has
-  `/api/friends` + `/api/friends/[userId]`, mobile calls `/friends/pending` which 404s),
-  and **light/dark mode** (NO theme system exists — everything imports static `tokens`;
-  real theming is a large refactor, not a quick toggle).
-- **Deploy `apps/web` to Vercel** for the auth fix (§4) — blocks profile save + feed.
-- **Backend: accept `favourites` in `PATCH /api/users/me`** (+ Prisma) so Top-4 persists.
-- **Avatar upload** — `saveProfileData` only sets the local uri (`TODO: Upload avatar`);
-  needs a blob/image store.
-- **Composer track selection** — posts send placeholder track metadata (`/api/search` stubbed).
-- **Artist-discography "deep dive" prompts** (deferred per user) — TODO in `askingEngine.ts`
-  (heavy play across an artist's catalog / repeated full-discography listens).
-- **Album palette** — replace deterministic `paletteFromId` with real artwork colour extraction.
-- **api-client ↔ Next.js endpoint alignment** — many mobile calls still target NestJS-style
-  routes that 404 on the Next.js deployment.
+- 🔴 **Deploy `apps/web` to Vercel** — the `getAuthSession()` Bearer-JWT fix (§4) only takes
+  effect once deployed. Until then anything on an authenticated route (profile save, feed,
+  friends, posting) works only within a live session and breaks on cold start. Confirm Vercel
+  env: `NEXTAUTH_SECRET`, `GOOGLE_*`, `DATABASE_URL`.
+- 🟡 **Backend: accept `favourites` in `PATCH /api/users/me`** (+ Prisma) — Top-4 is captured
+  in onboarding but never persisted, so Top-4 prompts never fire.
+- 🟡 **`/api/search` is a 501 stub** — composer/Top-4 use client-side MusicBrainz+iTunes
+  instead. Implement the open-API stack server-side if search should be centralized.
+- 🟡 **No saved-reviews endpoint** — `getSavedReviews` returns `[]`; the profile Saved tab is
+  always empty until a backend route exists.
+- 🟡 **Friends: add-friend / send-request flow** — you can respond to received requests, but
+  there's no user search to initiate one (`POST /friends/[userId]` exists; needs UI).
+- 🟢 **Avatar upload** — onboarding/edit only keep the local image uri; needs a blob store + `avatarUrl`.
+- 🟢 **Album palette** — replace deterministic `paletteFromId` (`lib/feed-adapter`) with real
+  artwork colour extraction.
+- 🟢 **Artist-discography "deep dive" prompts** (deferred) — TODO in `askingEngine.ts`.
+- 🟢 **Light/dark mode** — no theme system; everything imports static `tokens` (a refactor).
+- **api-client ↔ Next.js alignment** — many endpoints fixed this session; untested calls
+  (album-reviews, music connections, etc.) may still 404.
+
+### iOS notes
+- All of the above is **shared RN code**, so it benefits iOS once pulled. After pulling:
+  `corepack pnpm install`, then **rebuild natively** (the `expo-notifications` removal + the
+  `app.config.ts` changes touch native config) — a JS reload alone isn't enough.
+- Push notifications are intentionally OFF on both platforms pending the iOS provisioning-profile
+  push entitlement — re-enable steps are inline in `App.tsx`.
 
 ## 7. Key identifiers
 

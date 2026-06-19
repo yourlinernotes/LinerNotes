@@ -14,34 +14,32 @@ Priority: 🔴 blocking · 🟡 important · 🟢 nice-to-have
 - [ ] Confirm Vercel env: `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID/SECRET`,
       `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID`, `DATABASE_URL`.
 
-## 🔴 Feed side-menu button (in progress, not started in code)
-`apps/mobile/App.tsx` (~line 115, `menuButton`) has **no `onPress`** — dead button.
-Build a menu with:
-- [ ] **Logout** — wire `useAuth().logout()` → returns to login. *Easy, do first.*
-- [ ] **Friend requests** — needs a screen + endpoint alignment. Backend has
-      `GET /api/friends` & `PATCH /api/friends/[userId]`; mobile api-client calls
-      `/friends/pending` (404s) — align first.
-- [ ] **Light/dark mode** — ⚠️ **no theme system exists** (everything imports the
-      static `tokens` object). Real theming is a refactor: add a theme context +
-      make components read from it. Not a quick toggle.
+## ✅ Done this session (see SESSION_HANDOFF §5 for the full list)
+Side menu (friends & requests / edit profile / log out + profile header + request dot),
+profile (name/handle/photo/bio, pull-to-refresh, tap-note→full review), composer (search,
+optional take/moments, sorted moments, keyboard-aware, drag-to-dismiss, live preview),
+onboarding (3 steps incl. Top-4 search), and a pile of API/endpoint correctness fixes.
+> Light/dark mode was dropped (no theme system; it's a refactor — left as 🟢 below).
 
-## 🟡 Backend gaps (need code + deploy)
+## 🟡 Backend gaps (need code + a Vercel deploy)
 - [ ] `PATCH /api/users/me` **ignores `favourites`** — add it (+ Prisma) so the
       onboarding Top-4 persists. Without this, Top-4 prompts never populate.
-- [ ] Implement `GET /api/search` (currently a **501 stub**) — iTunes/Deezer/
-      MusicBrainz "open API stack". Powers the composer track/album search.
-- [ ] Align `apps/mobile/src/lib/api-client.ts` with the **Next.js** routes — it was
-      written for the NestJS backend, so many calls (e.g. `/reviews/feed`,
-      `/reviews/saved`, `/reviews/user/:id`, `/music/*`, `/friends/pending`) 404.
+- [ ] **No saved-reviews endpoint** — `getSavedReviews` returns `[]`; the profile Saved tab
+      stays empty until a route exists (e.g. `GET /reviews?feed=saved`).
+- [ ] `GET /api/search` is a **501 stub** — composer/Top-4 use client-side MusicBrainz+iTunes
+      instead. Implement the open-API stack server-side only if search should be centralized.
+- [ ] Continue aligning `apps/mobile/src/lib/api-client.ts` with the **Next.js** routes —
+      core paths are fixed; untested ones (album-reviews, `/music/*`) may still 404.
 
 ## 🟡 Mobile features (client-side)
-- [ ] **Avatar upload** — `OnboardingScreen.saveProfileData` only keeps the local uri
+- [ ] **Avatar upload** — onboarding/edit only keep the local image uri
       (`TODO: Upload avatar`); needs a blob/image store + send `avatarUrl`.
-- [ ] **Composer track selection** — posts currently send placeholder track metadata
-      (blocked on `/api/search`); wire a real album/track picker (reuse the iTunes
-      search already used in the onboarding Top-4 step).
+- [ ] **Friends: add / send request** — you can respond to received requests, but there's no
+      user search to initiate one (`POST /friends/[userId]` exists; needs UI).
 
 ## 🟢 Polish / later
+- [ ] **Light/dark mode** — no theme system; everything imports the static `tokens` object.
+      Real theming is a refactor (theme context + components reading from it).
 - [ ] **Artist-discography "deep dive" prompts** (deferred) — see TODO in
       `apps/mobile/src/services/askingEngine.ts` (heavy play across an artist's
       catalog / repeated full-discography listens).
