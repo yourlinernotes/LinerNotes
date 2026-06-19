@@ -4,7 +4,7 @@
  * Based on Claude Design handoff: composer.jsx
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -71,6 +71,9 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
   const [isSearching, setIsSearching] = useState(false);
 
   const gold = tokens.colors.gold;
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollToInput = () =>
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
 
   const lines = take.split('\n').filter(l => l.trim());
   const preview = lines[0] || '';
@@ -190,9 +193,11 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior="padding"
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
         >
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -296,6 +301,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
                   multiline
                   textAlignVertical="top"
                   autoFocus
+                  onFocus={scrollToInput}
                 />
               </>
             ) : (
@@ -322,6 +328,7 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
                       )
                     }
                     onRemove={(idx) => setSoloMoments(soloMoments.filter((_, i) => i !== idx))}
+                    onFieldFocus={scrollToInput}
                     gold={gold}
                   />
                 </>
@@ -385,11 +392,14 @@ interface MomentsInputProps {
   moments: Moment[];
   onAdd: (moment: Moment) => void;
   onRemove: (index: number) => void;
+  onFieldFocus?: () => void;
   gold: string;
 }
 
-function MomentsInput({ moments, onAdd, onRemove, gold }: MomentsInputProps) {
+function MomentsInput({ moments, onAdd, onRemove, onFieldFocus, gold }: MomentsInputProps) {
   const [input, setInput] = useState<MomentInput>({ mm: '', ss: '', note: '' });
+  const ssRef = useRef<TextInput>(null);
+  const noteRef = useRef<TextInput>(null);
 
   function handleAdd() {
     if (!input.note.trim()) return;
@@ -416,26 +426,42 @@ function MomentsInput({ moments, onAdd, onRemove, gold }: MomentsInputProps) {
         <TextInput
           style={styles.momentInputTime}
           value={input.mm}
-          onChangeText={(v) => setInput({ ...input, mm: v.replace(/\D/g, '').slice(0, 2) })}
+          onChangeText={(v) => {
+            const mm = v.replace(/\D/g, '').slice(0, 2);
+            setInput((p) => ({ ...p, mm }));
+            if (mm.length === 2) ssRef.current?.focus(); // auto-advance to ss
+          }}
+          onFocus={onFieldFocus}
           placeholder="m"
           keyboardType="number-pad"
           maxLength={2}
+          returnKeyType="next"
         />
         <Text style={[styles.momentColon, { color: gold }]}>:</Text>
         <TextInput
+          ref={ssRef}
           style={styles.momentInputTime}
           value={input.ss}
-          onChangeText={(v) => setInput({ ...input, ss: v.replace(/\D/g, '').slice(0, 2) })}
+          onChangeText={(v) => {
+            const ss = v.replace(/\D/g, '').slice(0, 2);
+            setInput((p) => ({ ...p, ss }));
+            if (ss.length === 2) noteRef.current?.focus(); // auto-advance to note
+          }}
+          onFocus={onFieldFocus}
           placeholder="ss"
           keyboardType="number-pad"
           maxLength={2}
+          returnKeyType="next"
         />
         <TextInput
+          ref={noteRef}
           style={styles.momentInputNote}
           value={input.note}
-          onChangeText={(v) => setInput({ ...input, note: v })}
+          onChangeText={(v) => setInput((p) => ({ ...p, note: v }))}
+          onFocus={onFieldFocus}
           placeholder="what happens here?"
           placeholderTextColor="rgba(241,235,224,0.3)"
+          returnKeyType="done"
           onSubmitEditing={handleAdd}
         />
         <TouchableOpacity
