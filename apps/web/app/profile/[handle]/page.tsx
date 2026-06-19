@@ -163,12 +163,11 @@ export default function ProfilePage() {
                   <Stat n={user.friendCount || 0} label="friends" />
                 </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 6 }}>
-                {isOwnProfile ? (
+              {isOwnProfile && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 6 }}>
                   <Link href="/profile/edit" className="ln-press" style={{ padding: "11px 26px", borderRadius: 999, textDecoration: "none", border: "1px solid rgba(var(--ln-fg-rgb),0.18)", background: "rgba(var(--ln-fg-rgb),0.04)", color: "var(--ln-fg)", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 600 }}>Edit profile</Link>
-                ) : null}
-                <Link href="/friends" className="ln-press" style={{ padding: "11px 26px", borderRadius: 999, textDecoration: "none", border: "1px solid rgba(var(--ln-fg-rgb),0.18)", background: "rgba(var(--ln-fg-rgb),0.04)", color: "var(--ln-fg)", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 600, textAlign: "center" }}>Friends</Link>
-              </div>
+                </div>
+              )}
             </div>
 
             {topReviews.length > 0 && (
