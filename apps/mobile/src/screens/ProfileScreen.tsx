@@ -28,6 +28,7 @@ import { formatRelativeTime } from '../lib/time-utils';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
 import { EditProfileModal } from '../components/EditProfileModal';
+import { Top4Editor } from '../components/Top4Editor';
 import type { User } from '../lib/types';
 import { shareToInstagramStory, shareToTikTok, shareToTwitter, saveCardImage } from '../lib/share-utils';
 import { reviewToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
@@ -70,6 +71,7 @@ export function ProfileScreen({
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [tab, setTab] = useState<TabType>('notes');
   const [showEdit, setShowEdit] = useState(false);
+  const [showTop4Editor, setShowTop4Editor] = useState(false);
   const [fullUser, setFullUser] = useState<User | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const gold = tokens.colors.gold;
@@ -119,6 +121,17 @@ export function ProfileScreen({
       const u = full ?? user;
       setFullUser(u);
 
+      // Map user's favourites to AlbumEntry format
+      const top4Albums: AlbumEntry[] = (u.favourites?.albums || []).map(album => ({
+        album: {
+          id: album.id,
+          name: album.name,
+          artist: album.artist,
+          artworkUrl: album.artworkUrl,
+        },
+        rating: 0, // Top 4 albums don't need ratings (they're favorites)
+      }));
+
       const profileData: ProfileData = {
         user: {
           id: u.id || user.id,
@@ -131,7 +144,7 @@ export function ProfileScreen({
         reviewCount: reviews.length,
         friends: friends.length,
         joined: new Date(user.createdAt || Date.now()).getFullYear().toString(),
-        top4: [], // Will be populated when top albums feature is implemented
+        top4: top4Albums,
         thisWeek: [], // Will be populated when this week feature is implemented
         reviews,
         reposted,
@@ -190,6 +203,24 @@ export function ProfileScreen({
         },
       ]
     );
+  };
+
+  const handleSaveTop4 = async (albums: Array<{ id: string; name: string; artist: string; artworkUrl: string }>) => {
+    try {
+      // Update user's favourites
+      await api.updateUser({
+        favourites: {
+          albums,
+        },
+      });
+
+      // Reload profile to show updated Top 4
+      await loadProfile();
+      Alert.alert('Success', 'Your Top 4 has been updated!');
+    } catch (error) {
+      console.error('Failed to save Top 4:', error);
+      throw error; // Re-throw so Top4Editor can show error
+    }
   };
 
   if (!profile) {
@@ -255,9 +286,14 @@ export function ProfileScreen({
         </TouchableOpacity>
 
         {/* Favourites - Top 4 */}
-        {profile.top4.length > 0 && (
+        {profile.top4.length > 0 ? (
           <>
-            <Section gold={gold} label="favourites" onShare={handleShareTop4} />
+            <Section
+              gold={gold}
+              label="favourites"
+              onEdit={() => setShowTop4Editor(true)}
+              onShare={handleShareTop4}
+            />
             <View ref={top4CardRef} collapsable={false} style={styles.top4Container}>
               <View style={styles.top4Grid}>
                 {profile.top4.map((entry, i) => (
@@ -271,6 +307,21 @@ export function ProfileScreen({
                 </Text>
               </View>
             </View>
+          </>
+        ) : (
+          <>
+            <Section
+              gold={gold}
+              label="favourites"
+              onEdit={() => setShowTop4Editor(true)}
+            />
+            <TouchableOpacity
+              style={styles.emptyTop4}
+              onPress={() => setShowTop4Editor(true)}
+            >
+              <Text style={styles.emptyTop4Text}>Add your top 4 albums</Text>
+              <Text style={styles.emptyTop4Subtitle}>Tap to select your favorites</Text>
+            </TouchableOpacity>
           </>
         )}
 
@@ -343,6 +394,16 @@ export function ProfileScreen({
           loadProfile();
         }}
       />
+
+      {/* Top 4 editor modal */}
+      {fullUser && (
+        <Top4Editor
+          visible={showTop4Editor}
+          currentTop4={fullUser.favourites?.albums || []}
+          onClose={() => setShowTop4Editor(false)}
+          onSave={handleSaveTop4}
+        />
+      )}
     </View>
   );
 }
@@ -358,20 +419,31 @@ function Stat({ n, label }: { n: number | string; label: string }) {
   );
 }
 
-function Section({ gold, label, onShare }: { gold: string; label: string; onShare?: () => void }) {
+function Section({ gold, label, onShare, onEdit }: { gold: string; label: string; onShare?: () => void; onEdit?: () => void }) {
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionLabel, { color: gold }]}>{label}</Text>
       <View style={styles.sectionLine} />
-      {onShare && (
-        <TouchableOpacity
-          onPress={onShare}
-          style={[styles.shareButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
-        >
-          <Icon name="share" size={12} color={gold} />
-          <Text style={[styles.shareText, { color: gold }]}>share</Text>
-        </TouchableOpacity>
-      )}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {onEdit && (
+          <TouchableOpacity
+            onPress={onEdit}
+            style={[styles.shareButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
+          >
+            <Icon name="edit" size={12} color={gold} />
+            <Text style={[styles.shareText, { color: gold }]}>edit</Text>
+          </TouchableOpacity>
+        )}
+        {onShare && (
+          <TouchableOpacity
+            onPress={onShare}
+            style={[styles.shareButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
+          >
+            <Icon name="share" size={12} color={gold} />
+            <Text style={[styles.shareText, { color: gold }]}>share</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -738,6 +810,29 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 0.5,
     color: 'rgba(241,235,224,0.4)',
+  },
+  emptyTop4: {
+    marginTop: 13,
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(241,235,224,0.12)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTop4Text: {
+    fontFamily: 'System',
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.colors.fg,
+    marginBottom: 6,
+  },
+  emptyTop4Subtitle: {
+    fontFamily: 'System',
+    fontSize: 13,
+    color: 'rgba(241,235,224,0.5)',
   },
   weekScroll: {
     gap: 11,
