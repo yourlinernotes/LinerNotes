@@ -97,11 +97,46 @@ export async function GET() {
       topTracks = topData.toptracks?.track || [];
     }
 
+    // Prompt variations for variety
+    const repeatPrompts = [
+      (pc: number) => pc >= 15
+        ? `You've played this ${pc} times this week. What's pulling you back?`
+        : pc >= 10
+        ? `${pc} plays. This track is clearly doing something for you.`
+        : pc >= 5
+        ? `You keep coming back to this one. What's the moment that hits?`
+        : `On rotation. Worth logging?`,
+      (pc: number) => pc >= 15
+        ? `${pc} spins this week. It's got you hooked—what is it?`
+        : pc >= 10
+        ? `This one's on lock. ${pc} plays and counting.`
+        : pc >= 5
+        ? `Can't get enough of this. What keeps you here?`
+        : `Back in rotation. Ready to capture it?`,
+      (pc: number) => pc >= 15
+        ? `Heavy rotation alert. ${pc} plays—what's the story?`
+        : pc >= 10
+        ? `${pc} plays later, still hitting. Worth documenting?`
+        : pc >= 5
+        ? `This track owns you right now. What's it doing?`
+        : `Spinning this one a lot lately.`,
+    ];
+
+    const recentPrompts = [
+      "Fresh in your queue. Anything worth saving?",
+      "Just played. What stood out?",
+      "Still thinking about this one?",
+      "Catch this while it's fresh.",
+      "You just heard this. What hit?",
+      "Fresh play. Worth a note?",
+    ];
+
     // Generate prompts from top tracks (heavy repeat listens)
-    const prompts: Prompt[] = [];
+    const repeatCandidates: Prompt[] = [];
+    const recentCandidates: Prompt[] = [];
     const seenTracks = new Set<string>();
 
-    // Priority 1: Tracks on heavy repeat (from top tracks of the week)
+    // Priority 1: Tracks on heavy repeat (from top tracks of the week) - Limit to 3
     for (const track of topTracks.slice(0, 10)) {
       const trackKey = `${track.artist["#text"]}::${track.name}`;
       if (seenTracks.has(trackKey)) continue;
@@ -113,55 +148,59 @@ export async function GET() {
       const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
       const palette = paletteFromString(track.album?.["#text"] || track.name);
 
-      // Generate better prompts
-      const promptText = playCount >= 15
-        ? `You've played this ${playCount} times this week. What's pulling you back?`
-        : playCount >= 10
-        ? `${playCount} plays. This track is clearly doing something for you.`
-        : playCount >= 5
-        ? `You keep coming back to this one. What's the moment that hits?`
-        : `On rotation. Worth logging?`;
+      // Use varied prompt
+      const promptVariation = repeatPrompts[repeatCandidates.length % repeatPrompts.length];
 
-      prompts.push({
+      repeatCandidates.push({
         id: `repeat-${trackKey}`,
         type: "repeat",
         track: track.name,
         artist: track.artist["#text"],
         album: track.album?.["#text"] || "",
         playCount,
-        prompt: promptText,
+        prompt: promptVariation(playCount),
         tag: playCount >= 15 ? "HEAVY ROTATION" : playCount >= 10 ? "ON HEAVY PLAY" : "ON REPEAT",
         artworkUrl,
         palette,
       });
 
-      if (prompts.length >= 6) break; // Limit to 6 prompts
+      if (repeatCandidates.length >= 3) break; // Limit to 3 repeat prompts
     }
 
-    // Priority 2: Recently played unique tracks
-    if (prompts.length < 6) {
-      for (const track of tracks.slice(0, 20)) {
-        const trackKey = `${track.artist["#text"]}::${track.name}`;
-        if (seenTracks.has(trackKey)) continue;
-        seenTracks.add(trackKey);
+    // Priority 2: Recently played unique tracks - Limit to 3
+    for (const track of tracks.slice(0, 20)) {
+      const trackKey = `${track.artist["#text"]}::${track.name}`;
+      if (seenTracks.has(trackKey)) continue;
+      seenTracks.add(trackKey);
 
-        const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
-        const palette = paletteFromString(track.album?.["#text"] || track.name);
+      const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+      const palette = paletteFromString(track.album?.["#text"] || track.name);
 
-        prompts.push({
-          id: `recent-${trackKey}`,
-          type: "recent",
-          track: track.name,
-          artist: track.artist["#text"],
-          album: track.album?.["#text"] || "",
-          prompt: "Fresh in your queue. Anything worth saving?",
-          tag: "JUST PLAYED",
-          artworkUrl,
-          palette,
-        });
+      // Use varied prompt
+      const promptText = recentPrompts[recentCandidates.length % recentPrompts.length];
 
-        if (prompts.length >= 6) break;
-      }
+      recentCandidates.push({
+        id: `recent-${trackKey}`,
+        type: "recent",
+        track: track.name,
+        artist: track.artist["#text"],
+        album: track.album?.["#text"] || "",
+        prompt: promptText,
+        tag: "JUST PLAYED",
+        artworkUrl,
+        palette,
+      });
+
+      if (recentCandidates.length >= 3) break; // Limit to 3 recent prompts
+    }
+
+    // Intersperse repeat and recent prompts
+    const prompts: Prompt[] = [];
+    const maxLength = Math.max(repeatCandidates.length, recentCandidates.length);
+
+    for (let i = 0; i < maxLength; i++) {
+      if (i < repeatCandidates.length) prompts.push(repeatCandidates[i]);
+      if (i < recentCandidates.length) prompts.push(recentCandidates[i]);
     }
 
     return NextResponse.json({ prompts });
