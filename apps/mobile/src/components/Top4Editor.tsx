@@ -191,6 +191,7 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
           {searchResults.length > 0 && (
             <FlatList
               data={searchResults}
+              style={styles.resultsFlat}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => {
                 const isSelected = selectedAlbums.some(a => a.id === item.id);
@@ -386,8 +387,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  resultsFlat: {
+    flex: 1,
+  },
   resultsList: {
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
   resultItem: {
     flexDirection: 'row',
