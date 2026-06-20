@@ -60,7 +60,19 @@ export async function GET(request: Request) {
   const callbackUrl = url.searchParams.get("callbackUrl");
 
   try {
-    const user = await requireAuth();
+    // Get session without throwing
+    const { getAuthSession } = await import("@/lib/auth-helpers");
+    const session = await getAuthSession();
+
+    if (!session?.user) {
+      // Not authenticated - return not connected for status checks
+      if (!callbackUrl) {
+        return NextResponse.json({ connected: false });
+      }
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = session.user;
 
     // If callbackUrl is provided, initiate OAuth flow
     if (callbackUrl) {
