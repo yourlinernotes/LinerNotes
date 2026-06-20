@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { TopBar, Footer } from "@/components/ln/nav";
@@ -60,7 +60,7 @@ export default function Home() {
   }, []);
 
   // Fetch Last.fm prompts if logged in
-  const fetchPrompts = async () => {
+  const fetchPrompts = useCallback(async () => {
     if (!session) return;
     try {
       const res = await fetch("/api/lastfm/prompts");
@@ -71,11 +71,11 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to fetch Last.fm prompts:", error);
     }
-  };
+  }, [session]);
 
   useEffect(() => {
     fetchPrompts();
-  }, [session]);
+  }, [fetchPrompts]);
 
   return (
     <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", position: "relative", display: "flex", flexDirection: "column", flex: 1 }}>

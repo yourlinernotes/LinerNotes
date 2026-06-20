@@ -67,6 +67,50 @@ interface Prompt {
 }
 
 /**
+ * Fetch track info from Last.fm to get better artwork
+ */
+async function fetchLastFmTrackInfo(track: string, artist: string, apiKey: string): Promise<string> {
+  try {
+    const url = `https://ws.audioscrobbler.com/2.0/?method=track.getinfo&api_key=${apiKey}&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&format=json`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.track?.album?.image) {
+        const artwork = data.track.album.image.find((img: any) => img.size === "extralarge" || img.size === "large" || img.size === "medium")?. ["#text"];
+        if (artwork && !artwork.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+          return artwork;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[Last.fm Prompts] track.getinfo error:", error);
+  }
+  return "";
+}
+
+/**
+ * Fetch album info from Last.fm to get better artwork
+ */
+async function fetchLastFmAlbumInfo(album: string, artist: string, apiKey: string): Promise<string> {
+  try {
+    const url = `https://ws.audioscrobbler.com/2.0/?method=album.getinfo&api_key=${apiKey}&artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}&format=json`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.album?.image) {
+        const artwork = data.album.image.find((img: any) => img.size === "extralarge" || img.size === "large" || img.size === "medium")?. ["#text"];
+        if (artwork && !artwork.includes("2a96cbd8b46e442fc41c2b86b821562f")) {
+          return artwork;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("[Last.fm Prompts] album.getinfo error:", error);
+  }
+  return "";
+}
+
+/**
  * Fetch album artwork from MusicBrainz/iTunes if Last.fm doesn't have it
  */
 async function fetchFallbackArtwork(track: string, artist: string, album: string): Promise<string> {
@@ -266,12 +310,19 @@ export async function GET() {
       // Check if Last.fm actually has valid artwork (not just empty/placeholder)
       const hasValidLastFmArt = artworkUrl && artworkUrl !== "" && !artworkUrl.includes("2a96cbd8b46e442fc41c2b86b821562f");
 
-      // If no valid artwork from Last.fm, fetch from MusicBrainz/iTunes
+      // If no valid artwork, try Last.fm track.getinfo API (often has better artwork)
       if (!hasValidLastFmArt) {
-        const fallbackUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
-        if (fallbackUrl) {
-          artworkUrl = fallbackUrl;
-        }
+        artworkUrl = await fetchLastFmTrackInfo(track.name, artistName, apiKey);
+      }
+
+      // If still no artwork and we have an album, try Last.fm album.getinfo
+      if (!artworkUrl && albumName) {
+        artworkUrl = await fetchLastFmAlbumInfo(albumName, artistName, apiKey);
+      }
+
+      // Finally fall back to MusicBrainz/iTunes
+      if (!artworkUrl) {
+        artworkUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
       }
 
       const palette = paletteFromString(albumName || track.name);
@@ -327,12 +378,19 @@ export async function GET() {
       // Check if Last.fm actually has valid artwork (not just empty/placeholder)
       const hasValidLastFmArt = artworkUrl && artworkUrl !== "" && !artworkUrl.includes("2a96cbd8b46e442fc41c2b86b821562f");
 
-      // If no valid artwork from Last.fm, fetch from MusicBrainz/iTunes
+      // If no valid artwork, try Last.fm track.getinfo API (often has better artwork)
       if (!hasValidLastFmArt) {
-        const fallbackUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
-        if (fallbackUrl) {
-          artworkUrl = fallbackUrl;
-        }
+        artworkUrl = await fetchLastFmTrackInfo(track.name, artistName, apiKey);
+      }
+
+      // If still no artwork and we have an album, try Last.fm album.getinfo
+      if (!artworkUrl && albumName) {
+        artworkUrl = await fetchLastFmAlbumInfo(albumName, artistName, apiKey);
+      }
+
+      // Finally fall back to MusicBrainz/iTunes
+      if (!artworkUrl) {
+        artworkUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
       }
 
       const palette = paletteFromString(albumName || track.name);
@@ -389,12 +447,14 @@ export async function GET() {
       // Check if Last.fm actually has valid artwork (not just empty/placeholder)
       const hasValidLastFmArt = artworkUrl && artworkUrl !== "" && !artworkUrl.includes("2a96cbd8b46e442fc41c2b86b821562f");
 
-      // If no valid artwork from Last.fm, fetch from MusicBrainz/iTunes
+      // If no valid artwork, try Last.fm album.getinfo API (often has better artwork)
       if (!hasValidLastFmArt) {
-        const fallbackUrl = await fetchFallbackArtwork("", artistName, album.name);
-        if (fallbackUrl) {
-          artworkUrl = fallbackUrl;
-        }
+        artworkUrl = await fetchLastFmAlbumInfo(album.name, artistName, apiKey);
+      }
+
+      // Finally fall back to MusicBrainz/iTunes
+      if (!artworkUrl) {
+        artworkUrl = await fetchFallbackArtwork("", artistName, album.name);
       }
 
       const palette = paletteFromString(album.name);
