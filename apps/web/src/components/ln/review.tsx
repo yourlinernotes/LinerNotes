@@ -5,10 +5,74 @@
 // & moment expanded on the right; related notes + a beta CTA below. Adapted from the
 // design bundle's web-review.jsx to consume a ReviewVM.
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { LNArt, LNStars, LNReact, LNIcon, LNAvatar, lnFmt, lnRel, LN_REACT } from "./atoms";
 import type { ReviewVM, MomentVM, TrackVM } from "@/lib/view-adapter";
+
+// Follow = friend request. Reflects the real relationship: send a request, see
+// "requested" once sent, and "friends" once you're connected.
+function FollowButton({ userId }: { userId: string }) {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const [status, setStatus] = useState<"loading" | "none" | "requested" | "friends">("loading");
+  const gold = "var(--ln-accent)";
+
+  const refresh = useCallback(async () => {
+    if (!session) {
+      setStatus("none");
+      return;
+    }
+    try {
+      const [f, s] = await Promise.all([
+        fetch("/api/friends").then((r) => (r.ok ? r.json() : { friends: [] })),
+        fetch("/api/friends?type=sent").then((r) => (r.ok ? r.json() : { requests: [] })),
+      ]);
+      if ((f.friends || []).some((u: { id: string }) => u.id === userId)) setStatus("friends");
+      else if ((s.requests || []).some((r: { addressee?: { id: string } }) => r.addressee?.id === userId)) setStatus("requested");
+      else setStatus("none");
+    } catch {
+      setStatus("none");
+    }
+  }, [session, userId]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const onClick = async () => {
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+    if (status !== "none") return;
+    setStatus("requested"); // optimistic
+    try {
+      const res = await fetch(`/api/friends/${userId}`, { method: "POST" });
+      if (!res.ok) await refresh(); // reconcile (e.g. already pending / friends)
+    } catch {
+      await refresh();
+    }
+  };
+
+  const isAction = status === "none";
+  const label = status === "loading" ? "…" : status === "friends" ? "friends" : status === "requested" ? "requested" : "add friend";
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={status === "loading" || status === "requested" || status === "friends"}
+      className="ln-press"
+      style={{ padding: "7px 15px", borderRadius: 999, border: `1px solid ${gold}`, cursor: isAction ? "pointer" : "default", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600, background: isAction ? gold : "transparent", color: isAction ? "#1a0a04" : gold, opacity: status === "loading" ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}
+    >
+      {status === "friends" && (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke={gold} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      )}
+      {label}
+    </button>
+  );
+}
 
 const INK = "#f1ebe0";
 const muted = (a: number) => `rgba(241,235,224,${a})`;
@@ -143,7 +207,6 @@ export function ImmersiveReview({
   }
 
   const [spotify, setSpotify] = useState(false);
-  const [follow, setFollow] = useState(false);
   const openSpotify = () => {
     setSpotify(true);
     window.open(`https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`, "_blank", "noopener");
@@ -217,11 +280,7 @@ export function ImmersiveReview({
                 <button onClick={() => router.push(`/profile/${vm.user.handle}`)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: "var(--ln-body)", fontSize: 14, color: INK, fontWeight: 600, width: "fit-content" }}>{vm.user.name}</button>
                 <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: muted(0.5) }}>@{vm.user.handle}</span>
               </div>
-              {!isSelf && (
-                <button onClick={() => setFollow((f) => !f)} className="ln-press" style={{ padding: "7px 15px", borderRadius: 999, border: `1px solid ${gold}`, cursor: "pointer", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600, background: follow ? "transparent" : gold, color: follow ? gold : "#1a0a04" }}>
-                  {follow ? "following" : "follow"}
-                </button>
-              )}
+              {!isSelf && vm.user.id && vm.user.id !== "anon" && <FollowButton userId={vm.user.id} />}
             </div>
 
             {actions}
