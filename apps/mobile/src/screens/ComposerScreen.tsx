@@ -465,9 +465,10 @@ export function ComposerScreen({
       onPosted?.();
       onClose();
     } catch (error) {
-      console.error('Failed to post review:', error);
+      console.error('Failed to post:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert('Error', `Failed to post review: ${errorMessage}`);
+      const what = mode === 'playlist' ? 'playlist' : mode === 'album' ? 'album review' : 'review';
+      Alert.alert('Error', `Failed to post ${what}: ${errorMessage}`);
     } finally {
       setIsPosting(false);
     }
@@ -679,8 +680,8 @@ export function ComposerScreen({
                       autoCorrect={false}
                       autoFocus
                     />
-                    {searchingTrack && <Text style={styles.hint}>searching...</Text>}
-                    {trackResults.map((result, i) => (
+                    {searchingTrack && trackQuery.trim().length > 0 && <Text style={styles.hint}>searching...</Text>}
+                    {trackQuery.trim().length > 0 && trackResults.map((result, i) => (
                       <TouchableOpacity
                         key={i}
                         style={styles.searchResult}
@@ -953,8 +954,8 @@ function SearchSection({
         placeholderTextColor="rgba(241,235,224,0.3)"
         autoCorrect={false}
       />
-      {searching && <Text style={styles.hint}>searching...</Text>}
-      {results.map((result, i) => (
+      {searching && query.trim().length > 0 && <Text style={styles.hint}>searching...</Text>}
+      {query.trim().length > 0 && results.map((result, i) => (
         <TouchableOpacity
           key={i}
           style={styles.searchResult}

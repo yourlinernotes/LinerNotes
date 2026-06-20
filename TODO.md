@@ -30,10 +30,10 @@ onboarding (3 steps incl. Top-4 search), and a pile of API/endpoint correctness 
       instead. Implement the open-API stack server-side only if search should be centralized.
 - [ ] Continue aligning `apps/mobile/src/lib/api-client.ts` with the **Next.js** routes —
       core paths are fixed; untested ones (album-reviews, `/music/*`) may still 404.
-- [ ] 🔴 **Playlist table not migrated on prod** — `POST/GET /api/playlists` exist
-      now (+ `Playlist*` Prisma models), but the deployed DB hasn't been migrated,
-      so playlist create/list returns **500** (mobile "Post" fails). Run the
-      Prisma migration on the prod DB + redeploy `apps/web` (vercel-build migrates).
+- [ ] 🔴 **Deploy to apply the playlist migration** — the `Playlist*` models had
+      NO migration (root cause of the playlist "Post" 500s); one is now committed
+      at `prisma/migrations/20260620120000_add_playlists`. Redeploy `apps/web`
+      (vercel-build runs `prisma migrate deploy`) to create the tables on prod.
       Mobile `api.createPlaylist()` already sends the correct shape.
 - [ ] **Playlist per-track reactions** — `reaction` column added to PlaylistTrack
       (schema) + saved/returned by the route, and the mobile client sends it.
