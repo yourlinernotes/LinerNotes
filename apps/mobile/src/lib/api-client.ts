@@ -254,12 +254,20 @@ class APIClient {
   }
 
   /**
-   * Create a playlist post: a named playlist plus an external Spotify/Apple
-   * Music link (and an optional note).
-   * NOTE: the backend `POST /playlists` route does not exist yet — until it
-   * ships this will 404/500. Tracked in TODO.md.
+   * Create a playlist with curated tracks and optional notes.
    */
-  async createPlaylist(data: { name: string; url: string; note?: string }): Promise<any> {
+  async createPlaylist(data: {
+    title: string;
+    description?: string;
+    tracks: Array<{
+      trackId: string;
+      name: string;
+      artist: string;
+      album?: string;
+      artworkUrl?: string | null;
+      note?: string;
+    }>;
+  }): Promise<any> {
     return this.request('/playlists', {
       method: 'POST',
       body: data,
