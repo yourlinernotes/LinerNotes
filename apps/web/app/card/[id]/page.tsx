@@ -191,6 +191,7 @@ export default function CardPage() {
       <ImmersiveReview
         vm={vm}
         related={relatedVms}
+        isSelf={isOwner}
         actions={
           <ReviewActions
             onCopy={handleCopyLink}

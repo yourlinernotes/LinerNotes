@@ -114,10 +114,12 @@ export function ImmersiveReview({
   vm,
   related = [],
   actions,
+  isSelf = false,
 }: {
   vm: ReviewVM;
   related?: ReviewVM[];
   actions?: ReactNode;
+  isSelf?: boolean;
 }) {
   const router = useRouter();
   const { album } = vm;
@@ -215,9 +217,11 @@ export function ImmersiveReview({
                 <button onClick={() => router.push(`/profile/${vm.user.handle}`)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: "var(--ln-body)", fontSize: 14, color: INK, fontWeight: 600, width: "fit-content" }}>{vm.user.name}</button>
                 <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: muted(0.5) }}>@{vm.user.handle}</span>
               </div>
-              <button onClick={() => setFollow((f) => !f)} className="ln-press" style={{ padding: "7px 15px", borderRadius: 999, border: `1px solid ${gold}`, cursor: "pointer", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600, background: follow ? "transparent" : gold, color: follow ? gold : "#1a0a04" }}>
-                {follow ? "following" : "follow"}
-              </button>
+              {!isSelf && (
+                <button onClick={() => setFollow((f) => !f)} className="ln-press" style={{ padding: "7px 15px", borderRadius: 999, border: `1px solid ${gold}`, cursor: "pointer", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600, background: follow ? "transparent" : gold, color: follow ? gold : "#1a0a04" }}>
+                  {follow ? "following" : "follow"}
+                </button>
+              )}
             </div>
 
             {actions}

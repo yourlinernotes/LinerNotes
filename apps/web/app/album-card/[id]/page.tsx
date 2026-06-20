@@ -109,6 +109,7 @@ export default function AlbumCardPage() {
       <ImmersiveReview
         vm={vm}
         related={relatedVms}
+        isSelf={isOwner}
         actions={
           <ReviewActions
             onCopy={handleCopyLink}
