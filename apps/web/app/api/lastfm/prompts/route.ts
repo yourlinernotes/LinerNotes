@@ -112,7 +112,7 @@ export async function GET() {
       const playCount = track.playcount ? parseInt(track.playcount) : 0;
       if (playCount < 3) continue; // Only show if played 3+ times
 
-      const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.[" #text"] || "";
+      const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
       const palette = paletteFromString(track.album?.["#text"] || track.name);
 
       prompts.push({
@@ -140,7 +140,7 @@ export async function GET() {
         if (seenTracks.has(trackKey)) continue;
         seenTracks.add(trackKey);
 
-        const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.[" #text"] || "";
+        const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
         const palette = paletteFromString(track.album?.["#text"] || track.name);
 
         prompts.push({

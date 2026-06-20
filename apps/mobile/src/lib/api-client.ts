@@ -254,11 +254,12 @@ class APIClient {
   }
 
   /**
-   * Create a playlist with curated tracks and optional notes.
+   * Create a playlist with curated tracks, optional notes, and optional external link.
    */
   async createPlaylist(data: {
     title: string;
     description?: string;
+    url?: string;
     tracks: Array<{
       trackId: string;
       name: string;

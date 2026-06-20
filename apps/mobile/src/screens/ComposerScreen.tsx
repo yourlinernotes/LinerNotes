@@ -604,7 +604,7 @@ export function ComposerScreen({
             </View>
           )}
 
-          {/* Playlist — name + external Spotify/Apple Music link (no search) */}
+          {/* Playlist — name + external Spotify/Apple Music link + curated tracks */}
           {mode === 'playlist' && (
             <>
               <View style={styles.section}>
@@ -619,29 +619,160 @@ export function ComposerScreen({
                 />
               </View>
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>PLAYLIST LINK</Text>
-                <TextInput
-                  style={styles.lineInput}
-                  value={playlistLink}
-                  onChangeText={setPlaylistLink}
-                  placeholder="paste a Spotify or Apple Music link..."
-                  placeholderTextColor="rgba(241,235,224,0.3)"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="url"
-                  onFocus={scrollToInput}
-                />
-                {playlistLink.trim().length > 0 &&
-                  (isPlaylistLink(playlistLink) ? (
-                    <Text style={[styles.linkOk, { color: gold }]}>
-                      {linkPlatform(playlistLink)} playlist linked
-                    </Text>
-                  ) : (
-                    <Text style={styles.linkWarn}>
-                      paste a Spotify or Apple Music playlist link
-                    </Text>
-                  ))}
+                <Text style={styles.sectionLabel}>PLAYLIST LINK (OPTIONAL)</Text>
+                <View style={[styles.lineInput, { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10 }]}>
+                  <Icon name="repost" size={15} color="rgba(241,235,224,0.5)" />
+                  <TextInput
+                    style={{ flex: 1, fontFamily: 'Menlo', fontSize: 12, color: tokens.colors.fg, padding: 0 }}
+                    value={playlistLink}
+                    onChangeText={setPlaylistLink}
+                    placeholder="paste a Spotify or Apple Music link..."
+                    placeholderTextColor="rgba(241,235,224,0.3)"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                    onFocus={scrollToInput}
+                  />
+                  {playlistLink.trim().length > 0 && isPlaylistLink(playlistLink) && (
+                    <Icon name="save" size={14} color={gold} />
+                  )}
+                </View>
+                <Text style={styles.playlistHint}>
+                  We can't read the tracklist yet. Paste the link to share it, then add the tracks you want to annotate below.
+                </Text>
               </View>
+
+              {/* Playlist Tracks Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>
+                  YOUR TRACKS{playlistTracks.length > 0 && ` · ${playlistTracks.length}`}
+                </Text>
+                {!showPlaylistSearch ? (
+                  <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => setShowPlaylistSearch(true)}
+                  >
+                    <Text style={[styles.addButtonPlus, { color: gold }]}>+</Text>
+                    <Text style={[styles.addButtonText, { color: gold }]}>add tracks</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View>
+                    <TextInput
+                      style={styles.lineInput}
+                      value={trackQuery}
+                      onChangeText={(q) => {
+                        setTrackQuery(q);
+                        queueSearch(q, 'track');
+                      }}
+                      placeholder="search for a track to add..."
+                      placeholderTextColor="rgba(241,235,224,0.3)"
+                      autoCorrect={false}
+                      autoFocus
+                    />
+                    {searchingTrack && <Text style={styles.hint}>searching...</Text>}
+                    {trackResults.map((result, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        style={styles.searchResult}
+                        onPress={() => {
+                          const normalized = normalizeResult(result);
+                          // Check if track already exists
+                          if (playlistTracks.some((t) => t.id === normalized.id)) {
+                            Alert.alert('Already added', 'This track is already in your playlist');
+                            return;
+                          }
+                          setPlaylistTracks((prev) => [
+                            ...prev,
+                            { ...normalized, reaction: null, note: '', moments: [] },
+                          ]);
+                          setTrackResults([]);
+                          setTrackQuery('');
+                        }}
+                      >
+                        <Text style={styles.searchResultName} numberOfLines={1}>
+                          {result.name || result.trackName || result.collectionName}
+                        </Text>
+                        <Text style={styles.searchResultArtist} numberOfLines={1}>
+                          {result.artist || result.artistName}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                    {trackResults.length === 0 && !searchingTrack && trackQuery.trim() && (
+                      <TouchableOpacity
+                        style={[styles.addButton, { marginTop: 8 }]}
+                        onPress={() => {
+                          setShowPlaylistSearch(false);
+                          setTrackQuery('');
+                          setTrackResults([]);
+                        }}
+                      >
+                        <Text style={[styles.addButtonText, { color: 'rgba(241,235,224,0.65)' }]}>
+                          close search
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* Playlist Track List */}
+              {playlistTracks.length > 0 && (
+                <View style={styles.section}>
+                  {playlistTracks.map((track, index) => (
+                    <View key={`${track.id}-${index}`} style={styles.playlistTrackRow}>
+                      <View style={styles.playlistTrackInfo}>
+                        <Text style={styles.selectedTrackName} numberOfLines={1}>
+                          {track.name}
+                        </Text>
+                        <Text style={styles.selectedTrackArtist} numberOfLines={1}>
+                          {track.artist}
+                        </Text>
+                        {track.note && (
+                          <Text style={styles.playlistTrackNote} numberOfLines={2}>
+                            "{track.note}"
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.playlistTrackActions}>
+                        <TouchableOpacity
+                          style={styles.playlistActionButton}
+                          onPress={() => {
+                            Alert.prompt(
+                              'Add Note',
+                              `Add a note for "${track.name}"`,
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                  text: 'Save',
+                                  onPress: (text) => {
+                                    setPlaylistTracks((prev) =>
+                                      prev.map((t, i) =>
+                                        i === index ? { ...t, note: text?.trim() || undefined } : t
+                                      )
+                                    );
+                                  },
+                                },
+                              ],
+                              'plain-text',
+                              track.note || ''
+                            );
+                          }}
+                        >
+                          <Text style={{ fontSize: 16 }}>📝</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.playlistActionButton}
+                          onPress={() => {
+                            setPlaylistTracks((prev) => prev.filter((_, i) => i !== index));
+                          }}
+                        >
+                          <Icon name="close" size={16} color="rgba(241,235,224,0.6)" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
             </>
           )}
 
@@ -748,11 +879,21 @@ export function ComposerScreen({
               <ActivityIndicator size="small" color={tokens.colors.nearBlack} />
             ) : (
               <Text style={styles.postButtonText}>
-                {mode === 'playlist' ? 'Post playlist' :
-                 mode === 'track' && depth === 'full' ? 'Post track note' :
-                 mode === 'track' && depth === 'caption' ? 'Post' :
-                 mode === 'track' && depth === 'floor' ? 'Post rating' :
-                 rating > 0 ? 'Post' : 'Add a rating to post'}
+                {mode === 'playlist'
+                  ? !playlistName.trim()
+                    ? 'Add a title'
+                    : playlistTracks.length === 0
+                    ? 'Add at least one track'
+                    : `Post playlist with ${playlistTracks.length} track${playlistTracks.length !== 1 ? 's' : ''}`
+                  : mode === 'track' && depth === 'full'
+                  ? 'Post track note'
+                  : mode === 'track' && depth === 'caption'
+                  ? 'Post'
+                  : mode === 'track' && depth === 'floor'
+                  ? 'Post rating'
+                  : rating > 0
+                  ? 'Post'
+                  : 'Add a rating to post'}
               </Text>
             )}
           </TouchableOpacity>
@@ -1360,5 +1501,46 @@ const styles = StyleSheet.create({
     color: 'rgba(241,235,224,0.4)',
     paddingVertical: 16,
     textAlign: 'center',
+  },
+  playlistHint: {
+    fontFamily: 'Menlo',
+    fontSize: 9.5,
+    color: 'rgba(241,235,224,0.4)',
+    letterSpacing: 0.2,
+    lineHeight: 14,
+    marginTop: 6,
+  },
+  playlistTrackRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(241,235,224,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.08)',
+    marginTop: 8,
+  },
+  playlistTrackInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  playlistTrackNote: {
+    fontFamily: 'Menlo',
+    fontSize: 11,
+    color: 'rgba(241,235,224,0.7)',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  playlistTrackActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  playlistActionButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(241,235,224,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.12)',
   },
 });
