@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       const reviews = await prisma.review.findMany({
         where: {
           userId: { in: friendIds },
+          albumReviewId: null, // exclude per-track reviews that belong to an album
         },
         include: {
           user: true,
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
     // Get specific user's reviews (public, no auth required if userId provided)
     if (userId) {
       const reviews = await prisma.review.findMany({
-        where: { userId },
+        where: { userId, albumReviewId: null }, // exclude per-track reviews within an album
         include: {
           user: true,
           likes: true,
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
     }
 
     const reviews = await prisma.review.findMany({
-      where: { userId: currentUserId },
+      where: { userId: currentUserId, albumReviewId: null }, // exclude per-track reviews within an album
       include: {
         user: true,
         likes: true,
