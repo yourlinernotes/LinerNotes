@@ -27,18 +27,24 @@ interface LastFmTrack {
 /**
  * Extract artist name from Last.fm track data (handles both string and object formats)
  */
-function getArtistName(artist: { "#text": string } | string): string {
+function getArtistName(artist: any): string {
+  if (!artist) return "";
   if (typeof artist === "string") return artist;
-  return artist["#text"] || "";
+  if (artist.name) return artist.name; // For user.getTopTracks format
+  if (artist["#text"]) return artist["#text"]; // For user.getRecentTracks format
+  if (artist.mbid) return ""; // Has MBID but no name - shouldn't happen but return empty to skip
+  return "";
 }
 
 /**
  * Extract album name from Last.fm track data (handles both string and object formats)
  */
-function getAlbumName(album: { "#text": string } | string | undefined): string {
+function getAlbumName(album: any): string {
   if (!album) return "";
   if (typeof album === "string") return album;
-  return album["#text"] || "";
+  if (album.name) return album.name; // Some API responses use this
+  if (album["#text"]) return album["#text"]; // Most common format
+  return "";
 }
 
 interface Prompt {
@@ -135,7 +141,11 @@ export async function GET() {
 
     console.log("[Last.fm Prompts] Recent tracks count:", tracks.length);
     if (tracks.length > 0) {
-      console.log("[Last.fm Prompts] Sample track:", JSON.stringify(tracks[0], null, 2));
+      console.log("[Last.fm Prompts] Sample track structure:");
+      console.log("  name:", tracks[0].name);
+      console.log("  artist:", JSON.stringify(tracks[0].artist));
+      console.log("  album:", JSON.stringify(tracks[0].album));
+      console.log("  image:", JSON.stringify(tracks[0].image));
     }
 
     if (tracks.length === 0) {
@@ -233,6 +243,13 @@ export async function GET() {
     for (const track of topTracks.slice(0, 10)) {
       const artistName = getArtistName(track.artist);
       const albumName = getAlbumName(track.album);
+
+      // Skip only if missing track name or artist (album is optional)
+      if (!track.name || !artistName || track.name.trim() === "" || artistName.trim() === "") {
+        console.log("[Last.fm Prompts] Skipping track - name:", track.name, "artist:", artistName);
+        continue;
+      }
+
       const trackKey = `${artistName}::${track.name}`;
 
       if (seenTracks.has(trackKey)) continue;
@@ -281,6 +298,13 @@ export async function GET() {
     for (const track of tracks.slice(0, 20)) {
       const artistName = getArtistName(track.artist);
       const albumName = getAlbumName(track.album);
+
+      // Skip only if missing track name or artist (album is optional)
+      if (!track.name || !artistName || track.name.trim() === "" || artistName.trim() === "") {
+        console.log("[Last.fm Prompts] Skipping recent track - name:", track.name, "artist:", artistName);
+        continue;
+      }
+
       const trackKey = `${artistName}::${track.name}`;
 
       if (seenTracks.has(trackKey)) continue;
@@ -324,6 +348,13 @@ export async function GET() {
     // Priority 3: Album spins - Limit to 2
     for (const album of topAlbums.slice(0, 10)) {
       const artistName = getArtistName(album.artist);
+
+      // Skip only if missing album name or artist
+      if (!album.name || !artistName || album.name.trim() === "" || artistName.trim() === "") {
+        console.log("[Last.fm Prompts] Skipping album - name:", album.name, "artist:", artistName);
+        continue;
+      }
+
       const albumKey = `${artistName}::${album.name}`;
 
       if (seenAlbums.has(albumKey)) continue;
