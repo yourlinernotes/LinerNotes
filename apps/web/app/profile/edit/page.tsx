@@ -49,6 +49,7 @@ function EditProfileContent() {
   const [lastfmConnected, setLastfmConnected] = useState(false);
   const [lastfmUsername, setLastfmUsername] = useState("");
   const [lastfmLoading, setLastfmLoading] = useState(false);
+  const [lastfmError, setLastfmError] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -85,13 +86,16 @@ function EditProfileContent() {
           const data = await res.json();
           setLastfmConnected(data.connected);
           setLastfmUsername(data.username || "");
+          setLastfmError("");
         } else {
-          // Non-200 response - log the error details
+          // Non-200 response - log and show error
           const errorText = await res.text();
           console.error("Failed to load Last.fm status:", res.status, errorText);
+          setLastfmError(`Failed to check Last.fm status (${res.status})`);
         }
       } catch (error) {
         console.error("Failed to load Last.fm status:", error);
+        setLastfmError("Failed to check Last.fm connection");
       }
     };
     loadLastfmStatus();
@@ -235,6 +239,12 @@ function EditProfileContent() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {lastfmError && (
+                    <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)" }}>
+                      <div style={{ fontFamily: "var(--ln-body)", fontSize: 13.5, color: "#ff8f8f" }}>{lastfmError}</div>
+                      <div style={{ fontFamily: "var(--ln-mono)", fontSize: 11, color: "rgba(255,143,143,0.7)", marginTop: 4 }}>Check console for details (F12)</div>
+                    </div>
+                  )}
                   <p style={{ margin: 0, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "rgba(var(--ln-fg-rgb),0.65)", lineHeight: 1.5 }}>
                     Connect your Last.fm account to get personalized song prompts based on what you're actually listening to.
                   </p>
