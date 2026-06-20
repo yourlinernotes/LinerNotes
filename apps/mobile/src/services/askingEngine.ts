@@ -26,12 +26,14 @@ export interface PromptTrigger {
   playCount?: number;
   prompt: string;
   tag: string; // Mono label shown on card (e.g. "ON REPEAT", "TOP 4")
+  mbid?: string; // MusicBrainz ID if available
   palette: {
     deep: string;
     mid: string;
     lo: string;
     accent: string;
     glow: string;
+    art?: string; // Album artwork URL
   };
 }
 
@@ -124,16 +126,25 @@ class AskingEngineService {
           const triggerId = `repeat:${artist}:${track}`;
 
           if (!this.dismissedPrompts.has(triggerId)) {
+            // Find the track to get artwork
+            const trackData = recentTracks.find(t =>
+              t.artist?.name === artist && t.name === track
+            );
+            const artworkUrl = trackData?.image?.find(img => img.size === 'large')?.['#text'] ||
+                              trackData?.image?.find(img => img.size === 'extralarge')?.['#text'];
+
             allTriggers.push({
               id: triggerId,
               type: 'repeat',
               priority: 2,
               artist,
               track,
+              album: trackData?.album?.['#text'],
+              mbid: trackData?.mbid,
               playCount: count,
               prompt: this.getRepeatPrompt(track, count),
               tag: 'ON REPEAT',
-              palette: this.getDefaultPalette(),
+              palette: { ...this.getDefaultPalette(), art: artworkUrl },
             });
           }
         }
@@ -145,15 +156,24 @@ class AskingEngineService {
         const triggerId = `full-album:${album.artist}:${album.album}`;
 
         if (!this.dismissedPrompts.has(triggerId)) {
+          // Find a track from this album to get artwork
+          const trackData = recentTracks.find(t => {
+            const albumName = typeof t.album === 'string' ? t.album : t.album?.['#text'];
+            return t.artist?.name === album.artist && albumName === album.album;
+          });
+          const artworkUrl = trackData?.image?.find(img => img.size === 'large')?.['#text'] ||
+                            trackData?.image?.find(img => img.size === 'extralarge')?.['#text'];
+
           allTriggers.push({
             id: triggerId,
             type: 'full-album',
             priority: 2,
             artist: album.artist,
             album: album.album,
+            mbid: trackData?.album?.mbid,
             prompt: this.getFullAlbumPrompt(album.album),
             tag: 'FULL ALBUM',
-            palette: this.getDefaultPalette(),
+            palette: { ...this.getDefaultPalette(), art: artworkUrl },
           });
         }
       }
@@ -168,16 +188,22 @@ class AskingEngineService {
           const triggerId = `heavy-unrated:${artistName}:${topTrack.name}`;
 
           if (!this.dismissedPrompts.has(triggerId)) {
+            // Get artwork from top track data
+            const artworkUrl = (topTrack as any).image?.find((img: any) => img.size === 'large')?.['#text'] ||
+                              (topTrack as any).image?.find((img: any) => img.size === 'extralarge')?.['#text'];
+
             allTriggers.push({
               id: triggerId,
               type: 'heavy-unrated',
               priority: 2,
               artist: artistName,
               track: topTrack.name,
+              album: (topTrack as any).album?.['#text'],
+              mbid: (topTrack as any).mbid,
               playCount,
               prompt: `${playCount} plays, no rating. verdict?`,
               tag: 'HEAVY PLAY',
-              palette: this.getDefaultPalette(),
+              palette: { ...this.getDefaultPalette(), art: artworkUrl },
             });
           }
         }
