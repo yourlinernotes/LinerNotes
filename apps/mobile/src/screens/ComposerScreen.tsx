@@ -154,6 +154,7 @@ export function ComposerScreen({
   const [playlistLink, setPlaylistLink] = useState('');
   const [playlistTracks, setPlaylistTracks] = useState<any[]>([]);
   const [showPlaylistSearch, setShowPlaylistSearch] = useState(false);
+  const [noteEditingId, setNoteEditingId] = useState<string | null>(null);
 
   // The item the shared bits (rating, preview, post) act on.
   const selectedItem = mode === 'album' ? selectedAlbum : selectedTrack;
@@ -620,25 +621,27 @@ export function ComposerScreen({
               </View>
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>PLAYLIST LINK (OPTIONAL)</Text>
-                <View style={[styles.lineInput, { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10 }]}>
-                  <Icon name="repost" size={15} color="rgba(241,235,224,0.5)" />
-                  <TextInput
-                    style={{ flex: 1, fontFamily: 'Menlo', fontSize: 12, color: tokens.colors.fg, padding: 0 }}
-                    value={playlistLink}
-                    onChangeText={setPlaylistLink}
-                    placeholder="paste a Spotify or Apple Music link..."
-                    placeholderTextColor="rgba(241,235,224,0.3)"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                    onFocus={scrollToInput}
-                  />
-                  {playlistLink.trim().length > 0 && isPlaylistLink(playlistLink) && (
-                    <Icon name="save" size={14} color={gold} />
-                  )}
-                </View>
+                <TextInput
+                  style={styles.lineInput}
+                  value={playlistLink}
+                  onChangeText={setPlaylistLink}
+                  placeholder="paste a Spotify or Apple Music link..."
+                  placeholderTextColor="rgba(241,235,224,0.3)"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  onFocus={scrollToInput}
+                />
+                {playlistLink.trim().length > 0 &&
+                  (isPlaylistLink(playlistLink) ? (
+                    <Text style={[styles.linkOk, { color: gold }]}>
+                      {linkPlatform(playlistLink)} link added
+                    </Text>
+                  ) : (
+                    <Text style={styles.linkWarn}>paste a Spotify or Apple Music playlist link</Text>
+                  ))}
                 <Text style={styles.playlistHint}>
-                  We can't read the tracklist yet. Paste the link to share it, then add the tracks you want to annotate below.
+                  We can't read the tracklist yet — paste the link to share it, then add the tracks you want to annotate below.
                 </Text>
               </View>
 
@@ -727,38 +730,43 @@ export function ComposerScreen({
                         <Text style={styles.selectedTrackArtist} numberOfLines={1}>
                           {track.artist}
                         </Text>
-                        {track.note && (
+                        {track.note && noteEditingId !== track.id && (
                           <Text style={styles.playlistTrackNote} numberOfLines={2}>
                             "{track.note}"
                           </Text>
                         )}
+                        {noteEditingId === track.id && (
+                          <TextInput
+                            style={styles.playlistNoteInput}
+                            value={track.note}
+                            onChangeText={(text) =>
+                              setPlaylistTracks((prev) =>
+                                prev.map((t, i) => (i === index ? { ...t, note: text } : t))
+                              )
+                            }
+                            placeholder="why this track? (optional)"
+                            placeholderTextColor="rgba(241,235,224,0.3)"
+                            multiline
+                            textAlignVertical="top"
+                            autoFocus
+                            onFocus={scrollToInput}
+                            onBlur={() => setNoteEditingId((cur) => (cur === track.id ? null : cur))}
+                          />
+                        )}
                       </View>
                       <View style={styles.playlistTrackActions}>
                         <TouchableOpacity
-                          style={styles.playlistActionButton}
-                          onPress={() => {
-                            Alert.prompt(
-                              'Add Note',
-                              `Add a note for "${track.name}"`,
-                              [
-                                { text: 'Cancel', style: 'cancel' },
-                                {
-                                  text: 'Save',
-                                  onPress: (text?: string) => {
-                                    setPlaylistTracks((prev) =>
-                                      prev.map((t, i) =>
-                                        i === index ? { ...t, note: text?.trim() || undefined } : t
-                                      )
-                                    );
-                                  },
-                                },
-                              ],
-                              'plain-text',
-                              track.note || ''
-                            );
-                          }}
+                          style={[
+                            styles.playlistActionButton,
+                            noteEditingId === track.id && { borderColor: gold, backgroundColor: `${gold}14` },
+                          ]}
+                          onPress={() =>
+                            setNoteEditingId((cur) => (cur === track.id ? null : track.id))
+                          }
                         >
-                          <Text style={{ fontSize: 16 }}>📝</Text>
+                          <Text style={[styles.playlistActionNote, { color: noteEditingId === track.id ? gold : 'rgba(241,235,224,0.6)' }]}>
+                            note
+                          </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.playlistActionButton}
@@ -1542,5 +1550,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(241,235,224,0.06)',
     borderWidth: 1,
     borderColor: 'rgba(241,235,224,0.12)',
+  },
+  playlistActionNote: {
+    fontFamily: 'System',
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  playlistNoteInput: {
+    marginTop: 6,
+    backgroundColor: 'rgba(241,235,224,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.14)',
+    borderRadius: 10,
+    padding: 9,
+    fontFamily: 'System',
+    fontSize: 13.5,
+    color: tokens.colors.fg,
+    minHeight: 54,
   },
 });
