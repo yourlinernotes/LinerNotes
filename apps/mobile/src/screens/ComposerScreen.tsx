@@ -30,7 +30,7 @@ import { formatTimestamp } from '../lib/time-utils';
 import { api } from '../lib/api-client';
 import { lastfm } from '../services/lastfm';
 import { useAuth } from '../contexts/AuthContext';
-import { reviewToFeedReview } from '../lib/feed-adapter';
+import { reviewToFeedReview, playlistToFeedReview } from '../lib/feed-adapter';
 import type { Moment, ReactionType } from '../lib/types';
 import { tokens } from '../lib/tokens';
 
@@ -273,6 +273,23 @@ export function ComposerScreen({
         )
       : null;
 
+  // Live preview of the playlist card while building it.
+  const previewPlaylist =
+    mode === 'playlist' && playlistName.trim().length > 0 && playlistTracks.length > 0
+      ? playlistToFeedReview(
+          {
+            id: 'preview',
+            title: playlistName.trim(),
+            description: orderedTake || undefined,
+            tracks: playlistTracks,
+            createdAt: new Date().toISOString(),
+          },
+          { name: user?.displayName || 'You', handle: user?.handle || 'you', tint: gold }
+        )
+      : null;
+
+  const previewCard = previewReview || previewPlaylist;
+
   // Debounce typing and guard against out-of-order responses: only the most
   // recent query (tracked by searchSeq) is allowed to write results, so a slow
   // stale response can't clobber the latest one.
@@ -403,6 +420,7 @@ export function ComposerScreen({
             album: t.album || '',
             artworkUrl: t.artworkUrl || null,
             note: t.note,
+            reaction: t.reaction ?? null,
           })),
         });
       } else if (mode === 'album') {
@@ -863,10 +881,10 @@ export function ComposerScreen({
           </TouchableOpacity>
 
           {/* Live preview — only once a song + rating are selected */}
-          {previewReview && (
+          {previewCard && (
             <View style={styles.previewSection}>
               <Text style={styles.sectionLabel}>PREVIEW</Text>
-              <ReviewCard review={previewReview} accent={gold} context="feed" />
+              <ReviewCard review={previewCard} accent={gold} context="feed" />
             </View>
           )}
         </ScrollView>

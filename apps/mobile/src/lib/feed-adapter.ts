@@ -144,3 +144,56 @@ export function albumReviewToFeedReview(ar: any, fallbackAuthor: FeedAuthor): Fe
     saved: false,
   };
 }
+
+/**
+ * Map a playlist (title + curated tracks, each with optional reaction/note)
+ * into a FeedReview so it renders as a playlist card.
+ */
+export function playlistToFeedReview(pl: any, fallbackAuthor: FeedAuthor): FeedReview {
+  const u = pl?.user;
+  const author: FeedAuthor = u
+    ? {
+        id: u.id,
+        handle: u.handle ?? fallbackAuthor.handle,
+        name: u.displayName || u.name || fallbackAuthor.name,
+        displayName: u.displayName,
+        avatarUrl: u.avatarUrl,
+        tint: fallbackAuthor.tint,
+      }
+    : fallbackAuthor;
+
+  const plTracks: any[] = Array.isArray(pl?.tracks) ? pl.tracks : [];
+  const tracks = plTracks.map((t, i) => ({
+    n: (typeof t.order === 'number' ? t.order : i) + 1,
+    name: t.name ?? '',
+    reaction: (t.reaction ?? null) as 'flame' | 'love' | 'skip' | null,
+    review: t.note,
+    moments: [] as Array<{ sec: number; note: string }>,
+  }));
+  const firstArt = plTracks.find((t) => t.artworkUrl)?.artworkUrl;
+  const count = plTracks.length;
+
+  return {
+    id: pl.id,
+    depth: pl.description ? 'caption' : 'floor',
+    user: author,
+    album: {
+      title: pl.title ?? 'Playlist',
+      artist: `${count} track${count === 1 ? '' : 's'}`,
+      year: 0,
+      kind: 'playlist',
+      artworkUrl: firstArt,
+      palette: paletteFromId(String(pl.id ?? pl.title ?? 'playlist')),
+      tracks,
+    },
+    rating: 0,
+    at: pl.createdAt,
+    take: pl.description || undefined,
+    body: null,
+    notes: [],
+    featured: null,
+    likeCount: pl.likeCount ?? 0,
+    repostCount: pl.repostCount ?? 0,
+    saved: false,
+  };
+}

@@ -35,11 +35,11 @@ onboarding (3 steps incl. Top-4 search), and a pile of API/endpoint correctness 
       so playlist create/list returns **500** (mobile "Post" fails). Run the
       Prisma migration on the prod DB + redeploy `apps/web` (vercel-build migrates).
       Mobile `api.createPlaylist()` already sends the correct shape.
-- [ ] **Playlist per-track reactions don't persist** — the composer now lets you
-      react (flame/love/skip) to each playlist track, but `POST /api/playlists`
-      track rows have no `reaction` column, so it's captured client-side only.
-      Add `reaction` to the PlaylistTrack model + route to persist it. (Album
-      per-track reactions + notes already persist via trackReviews.)
+- [ ] **Playlist per-track reactions** — `reaction` column added to PlaylistTrack
+      (schema) + saved/returned by the route, and the mobile client sends it.
+      Just needs the prod migration + deploy (same as the playlist-table blocker
+      above) to actually persist. (Album per-track reactions + notes already
+      persist via trackReviews.)
 - [ ] **Spotify playlist autofill** — once we have Spotify API access, read a
       pasted Spotify playlist link and auto-populate the playlist's tracklist
       (artist/title/artwork) instead of the user adding tracks manually. The

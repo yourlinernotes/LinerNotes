@@ -322,6 +322,7 @@ model PlaylistTrack {
   album      String?
   artworkUrl String?
   note       String? // Optional note about why this track is in the playlist
+  reaction   String? // Optional per-track reaction: flame | love | skip
   order      Int     // Track position in playlist (0-indexed)
 
   playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)

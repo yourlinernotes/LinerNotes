@@ -35,7 +35,7 @@ import { EditProfileModal } from '../components/EditProfileModal';
 import { Top4Editor } from '../components/Top4Editor';
 import type { User } from '../lib/types';
 import { shareToInstagramStory, shareToTikTok, shareToTwitter, saveCardImage } from '../lib/share-utils';
-import { reviewToFeedReview, albumReviewToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
+import { reviewToFeedReview, albumReviewToFeedReview, playlistToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
 import type { FeedAuthor, FeedReview } from '../lib/feed-types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -63,6 +63,7 @@ interface ProfileData {
   reposted: EnrichedReview[];
   saved: EnrichedReview[];
   albumReviews: any[];
+  playlists: any[];
 }
 
 type TabType = 'notes' | 'saved';
@@ -132,6 +133,10 @@ export function ProfileScreen({
         console.error('[Profile] getUserAlbumReviews failed:', err);
         return [];
       });
+      const playlists = await api.getUserPlaylists(user.id).catch((err) => {
+        console.error('[Profile] getUserPlaylists failed:', err);
+        return [];
+      });
       const u = full ?? user;
       setFullUser(u);
 
@@ -155,8 +160,8 @@ export function ProfileScreen({
           avatarUrl: u.avatarUrl,
         },
         bio: u.bio || '',
-        // "notes" counts the user's own reviews — track + album.
-        reviewCount: reviews.length + albumReviews.length,
+        // "notes" counts the user's own reviews — track + album + playlists.
+        reviewCount: reviews.length + albumReviews.length + playlists.length,
         friends: friends.length,
         joined: new Date(user.createdAt || Date.now()).getFullYear().toString(),
         top4: top4Albums,
@@ -165,6 +170,7 @@ export function ProfileScreen({
         reposted,
         saved,
         albumReviews,
+        playlists,
       };
 
       console.log('[Profile] Profile data loaded successfully');
@@ -190,6 +196,7 @@ export function ProfileScreen({
         reposted: [],
         saved: [],
         albumReviews: [],
+        playlists: [],
       });
     }
   }
@@ -321,6 +328,12 @@ export function ProfileScreen({
       kind: 'own' as const,
       feedReview: albumReviewToFeedReview(a, profileAuthor),
       at: a.createdAt,
+    })),
+    ...profile.playlists.map((p) => ({
+      key: 'playlist' + p.id,
+      kind: 'own' as const,
+      feedReview: playlistToFeedReview(p, profileAuthor),
+      at: p.createdAt,
     })),
   ].sort((x, y) => new Date(y.at || 0).getTime() - new Date(x.at || 0).getTime());
 

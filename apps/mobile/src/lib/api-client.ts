@@ -267,12 +267,19 @@ class APIClient {
       album?: string;
       artworkUrl?: string | null;
       note?: string;
+      reaction?: string | null;
     }>;
   }): Promise<any> {
     return this.request('/playlists', {
       method: 'POST',
       body: data,
     });
+  }
+
+  /** A user's playlists — GET /playlists?userId= ({ playlists }). */
+  async getUserPlaylists(userId: string): Promise<any[]> {
+    const data = await this.request<{ playlists: any[] }>(`/playlists?userId=${userId}`);
+    return data.playlists ?? [];
   }
 
   async getReview(id: string): Promise<Review> {

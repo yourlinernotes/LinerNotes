@@ -98,6 +98,7 @@ export async function POST(request: Request) {
             album: track.album || null,
             artworkUrl: track.artworkUrl || null,
             note: track.note?.trim() || null,
+            reaction: track.reaction || null,
             order: index,
           })),
         },
