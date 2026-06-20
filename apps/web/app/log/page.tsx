@@ -24,8 +24,8 @@ function LogPageContent() {
     name: trackName,
     artist: artistName,
     album: albumName || "",
-    artworkUrl: artworkUrl || null,
-    previewUrl: null,
+    artworkUrl: artworkUrl || "",
+    previewUrl: "",
   } : undefined;
 
   return (
