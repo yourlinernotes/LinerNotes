@@ -125,7 +125,31 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
       // No cooldown for the in-feed shelf — surface whatever is worth a note.
       const prompts = await askingEngine.getFeedPrompts(username, top4Albums);
       console.log('[Feed] Got prompts:', prompts.length);
-      setCurrentPrompts(prompts);
+
+      // Don't prompt for songs already reviewed *with* notes/moments. A bare
+      // rating (no notes/moments) still gets a prompt so a moment can be added.
+      const reviewedWithContent = new Set<string>();
+      if (user?.id) {
+        const myReviews = await api.getUserReviews(user.id).catch(() => []);
+        for (const r of myReviews as any[]) {
+          const t = r?.track ?? r ?? {};
+          const name = String(t.name ?? t.trackName ?? '').toLowerCase().trim();
+          const artist = String(t.artist ?? t.trackArtist ?? '').toLowerCase().trim();
+          if (!name || !artist) continue;
+          const hasContent =
+            (Array.isArray(r.notes) && r.notes.length > 0) ||
+            (r.momentSeconds !== null && r.momentSeconds !== undefined);
+          if (hasContent) reviewedWithContent.add(`${artist}|||${name}`);
+        }
+      }
+
+      const filtered = prompts.filter((p) => {
+        const name = String(p.track ?? p.album ?? '').toLowerCase().trim();
+        const artist = String(p.artist ?? '').toLowerCase().trim();
+        return !reviewedWithContent.has(`${artist}|||${name}`);
+      });
+      console.log('[Feed] Prompts after reviewed-filter:', filtered.length);
+      setCurrentPrompts(filtered);
     } catch (error) {
       console.error('Failed to load asking engine prompt:', error);
     }
