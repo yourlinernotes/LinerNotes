@@ -96,9 +96,8 @@ export async function GET(request: Request) {
       const apiKey = process.env.LASTFM_API_KEY;
 
       if (!apiKey) {
-        return NextResponse.redirect(
-          `${callbackUrl}?error=lastfm_api_not_configured`
-        );
+        const redirectUrl = `${process.env.NEXTAUTH_URL}${callbackUrl}?error=lastfm_api_not_configured`;
+        return NextResponse.redirect(redirectUrl);
       }
 
       // Last.fm auth URL - user will approve, then we get a token via callback
