@@ -70,13 +70,18 @@ export async function extractPaletteFromImage(
     // Generate warm secondary hue (offset by 28°)
     const warm = (h + 28) % 360;
 
-    // Create palette similar to paletteFromString but based on extracted hue
+    // For low-saturation images (black/white/gray), use minimal saturation
+    // Otherwise boost saturation slightly for vibrancy
+    const isLowSat = s < 15;
+    const baseSat = isLowSat ? Math.min(s * 1.2, 12) : Math.min(s * 1.1, 100);
+
+    // Create palette based on extracted colors, respecting the actual saturation
     const palette: Palette = {
-      deep: hslToHex(h, Math.max(s * 0.9, 48), 13), // Dark base
-      mid: hslToHex(h, Math.max(s * 0.95, 52), 31), // Medium tone
-      lo: hslToHex(warm, Math.max(s * 0.85, 46), 9), // Secondary warm tone
-      accent: hslToHex(h, Math.min(s * 1.2, 100), Math.min(l * 1.1, 56)), // Bright accent
-      glow: hslToHex(warm, Math.min(s * 1.3, 100), 48), // Glow layer
+      deep: hslToHex(h, baseSat * 0.85, 13), // Dark base
+      mid: hslToHex(h, baseSat * 0.9, 31), // Medium tone
+      lo: hslToHex(warm, baseSat * 0.8, 9), // Secondary warm tone
+      accent: hslToHex(h, Math.min(baseSat * 1.2, 100), Math.min(l * 1.1, 56)), // Bright accent
+      glow: hslToHex(warm, Math.min(baseSat * 1.3, 100), 48), // Glow layer
     };
 
     return palette;
