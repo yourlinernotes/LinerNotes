@@ -58,9 +58,10 @@ export async function POST() {
 export async function GET(request: Request) {
   console.log("[Last.fm GET] START");
 
+  const url = new URL(request.url);
+  const callbackUrl = url.searchParams.get("callbackUrl");
+
   try {
-    const url = new URL(request.url);
-    const callbackUrl = url.searchParams.get("callbackUrl");
     console.log("[Last.fm GET] Request received, callbackUrl:", callbackUrl);
 
     // Get session without throwing
