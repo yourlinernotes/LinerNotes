@@ -214,9 +214,22 @@ export function ProfileScreen({
         },
       });
 
-      // Reload profile to show updated Top 4
-      await loadProfile();
-      Alert.alert('Success', 'Your Top 4 has been updated!');
+      // Reflect immediately so the Top 4 shows without waiting on a reload.
+      setFullUser((prev) => (prev ? { ...prev, favourites: { albums } } : prev));
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              top4: albums.map((a) => ({
+                album: { id: a.id, name: a.name, artist: a.artist, artworkUrl: a.artworkUrl },
+                rating: 0,
+              })),
+            }
+          : prev
+      );
+
+      // Reload from the server in the background to stay in sync.
+      loadProfile();
     } catch (error) {
       console.error('Failed to save Top 4:', error);
       throw error; // Re-throw so Top4Editor can show error

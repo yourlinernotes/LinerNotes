@@ -188,22 +188,38 @@ class APIClient {
   // USERS
   // ==========================================================================
 
+  /**
+   * The backend stores `favourites` as a JSON string ({ albums, tracks }).
+   * Parse it into the object shape the app expects so the Top 4 renders.
+   */
+  private normalizeUser(u: any): User {
+    if (u && typeof u.favourites === 'string') {
+      try {
+        u = { ...u, favourites: u.favourites ? JSON.parse(u.favourites) : undefined };
+      } catch {
+        u = { ...u, favourites: undefined };
+      }
+    }
+    return u as User;
+  }
+
   async getUser(handle: string): Promise<User> {
     const res = await this.request<{ user: User }>(`/users/${handle}`);
-    return res.user;
+    return this.normalizeUser(res.user);
   }
 
   async updateUser(data: Partial<User>): Promise<User> {
-    return this.request('/users/me', {
+    const res = await this.request<{ user: User }>('/users/me', {
       method: 'PATCH',
       body: data,
     });
+    return this.normalizeUser((res as any).user ?? res);
   }
 
   /** Full current-user profile (includes bio), from GET /users/me ({ user }). */
   async getMyProfile(): Promise<User> {
     const res = await this.request<{ user: User }>('/users/me');
-    return res.user;
+    return this.normalizeUser(res.user);
   }
 
   // ==========================================================================
