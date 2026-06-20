@@ -14,7 +14,7 @@ import {
   Pressable,
 } from 'react-native';
 import { tokens } from '../lib/tokens';
-import Icon from 'react-native-vector-icons/Feather';
+import { Icon } from './atoms/Icon';
 
 interface ShareFormat {
   id: 'instagram' | 'tiktok' | 'camera' | 'twitter';
@@ -144,7 +144,7 @@ export function ShareSheet({
               onPress={onClose}
               style={styles.closeButton}
             >
-              <Icon name="x" size={16} color={tokens.colors.fg} />
+              <Icon name="close" size={16} color={tokens.colors.fg} />
             </TouchableOpacity>
           </View>
 
@@ -209,12 +209,9 @@ export function ShareSheet({
                 },
               ]}
             >
-              <Icon
-                name={isStory ? 'bookmark' : 'bookmark'}
-                size={15}
-                color={gold}
-                style={styles.noteIcon}
-              />
+              <View style={styles.noteIcon}>
+                <Icon name="bookmark" size={15} color={gold} />
+              </View>
               <Text style={styles.noteText}>{getNote()}</Text>
             </View>
 
