@@ -350,13 +350,12 @@ export async function POST(request: NextRequest) {
       notes,         // Array of { seconds, label, note? }
     } = body;
 
-    // Validate required fields
+    // Validate required fields. Album + artwork are optional — singles/remixes
+    // often have neither, and search sources (esp. MusicBrainz) may omit them.
     if (
       !trackId ||
       !trackName ||
       !trackArtist ||
-      !trackAlbum ||
-      !artworkUrl ||
       rating === undefined
     ) {
       return NextResponse.json(
@@ -380,8 +379,9 @@ export async function POST(request: NextRequest) {
         trackId,
         trackName,
         trackArtist,
-        trackAlbum,
-        artworkUrl,
+        // Columns are non-null; default to '' when album/artwork are absent.
+        trackAlbum: trackAlbum || '',
+        artworkUrl: artworkUrl || '',
         previewUrl,
         rating,
         take: take || null,

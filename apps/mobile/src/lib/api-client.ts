@@ -232,8 +232,10 @@ class APIClient {
       trackId: data.track.id,
       trackName: data.track.name,
       trackArtist: data.track.artist,
-      trackAlbum: data.track.album,
-      artworkUrl: data.track.artworkUrl,
+      // Singles/remixes may have no album — fall back to the track name so the
+      // post isn't rejected (the card shows the track name regardless).
+      trackAlbum: data.track.album || data.track.name,
+      artworkUrl: data.track.artworkUrl || '',
       previewUrl: data.track.previewUrl,
       rating: data.rating,
       take: data.take,
