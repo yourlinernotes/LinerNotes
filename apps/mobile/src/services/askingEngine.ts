@@ -82,6 +82,59 @@ class AskingEngineService {
     return this.buildTriggers(username, top4Albums);
   }
 
+  /**
+   * Generate additional prompts on demand (the shelf's "+" button), drawn from
+   * the user's Last.fm top tracks across widening windows. Excludes anything
+   * already shown (excludeIds) or dismissed. Returns [] without Last.fm.
+   */
+  async getMorePrompts(username?: string, excludeIds: string[] = []): Promise<PromptTrigger[]> {
+    await this.initialize();
+    if (!username) return [];
+
+    const exclude = new Set(excludeIds);
+    const out: PromptTrigger[] = [];
+
+    try {
+      for (const period of ['7day', '1month', '3month', '6month'] as const) {
+        const top = await lastfm.getTopTracks(username, period, 50);
+        for (const tt of top as any[]) {
+          const artist = typeof tt.artist === 'string' ? tt.artist : tt.artist?.name || '';
+          if (!artist || !tt.name) continue;
+
+          const id = `rotation:${artist}:${tt.name}`;
+          if (exclude.has(id) || this.dismissedPrompts.has(id)) continue;
+          exclude.add(id);
+
+          const playCount = parseInt(tt.playcount || '0', 10);
+          const images = Array.isArray(tt.image) ? tt.image : [];
+          const art =
+            images.find((i: any) => i?.size === 'extralarge')?.['#text'] ||
+            images.find((i: any) => i?.size === 'large')?.['#text'];
+
+          out.push({
+            id,
+            type: 'heavy-unrated',
+            priority: 3,
+            artist,
+            track: tt.name,
+            mbid: tt.mbid,
+            playCount: playCount || undefined,
+            prompt: playCount ? `${playCount} plays — worth a note?` : 'on rotation — worth a note?',
+            tag: 'ON ROTATION',
+            palette: { ...this.getDefaultPalette(), art },
+          });
+
+          if (out.length >= 5) break;
+        }
+        if (out.length >= 5) break;
+      }
+    } catch (error) {
+      console.error('getMorePrompts failed:', error);
+    }
+
+    return out;
+  }
+
   private async buildTriggers(username?: string, top4Albums?: any[]): Promise<PromptTrigger[]> {
     const allTriggers: PromptTrigger[] = [];
 

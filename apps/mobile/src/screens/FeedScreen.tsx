@@ -53,6 +53,30 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPrompts, setCurrentPrompts] = useState<PromptTrigger[]>([]);
   const [lastFmConnected, setLastFmConnected] = useState(false);
+  const [lastFmUsername, setLastFmUsername] = useState<string | undefined>(undefined);
+  const [generatingMore, setGeneratingMore] = useState(false);
+
+  // Keys (artist|||track) the user has already reviewed *with* notes/moments.
+  async function reviewedWithContentKeys(): Promise<Set<string>> {
+    const keys = new Set<string>();
+    if (!user?.id) return keys;
+    const myReviews = await api.getUserReviews(user.id).catch(() => []);
+    for (const r of myReviews as any[]) {
+      const t = r?.track ?? r ?? {};
+      const name = String(t.name ?? t.trackName ?? '').toLowerCase().trim();
+      const artist = String(t.artist ?? t.trackArtist ?? '').toLowerCase().trim();
+      if (!name || !artist) continue;
+      const hasContent =
+        (Array.isArray(r.notes) && r.notes.length > 0) ||
+        (r.momentSeconds !== null && r.momentSeconds !== undefined);
+      if (hasContent) keys.add(`${artist}|||${name}`);
+    }
+    return keys;
+  }
+
+  function promptKey(p: PromptTrigger): string {
+    return `${String(p.artist ?? '').toLowerCase().trim()}|||${String(p.track ?? p.album ?? '').toLowerCase().trim()}`;
+  }
 
   async function loadFeed() {
     try {
@@ -111,6 +135,7 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
         setLastFmConnected(isConnected);
         username = isConnected ? (await lastfm.getUsername()) ?? undefined : undefined;
       }
+      setLastFmUsername(username);
 
       console.log('[Feed] Loading prompts - Last.fm connected:', username ? true : false, 'username:', username);
 
@@ -128,26 +153,8 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
 
       // Don't prompt for songs already reviewed *with* notes/moments. A bare
       // rating (no notes/moments) still gets a prompt so a moment can be added.
-      const reviewedWithContent = new Set<string>();
-      if (user?.id) {
-        const myReviews = await api.getUserReviews(user.id).catch(() => []);
-        for (const r of myReviews as any[]) {
-          const t = r?.track ?? r ?? {};
-          const name = String(t.name ?? t.trackName ?? '').toLowerCase().trim();
-          const artist = String(t.artist ?? t.trackArtist ?? '').toLowerCase().trim();
-          if (!name || !artist) continue;
-          const hasContent =
-            (Array.isArray(r.notes) && r.notes.length > 0) ||
-            (r.momentSeconds !== null && r.momentSeconds !== undefined);
-          if (hasContent) reviewedWithContent.add(`${artist}|||${name}`);
-        }
-      }
-
-      const filtered = prompts.filter((p) => {
-        const name = String(p.track ?? p.album ?? '').toLowerCase().trim();
-        const artist = String(p.artist ?? '').toLowerCase().trim();
-        return !reviewedWithContent.has(`${artist}|||${name}`);
-      });
+      const reviewedWithContent = await reviewedWithContentKeys();
+      const filtered = prompts.filter((p) => !reviewedWithContent.has(promptKey(p)));
       console.log('[Feed] Prompts after reviewed-filter:', filtered.length);
       setCurrentPrompts(filtered);
     } catch (error) {
@@ -212,6 +219,26 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
     setCurrentPrompts((prev) => prev.filter((p) => p.id !== promptId));
   }
 
+  // "+" on the shelf: pull more prompts from Last.fm stats and append the new
+  // ones (excluding what's shown, dismissed, or already reviewed-with-notes).
+  async function handleGenerateMore() {
+    if (generatingMore || !lastFmUsername) return;
+    setGeneratingMore(true);
+    try {
+      const existingIds = currentPrompts.map((p) => p.id);
+      const more = await askingEngine.getMorePrompts(lastFmUsername, existingIds);
+      const reviewedWithContent = await reviewedWithContentKeys();
+      const fresh = more.filter((p) => !reviewedWithContent.has(promptKey(p)));
+      if (fresh.length > 0) {
+        setCurrentPrompts((prev) => [...prev, ...fresh]);
+      }
+    } catch (error) {
+      console.error('Failed to generate more prompts:', error);
+    } finally {
+      setGeneratingMore(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -230,12 +257,14 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
         ListHeaderComponent={
-          currentPrompts.length > 0 ? (
+          currentPrompts.length > 0 || lastFmConnected ? (
             <PromptShelf
               prompts={currentPrompts}
               accent={tokens.colors.gold}
               onOpenComposer={handleOpenComposer}
               onDismiss={handleDismissPrompt}
+              onGenerateMore={lastFmConnected ? handleGenerateMore : undefined}
+              generatingMore={generatingMore}
             />
           ) : null
         }

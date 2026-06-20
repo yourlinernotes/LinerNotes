@@ -48,9 +48,31 @@ function isPlaylistLink(url: string): boolean {
 }
 
 // Search art is missing or an unreliable Cover Art Archive URL (often 404s) —
-// in either case we try Last.fm for a better cover.
+// in either case we try a better cover source.
 function needsBetterArt(url?: string): boolean {
   return !url || url.includes('coverartarchive.org');
+}
+
+// Resolve a cover for a prompt-autofilled track/album: use the app's normal
+// album-art source (the iTunes-backed music search) first, Last.fm last resort.
+async function resolvePromptArtwork(
+  artist: string,
+  title: string,
+  kind: 'track' | 'album'
+): Promise<string | null> {
+  const pickUrl = (r: any): string =>
+    r?.artworkUrl || (r?.artworkUrl100 || '').replace('100x100', '600x600');
+  try {
+    const q = `${artist} ${title}`.trim();
+    const data = kind === 'album' ? await api.searchAlbums(q, 5) : await api.searchTracks(q, 5);
+    const hit = (data.results || []).find((r: any) => !needsBetterArt(pickUrl(r)));
+    if (hit) return pickUrl(hit);
+  } catch {
+    /* fall through to Last.fm */
+  }
+  return kind === 'album'
+    ? lastfm.getAlbumArtwork(artist, title).catch(() => null)
+    : lastfm.getTrackArtwork(artist, title).catch(() => null);
 }
 
 function linkPlatform(url: string): string {
@@ -180,14 +202,34 @@ export function ComposerScreen({
     })
   ).current;
 
-  // Set prefilled track/album from Last.fm prompts
+  // Set prefilled track/album from feed prompts, and autofill the cover when
+  // the prompt didn't carry one (album art first, Last.fm last resort).
   useEffect(() => {
     if (prefilledTrack) {
       setSelectedTrack(prefilledTrack);
       setMode('track');
+      if (needsBetterArt(prefilledTrack.artworkUrl) && prefilledTrack.artist && prefilledTrack.name) {
+        resolvePromptArtwork(prefilledTrack.artist, prefilledTrack.name, 'track').then((art) => {
+          if (art) {
+            setSelectedTrack((prev: any) =>
+              prev && prev.id === prefilledTrack.id ? { ...prev, artworkUrl: art } : prev
+            );
+          }
+        });
+      }
     } else if (prefilledAlbum) {
       setSelectedAlbum(prefilledAlbum);
       setMode('album');
+      const title = prefilledAlbum.album || prefilledAlbum.name;
+      if (needsBetterArt(prefilledAlbum.artworkUrl) && prefilledAlbum.artist && title) {
+        resolvePromptArtwork(prefilledAlbum.artist, title, 'album').then((art) => {
+          if (art) {
+            setSelectedAlbum((prev: any) =>
+              prev && prev.id === prefilledAlbum.id ? { ...prev, artworkUrl: art } : prev
+            );
+          }
+        });
+      }
     }
   }, [prefilledTrack, prefilledAlbum]);
 
