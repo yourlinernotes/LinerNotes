@@ -113,6 +113,15 @@ export async function GET() {
       const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
       const palette = paletteFromString(track.album?.["#text"] || track.name);
 
+      // Generate better prompts
+      const promptText = playCount >= 15
+        ? `You've played this ${playCount} times this week. What's pulling you back?`
+        : playCount >= 10
+        ? `${playCount} plays. This track is clearly doing something for you.`
+        : playCount >= 5
+        ? `You keep coming back to this one. What's the moment that hits?`
+        : `On rotation. Worth logging?`;
+
       prompts.push({
         id: `repeat-${trackKey}`,
         type: "repeat",
@@ -120,10 +129,8 @@ export async function GET() {
         artist: track.artist["#text"],
         album: track.album?.["#text"] || "",
         playCount,
-        prompt: playCount >= 10
-          ? `You've been playing this ${playCount} times.`
-          : `On repeat this week.`,
-        tag: playCount >= 10 ? "HEAVY ROTATION" : "ON REPEAT",
+        prompt: promptText,
+        tag: playCount >= 15 ? "HEAVY ROTATION" : playCount >= 10 ? "ON HEAVY PLAY" : "ON REPEAT",
         artworkUrl,
         palette,
       });
@@ -147,8 +154,8 @@ export async function GET() {
           track: track.name,
           artist: track.artist["#text"],
           album: track.album?.["#text"] || "",
-          prompt: "You were just listening to this.",
-          tag: "RECENT",
+          prompt: "Fresh in your queue. Anything worth saving?",
+          tag: "JUST PLAYED",
           artworkUrl,
           palette,
         });
