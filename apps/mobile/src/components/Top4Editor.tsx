@@ -187,7 +187,8 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
             </View>
           </View>
 
-          {/* Results */}
+          {/* Results — fills the space between the search bar and Save */}
+          <View style={styles.resultsRegion}>
           {searchResults.length > 0 && (
             <FlatList
               data={searchResults}
@@ -224,6 +225,7 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
               showsVerticalScrollIndicator={false}
             />
           )}
+          </View>
 
           {/* Save Button */}
           <View style={styles.footer}>
@@ -387,11 +389,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  resultsRegion: {
+    flex: 1,
+  },
   resultsFlat: {
     flex: 1,
   },
   resultsList: {
-    paddingBottom: 110,
+    paddingBottom: 8,
   },
   resultItem: {
     flexDirection: 'row',
@@ -437,12 +442,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 18,
-    paddingBottom: 34,
+    paddingTop: 12,
+    paddingBottom: 18,
   },
   saveButton: {
     paddingVertical: 14,
