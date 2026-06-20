@@ -30,16 +30,27 @@ interface Prompt {
 interface PromptShelfProps {
   prompts: Prompt[];
   accent?: string;
+  onRefresh?: () => void;
 }
 
-export function PromptShelf({ prompts, accent }: PromptShelfProps) {
+export function PromptShelf({ prompts, accent, onRefresh }: PromptShelfProps) {
   const router = useRouter();
   const [dismissedPrompts, setDismissedPrompts] = useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const gold = accent || "var(--ln-accent)";
 
   const visiblePrompts = prompts.filter((p) => !dismissedPrompts.has(p.id));
 
   if (visiblePrompts.length === 0) return null;
+
+  const handleRefresh = async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    await onRefresh();
+    // Clear dismissed prompts on refresh so user sees new set
+    setDismissedPrompts(new Set());
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
 
   const handleDismiss = (promptId: string) => {
     setDismissedPrompts((prev) => new Set([...prev, promptId]));
@@ -71,6 +82,50 @@ export function PromptShelf({ prompts, accent }: PromptShelfProps) {
             From what you've been playing
           </span>
         </div>
+
+        {onRefresh && (
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="ln-press"
+            style={{
+              background: "none",
+              border: "none",
+              cursor: isRefreshing ? "default" : "pointer",
+              padding: "6px 12px",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontFamily: "var(--ln-mono)",
+              fontSize: 10,
+              fontWeight: 600,
+              color: gold,
+              opacity: isRefreshing ? 0.5 : 1,
+              transition: "opacity 0.2s",
+            }}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              style={{
+                transform: isRefreshing ? "rotate(360deg)" : "rotate(0deg)",
+                transition: "transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            >
+              <path
+                d="M14 8a6 6 0 01-6 6m0 0a6 6 0 01-6-6m6 6V8m0 6l2-2m-2 2l-2-2M2 8a6 6 0 016-6m0 0a6 6 0 016 6M8 2v6m0-6l2 2M8 2L6 4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            REFRESH
+          </button>
+        )}
       </div>
 
       {/* Horizontal scroll of prompts */}

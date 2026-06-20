@@ -60,26 +60,21 @@ export default function Home() {
   }, []);
 
   // Fetch Last.fm prompts if logged in
-  useEffect(() => {
+  const fetchPrompts = async () => {
     if (!session) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/lastfm/prompts");
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled) {
-            setLastfmPrompts(data.prompts || []);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch Last.fm prompts:", error);
+    try {
+      const res = await fetch("/api/lastfm/prompts");
+      if (res.ok) {
+        const data = await res.json();
+        setLastfmPrompts(data.prompts || []);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    } catch (error) {
+      console.error("Failed to fetch Last.fm prompts:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPrompts();
   }, [session]);
 
   return (
@@ -120,7 +115,7 @@ export default function Home() {
         {/* Last.fm Prompts Shelf - dynamic prompts from listening history */}
         {session && lastfmPrompts.length > 0 && (
           <section style={{ maxWidth: 1180, margin: "0 auto", padding: "30px 24px 6px" }}>
-            <PromptShelf prompts={lastfmPrompts} />
+            <PromptShelf prompts={lastfmPrompts} onRefresh={fetchPrompts} />
           </section>
         )}
 
