@@ -447,7 +447,7 @@ export function ReviewActions({
       {onShare && (
         <button onClick={onShare} className="ln-press" style={btn}>
           <LNIcon name="share" size={15} color={INK} />
-          Share to story
+          Share on Twitter
         </button>
       )}
       {onPickNote && canPickNote && (

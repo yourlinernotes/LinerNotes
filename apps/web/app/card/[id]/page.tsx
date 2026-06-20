@@ -86,61 +86,22 @@ export default function CardPage() {
     }
   };
 
-  const handleShareToStory = async () => {
+  const handleShareToTwitter = async () => {
     if (!review) return;
     const url = window.location.href;
+    const text = `${review.track.name} by ${review.track.artist}`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+
     try {
+      // Copy link to clipboard for convenience
       await navigator.clipboard.writeText(url);
-      const cardElement = document.querySelector("#export-card .review-card");
-      if (!cardElement) {
-        alert("Card not found. Try again in a moment.");
-        return;
-      }
-      const { toPng } = await import("html-to-image");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const dataUrl = await toPng(cardElement as HTMLElement, {
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: "transparent",
-        cacheBust: true,
-        skipFonts: false,
-        filter: () => true,
-      });
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-      if (navigator.share && isMobile) {
-        try {
-          const shareFile = new File([blob], "linernotes-review.png", { type: "image/png" });
-          const shareData = {
-            files: [shareFile],
-            title: `${review.track.name} review`,
-            text: `Check out my review on LinerNotes: ${url}`,
-          };
-          if (navigator.canShare && navigator.canShare(shareData)) {
-            await navigator.share(shareData);
-            if (isIOS) {
-              alert("✅ Link copied!\n\n💡 Tip: Select 'Save Image' to add to Photos, then open Instagram to add it to your story!");
-            }
-            return;
-          }
-        } catch (shareError) {
-          console.log("Share API not fully supported, falling back:", shareError);
-        }
-      }
-
-      const link = document.createElement("a");
-      link.href = dataUrl;
-      link.download = "linernotes-review.png";
-      link.click();
-      alert(
-        "✅ Link copied! Image downloaded.\n\n📸 To share to Instagram Story:\n1. Open Instagram\n2. Create a new story with any background\n3. Tap the sticker icon → Camera Roll/Photos\n4. Select the downloaded review card\n5. Add a link sticker → paste the copied link\n6. Position the review card over the link to hide it"
-      );
+      // Open Twitter compose in new window
+      window.open(twitterUrl, "_blank", "width=550,height=420");
     } catch (error) {
-      console.error("Failed to share:", error);
-      alert("Failed to prepare story. Try the 'Copy Link' button instead.\n\nError: " + (error as Error).message);
+      console.error("Failed to share to Twitter:", error);
+      // Fallback: still open Twitter even if clipboard failed
+      window.open(twitterUrl, "_blank", "width=550,height=420");
     }
   };
 
@@ -196,7 +157,7 @@ export default function CardPage() {
           <ReviewActions
             onCopy={handleCopyLink}
             copied={copied}
-            onShare={handleShareToStory}
+            onShare={handleShareToTwitter}
             onPickNote={() => setShowNotePicker(true)}
             onDelete={() => setShowDeleteConfirm(true)}
             isOwner={isOwner}
@@ -247,11 +208,6 @@ export default function CardPage() {
           </div>
         </Overlay>
       )}
-
-      {/* Off-screen export card for the IG-story sticker */}
-      <div style={{ position: "fixed", left: "-9999px", top: 0 }} id="export-card">
-        <ReviewCard review={review} hideLinks={true} />
-      </div>
     </div>
   );
 }
