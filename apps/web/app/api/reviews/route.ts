@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
     const feedType = searchParams.get("feed"); // "friends" or null
+    const reviewType = searchParams.get("type"); // "reposts" or "saved" or null
 
     // Friends feed requires authentication
     if (feedType === "friends") {
@@ -88,6 +89,74 @@ export async function GET(request: NextRequest) {
       }));
 
       return NextResponse.json({ reviews: transformedReviews });
+    }
+
+    // Reposts - reviews the current user has reposted
+    if (reviewType === "reposts") {
+      if (!currentUserId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      const reposts = await prisma.repost.findMany({
+        where: { userId: currentUserId },
+        include: {
+          review: {
+            include: {
+              user: true,
+              likes: true,
+              reposts: {
+                include: { user: true },
+              },
+              notes: {
+                orderBy: { createdAt: 'asc' },
+              },
+              _count: {
+                select: { likes: true, reposts: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const transformedReviews = reposts.map(({ review }) => ({
+        id: review.id,
+        userId: review.userId,
+        user: review.user,
+        trackId: review.trackId,
+        trackName: review.trackName,
+        trackArtist: review.trackArtist,
+        trackAlbum: review.trackAlbum,
+        artworkUrl: review.artworkUrl,
+        previewUrl: review.previewUrl || undefined,
+        rating: review.rating,
+        take: review.take || undefined,
+        momentSeconds: review.momentSeconds || undefined,
+        momentLabel: review.momentLabel || undefined,
+        notes: review.notes.map((note) => ({
+          seconds: note.seconds,
+          label: note.label,
+          note: note.note || undefined,
+        })),
+        featuredNoteId: review.featuredNoteId || undefined,
+        createdAt: review.createdAt.toISOString(),
+        likeCount: review._count.likes,
+        repostCount: review._count.reposts,
+      }));
+
+      return NextResponse.json({ reviews: transformedReviews });
+    }
+
+    // Saved reviews - reviews the current user has saved
+    if (reviewType === "saved") {
+      if (!currentUserId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      // For now, return empty array as Save model doesn't exist in schema yet
+      // TODO: Add Save model to Prisma schema
+      console.log("Saved reviews requested but Save model not implemented yet");
+      return NextResponse.json({ reviews: [] });
     }
 
     // Get specific user's reviews (public, no auth required if userId provided)

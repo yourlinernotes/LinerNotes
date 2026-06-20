@@ -108,6 +108,10 @@ export function ProfileScreen({
         console.error('[Profile] getSavedReviews failed:', err);
         return [];
       });
+      const reposted = await api.getRepostedReviews().catch((err) => {
+        console.error('[Profile] getRepostedReviews failed:', err);
+        return [];
+      });
       const friends = await api.getFriends().catch((err) => {
         console.error('[Profile] getFriends failed:', err);
         return [];
@@ -130,7 +134,7 @@ export function ProfileScreen({
         top4: [], // Will be populated when top albums feature is implemented
         thisWeek: [], // Will be populated when this week feature is implemented
         reviews,
-        reposted: [], // Will be populated when reposts feature is implemented
+        reposted,
         saved,
       };
 
