@@ -824,8 +824,14 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: 'rgba(241,235,224,0.78)',
   },
-  editButton: {
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 14,
+  },
+  editButton: {
+    flex: 1,
     padding: 11,
     borderRadius: 11,
     borderWidth: 1,
@@ -838,6 +844,11 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '500',
     color: tokens.colors.fg,
+  },
+  shareButtonText: {
+    fontFamily: 'System',
+    fontSize: 13.5,
+    fontWeight: '600',
   },
   section: {
     flexDirection: 'row',
