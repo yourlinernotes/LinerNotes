@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
         displayName: true,
         avatarUrl: true,
         bio: true,
+        favourites: true,
         email: true,
         createdAt: true,
       },
@@ -47,7 +48,16 @@ export async function PATCH(request: NextRequest) {
     const user = await requireAuth();
 
     const body = await request.json();
-    const { displayName, bio, avatarUrl, handle } = body;
+    const { displayName, bio, avatarUrl, handle, favourites } = body;
+
+    // Validate favourites: an array of up to 4 string refs ("track:<id>" / "album:<id>")
+    let favouritesJson: string | undefined;
+    if (favourites !== undefined) {
+      if (!Array.isArray(favourites) || favourites.some((f) => typeof f !== "string")) {
+        return NextResponse.json({ error: "Favourites must be an array of refs" }, { status: 400 });
+      }
+      favouritesJson = JSON.stringify(favourites.slice(0, 4));
+    }
 
     // Validate input
     if (displayName !== undefined && (typeof displayName !== "string" || displayName.trim().length === 0)) {
@@ -111,6 +121,7 @@ export async function PATCH(request: NextRequest) {
         ...(bio !== undefined && { bio: bio.trim() || null }),
         ...(avatarUrl !== undefined && { avatarUrl: avatarUrl.trim() || null }),
         ...(handle !== undefined && { handle: handle.trim().toLowerCase() }),
+        ...(favouritesJson !== undefined && { favourites: favouritesJson }),
       },
       select: {
         id: true,
@@ -118,6 +129,7 @@ export async function PATCH(request: NextRequest) {
         displayName: true,
         avatarUrl: true,
         bio: true,
+        favourites: true,
         email: true,
       },
     });

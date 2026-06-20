@@ -19,6 +19,7 @@ model User {
   displayName   String?
   avatarUrl     String?
   bio           String?
+  favourites    String?   // JSON array of "track:<id>" / "album:<id>" refs — the curated Top 4
   passwordHash  String?   // For email/password auth
 
   // Legacy Spotify ID (nullable for migration from old auth)

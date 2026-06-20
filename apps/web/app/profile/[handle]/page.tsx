@@ -1,17 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import type { User, Review, AlbumReview } from "@/lib/types";
 import { TopBar, Footer } from "@/components/ln/nav";
-import { LNArt, LNStars } from "@/components/ln/atoms";
+import { LNArt, LNStars, LNIcon } from "@/components/ln/atoms";
 import { LNWCard } from "@/components/ln/cards";
 import { toReviewVM, toAlbumReviewVM, type ReviewVM } from "@/lib/view-adapter";
 import { paletteFromString, tintFromString } from "@/lib/palette";
 
-type ProfileUser = User & { bio?: string; friendCount?: number };
+type ProfileUser = User & { bio?: string; friendCount?: number; favourites?: string | null };
+
+type FavItem = {
+  ref: string; // "track:<id>" | "album:<id>"
+  kind: "track" | "album";
+  id: string;
+  title: string;
+  artist: string;
+  artworkUrl?: string | null;
+  seed: string;
+  rating: number;
+  href: string;
+};
+
+function trackToFav(r: Review): FavItem {
+  return { ref: `track:${r.id}`, kind: "track", id: r.id, title: r.track.name, artist: r.track.artist, artworkUrl: r.track.artworkUrl, seed: r.track.trackId || r.track.album || r.track.name, rating: r.rating || 0, href: `/card/${r.id}` };
+}
+function albumToFav(a: AlbumReview): FavItem {
+  return { ref: `album:${a.id}`, kind: "album", id: a.id, title: a.album.name, artist: a.album.artist, artworkUrl: a.album.artworkUrl, seed: a.album.albumId || a.album.name, rating: a.overallRating || 0, href: `/album-card/${a.id}` };
+}
+
+function parseFavs(json?: string | null): string[] {
+  try {
+    const a = JSON.parse(json || "[]");
+    return Array.isArray(a) ? a.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -31,25 +59,36 @@ function Stat({ n, label }: { n: number; label: string }) {
   );
 }
 
-function AlbumTile({ review, onOpen, rank }: { review: Review; onOpen: () => void; rank?: number }) {
+function FavTile({ item, rank, onOpen, onRemove }: { item: FavItem; rank?: number; onOpen?: () => void; onRemove?: () => void }) {
   const [hover, setHover] = useState(false);
-  const p = paletteFromString(review.track.trackId || review.track.album || review.track.name);
   return (
-    <button onClick={onOpen} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} className="ln-card-hover" style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", minWidth: 0, boxSizing: "border-box", cursor: "pointer", background: "none", border: "none", padding: 0, textAlign: "left", transform: hover ? "translateY(-3px)" : "none" }}>
-      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: hover ? "0 22px 44px -22px var(--ln-shadow)" : "0 12px 28px -18px var(--ln-shadow)" }}>
-        <LNArt palette={p} src={review.track.artworkUrl} label="" radius={12} noTag />
-        {review.rating > 0 && (
+    <div
+      onClick={onOpen}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      className="ln-card-hover"
+      style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", minWidth: 0, cursor: onOpen ? "pointer" : "default", transform: hover && onOpen ? "translateY(-3px)" : "none" }}
+    >
+      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: hover && onOpen ? "0 22px 44px -22px var(--ln-shadow)" : "0 12px 28px -18px var(--ln-shadow)" }}>
+        <LNArt palette={paletteFromString(item.seed)} src={item.artworkUrl} label="" radius={12} noTag />
+        {item.rating > 0 && !onRemove && (
           <div style={{ position: "absolute", top: 8, right: 8, padding: "4px 7px", borderRadius: 999, background: "rgba(8,7,6,0.58)", backdropFilter: "blur(6px)", border: "1px solid rgba(var(--ln-line-rgb),0.1)" }}>
-            <LNStars rating={review.rating} size={9} color="var(--ln-accent)" />
+            <LNStars rating={item.rating} size={9} color="var(--ln-accent)" />
           </div>
         )}
+        {onRemove && (
+          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove" style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.18)", background: "rgba(8,7,6,0.7)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+            <LNIcon name="close" size={13} color="#f1ebe0" />
+          </button>
+        )}
         {rank && <span style={{ position: "absolute", top: 8, left: 8, width: 20, height: 20, borderRadius: "50%", background: "rgba(8,7,6,0.62)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)", border: "1px solid rgba(var(--ln-line-rgb),0.12)" }}>{rank}</span>}
+        {item.kind === "album" && <span style={{ position: "absolute", left: 8, bottom: 8, padding: "2px 7px", borderRadius: 999, background: "rgba(8,7,6,0.5)", backdropFilter: "blur(6px)", fontFamily: "var(--ln-mono)", fontSize: 8.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "#f1ebe0" }}>album</span>}
       </div>
       <div>
-        <div style={{ fontFamily: "var(--ln-album)", fontWeight: 600, fontSize: 15, color: "var(--ln-fg)", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{review.track.name}</div>
-        <div style={{ fontFamily: "var(--ln-body)", fontSize: 12.5, color: "var(--ln-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{review.track.artist}</div>
+        <div style={{ fontFamily: "var(--ln-album)", fontWeight: 600, fontSize: 15, color: "var(--ln-fg)", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+        <div style={{ fontFamily: "var(--ln-body)", fontSize: 12.5, color: "var(--ln-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.artist}</div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -65,6 +104,12 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<"notes" | "saved">("notes");
+
+  const [favRefs, setFavRefs] = useState<string[]>([]);
+  const [savedFavRefs, setSavedFavRefs] = useState<string[]>([]);
+  const [editingFavs, setEditingFavs] = useState(false);
+  const [savingFavs, setSavingFavs] = useState(false);
+
   const isOwnProfile = session?.user?.handle === handle;
 
   useEffect(() => {
@@ -78,6 +123,9 @@ export default function ProfilePage() {
         }
         const userData = await userResponse.json();
         setUser(userData.user);
+        const favs = parseFavs(userData.user.favourites);
+        setFavRefs(favs);
+        setSavedFavRefs(favs);
 
         const reviewsResponse = await fetch(`/api/reviews?userId=${userData.user.id}`);
         if (reviewsResponse.ok) {
@@ -99,6 +147,29 @@ export default function ProfilePage() {
     };
     if (handle) loadProfile();
   }, [handle, session]);
+
+  const pool = useMemo<FavItem[]>(
+    () => [...reviews.map(trackToFav), ...albumReviews.map(albumToFav)],
+    [reviews, albumReviews]
+  );
+
+  const saveFavs = async () => {
+    setSavingFavs(true);
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favourites: favRefs }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      setSavedFavRefs(favRefs);
+      setEditingFavs(false);
+    } catch {
+      alert("Couldn't save favourites. Please try again.");
+    } finally {
+      setSavingFavs(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -124,23 +195,30 @@ export default function ProfilePage() {
   }
 
   const tint = tintFromString(user.id || user.handle);
-  const topReviews = [...reviews].sort((a, b) => b.rating - a.rating).slice(0, 4);
-  const recent = [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
+  const recentItems = [...reviews]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 8)
+    .map(trackToFav);
   const momentCount =
     reviews.reduce((s, r) => s + (r.notes?.length || 0), 0) +
     albumReviews.reduce((s, ar) => s + (ar.trackReviews?.reduce((t, tr) => t + (tr.notes?.length || 0), 0) || 0), 0);
+
+  const selectedFavs = favRefs.map((ref) => pool.find((p) => p.ref === ref)).filter(Boolean) as FavItem[];
+  const favsToShow = selectedFavs.length > 0 ? selectedFavs : [...pool].sort((a, b) => b.rating - a.rating).slice(0, 4);
 
   const noteVms: ReviewVM[] = [
     ...reviews.map((r) => toReviewVM({ ...r, user: r.user || user })),
     ...albumReviews.map((ar) => toAlbumReviewVM({ ...ar, user: ar.user || user })),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
+  const ghostBtn: React.CSSProperties = { padding: "6px 14px", borderRadius: 999, cursor: "pointer", background: "rgba(var(--ln-fg-rgb),0.05)", color: "rgba(var(--ln-fg-rgb),0.75)", border: "1px solid rgba(var(--ln-fg-rgb),0.18)", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600 };
+  const goldBtn: React.CSSProperties = { padding: "6px 16px", borderRadius: 999, cursor: "pointer", background: "var(--ln-accent)", color: "#1a0a04", border: "none", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 700 };
+
   return (
     <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", display: "flex", flexDirection: "column", flex: 1 }}>
       <TopBar />
 
       <main style={{ position: "relative", zIndex: 1, flex: 1 }}>
-        {/* header band */}
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, height: 320, background: `linear-gradient(180deg, ${tint}1f 0%, transparent 90%)`, pointerEvents: "none" }} />
           <div style={{ position: "relative", maxWidth: 1080, margin: "0 auto", padding: "120px 24px 0" }}>
@@ -170,24 +248,73 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {topReviews.length > 0 && (
+            {/* favourites */}
+            {(favsToShow.length > 0 || isOwnProfile) && (
               <div style={{ marginTop: 48 }}>
-                <SectionLabel>favourites</SectionLabel>
-                <div className="lnw-fav-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
-                  {topReviews.map((r, i) => (
-                    <AlbumTile key={r.id} review={r} rank={i + 1} onOpen={() => router.push(`/card/${r.id}`)} />
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
+                  <span style={{ fontFamily: "var(--ln-label)", fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 700, color: "var(--ln-accent)" }}>favourites</span>
+                  <span style={{ flex: 1, height: 1, background: "rgba(var(--ln-fg-rgb),0.1)" }} />
+                  {isOwnProfile && (editingFavs ? (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => { setFavRefs(savedFavRefs); setEditingFavs(false); }} className="ln-press" style={ghostBtn}>Cancel</button>
+                      <button onClick={saveFavs} disabled={savingFavs} className="ln-press" style={{ ...goldBtn, opacity: savingFavs ? 0.6 : 1 }}>{savingFavs ? "Saving…" : "Done"}</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setEditingFavs(true)} className="ln-press" style={ghostBtn}>{savedFavRefs.length ? "Edit" : "Choose"}</button>
                   ))}
                 </div>
+
+                {!editingFavs && favsToShow.length > 0 && (
+                  <div className="lnw-fav-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
+                    {favsToShow.map((it, i) => <FavTile key={it.ref} item={it} rank={i + 1} onOpen={() => router.push(it.href)} />)}
+                  </div>
+                )}
+                {!editingFavs && favsToShow.length === 0 && (
+                  <div style={{ fontFamily: "var(--ln-preview)", fontStyle: "italic", fontSize: 17, color: "var(--ln-muted)" }}>
+                    No favourites yet.{isOwnProfile && pool.length > 0 ? " Tap Choose to pick your Top 4." : ""}
+                  </div>
+                )}
+
+                {editingFavs && (
+                  <>
+                    <div className="lnw-fav-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
+                      {Array.from({ length: 4 }).map((_, i) => {
+                        const ref = favRefs[i];
+                        const it = ref ? pool.find((p) => p.ref === ref) : null;
+                        return it ? (
+                          <FavTile key={it.ref} item={it} rank={i + 1} onRemove={() => setFavRefs((refs) => refs.filter((r) => r !== ref))} />
+                        ) : (
+                          <div key={`slot-${i}`} style={{ aspectRatio: "1 / 1", borderRadius: 12, border: "1.5px dashed rgba(var(--ln-fg-rgb),0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--ln-mono)", fontSize: 18, color: "rgba(var(--ln-fg-rgb),0.25)" }}>{i + 1}</div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ marginTop: 18 }}>
+                      <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--ln-fg-rgb),0.5)" }}>add from your notes · {favRefs.length}/4</div>
+                      {pool.filter((p) => !favRefs.includes(p.ref)).length === 0 ? (
+                        <div style={{ marginTop: 10, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "rgba(var(--ln-fg-rgb),0.45)" }}>{pool.length === 0 ? "Log a note first, then pick your favourites." : "Everything you've logged is already in your Top 4."}</div>
+                      ) : (
+                        <div className="ln-scroll" style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 6, marginTop: 12, opacity: favRefs.length >= 4 ? 0.5 : 1 }}>
+                          {pool.filter((p) => !favRefs.includes(p.ref)).map((it) => (
+                            <div key={it.ref} style={{ width: 132, flexShrink: 0 }}>
+                              <FavTile item={it} onOpen={() => favRefs.length < 4 && setFavRefs((refs) => [...refs, it.ref])} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {favRefs.length >= 4 && <div style={{ marginTop: 8, fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" }}>Top 4 full — remove one to swap.</div>}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            {recent.length > 0 && (
+            {recentItems.length > 0 && (
               <div style={{ marginTop: 40 }}>
                 <SectionLabel>recent ratings</SectionLabel>
                 <div className="ln-scroll" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 6 }}>
-                  {recent.map((r) => (
-                    <div key={r.id} style={{ width: 150, flexShrink: 0 }}>
-                      <AlbumTile review={r} onOpen={() => router.push(`/card/${r.id}`)} />
+                  {recentItems.map((it) => (
+                    <div key={it.ref} style={{ width: 150, flexShrink: 0 }}>
+                      <FavTile item={it} onOpen={() => router.push(it.href)} />
                     </div>
                   ))}
                 </div>
@@ -196,7 +323,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* notes / saved */}
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "44px 24px 96px" }}>
           <div style={{ display: "flex", gap: 26, borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.1)", marginBottom: 26 }}>
             {([["notes", `notes · ${noteVms.length}`], ["saved", "saved · 0"]] as const).map(([id, label]) => (
