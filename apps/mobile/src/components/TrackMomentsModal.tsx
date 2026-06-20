@@ -266,10 +266,10 @@ const styles = StyleSheet.create({
   },
   trackName: {
     flex: 1,
-    fontFamily: tokens.typography.fonts.sans,
+    fontFamily: tokens.typography.fonts.body,
     fontSize: 15,
     fontWeight: '500',
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     letterSpacing: -0.01,
   },
   scroll: {

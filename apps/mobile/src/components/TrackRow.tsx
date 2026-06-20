@@ -12,14 +12,14 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { tokens } from '@linernotes/core';
-import type { TrackReaction } from '@linernotes/core';
+import type { ReactionType } from '@linernotes/core';
 
 interface TrackRowProps {
   trackNumber: number;
   trackName: string;
-  reaction: TrackReaction | null;
+  reaction: ReactionType | null;
   momentCount: number;
-  onReactionChange: (reaction: TrackReaction | null) => void;
+  onReactionChange: (reaction: ReactionType | null) => void;
   onMomentsPress?: () => void;
 }
 
@@ -33,7 +33,7 @@ export function TrackRow({
 }: TrackRowProps) {
   const cycleReaction = () => {
     // Cycle: null → flame → love → skip → null
-    const cycle: Array<TrackReaction | null> = [null, 'flame', 'love', 'skip'];
+    const cycle: Array<ReactionType | null> = [null, 'flame', 'love', 'skip'];
     const currentIndex = cycle.indexOf(reaction);
     const nextIndex = (currentIndex + 1) % cycle.length;
     onReactionChange(cycle[nextIndex]);
@@ -102,9 +102,9 @@ const styles = StyleSheet.create({
   },
   trackName: {
     flex: 1,
-    fontFamily: tokens.typography.fonts.sans,
+    fontFamily: tokens.typography.fonts.body,
     fontSize: 14,
-    color: tokens.colors.cream,
+    color: tokens.colors.fg,
     letterSpacing: -0.01,
   },
   momentBadge: {

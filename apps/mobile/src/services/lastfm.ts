@@ -12,11 +12,19 @@ const LASTFM_API_URL = 'https://ws.audioscrobbler.com/2.0/';
 const LASTFM_SESSION_KEY = '@linernotes:lastfm_session';
 const LASTFM_USERNAME_KEY = '@linernotes:lastfm_username';
 
+/** Last.fm returns image arrays as [{ size, '#text' }]. */
+export interface LastFmImage {
+  size?: string;
+  '#text'?: string;
+}
+
 export interface LastFmTrack {
   artist: string;
   name: string;
   /** Last.fm returns album either as a plain string or as { '#text' } */
   album?: string | { '#text': string };
+  /** Raw artwork variants (present on un-normalized API responses) */
+  image?: LastFmImage[];
   mbid?: string;
   date?: {
     uts: string; // Unix timestamp
@@ -100,6 +108,14 @@ class LastFmService {
     this.username = null;
     await AsyncStorage.removeItem(LASTFM_SESSION_KEY);
     await AsyncStorage.removeItem(LASTFM_USERNAME_KEY);
+  }
+
+  /**
+   * Disconnect Last.fm by clearing the stored username (and session).
+   * Alias of clearSession kept for callers that disconnect by username.
+   */
+  async clearUsername() {
+    await this.clearSession();
   }
 
   /**

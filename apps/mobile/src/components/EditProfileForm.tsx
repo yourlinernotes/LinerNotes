@@ -186,7 +186,7 @@ export function EditProfileForm({
             </Text>
           </View>
 
-          {lastFmStatus === 'linked' ? (
+          {lastFmStatus === 'linked' || lastFmStatus === 'disconnecting' ? (
             <View>
               <Text style={styles.lastFmDescription}>
                 Connected as <Text style={{ color: tokens.colors.gold }}>@{lastFmUsername}</Text>

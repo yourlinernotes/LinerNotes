@@ -4,7 +4,7 @@
  * Based on Claude Design handoff: composer.jsx
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,

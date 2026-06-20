@@ -128,7 +128,7 @@ class AskingEngineService {
           if (!this.dismissedPrompts.has(triggerId)) {
             // Find the track to get artwork
             const trackData = recentTracks.find(t =>
-              t.artist?.name === artist && t.name === track
+              (t.artist as any)?.name === artist && t.name === track
             );
             const artworkUrl = trackData?.image?.find(img => img.size === 'large')?.['#text'] ||
                               trackData?.image?.find(img => img.size === 'extralarge')?.['#text'];
@@ -139,7 +139,7 @@ class AskingEngineService {
               priority: 2,
               artist,
               track,
-              album: trackData?.album?.['#text'],
+              album: (trackData?.album as any)?.['#text'],
               mbid: trackData?.mbid,
               playCount: count,
               prompt: this.getRepeatPrompt(track, count),
@@ -159,7 +159,7 @@ class AskingEngineService {
           // Find a track from this album to get artwork
           const trackData = recentTracks.find(t => {
             const albumName = typeof t.album === 'string' ? t.album : t.album?.['#text'];
-            return t.artist?.name === album.artist && albumName === album.album;
+            return (t.artist as any)?.name === album.artist && albumName === album.album;
           });
           const artworkUrl = trackData?.image?.find(img => img.size === 'large')?.['#text'] ||
                             trackData?.image?.find(img => img.size === 'extralarge')?.['#text'];
@@ -170,7 +170,7 @@ class AskingEngineService {
             priority: 2,
             artist: album.artist,
             album: album.album,
-            mbid: trackData?.album?.mbid,
+            mbid: (trackData?.album as any)?.mbid,
             prompt: this.getFullAlbumPrompt(album.album),
             tag: 'FULL ALBUM',
             palette: { ...this.getDefaultPalette(), art: artworkUrl },

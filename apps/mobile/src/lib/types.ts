@@ -136,6 +136,9 @@ export interface User {
   /** Auto-generated weekly top 4 */
   thisWeek?: WeeklyFour;
 
+  /** Accepted-friend count (provided by GET /users/[handle]) */
+  friendCount?: number;
+
   createdAt: string;
   updatedAt: string;
 }

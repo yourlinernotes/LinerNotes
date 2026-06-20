@@ -150,7 +150,9 @@ export function AddPlaylistTrackModal({
                       {result.artist} {result.album && `· ${result.album}`}
                     </Text>
                   </View>
-                  <Icon name="chevdown" size={20} color={gold} style={{ transform: [{ rotate: '-90deg' }] }} />
+                  <View style={{ transform: [{ rotate: '-90deg' }] }}>
+                    <Icon name="chevdown" size={20} color={gold} />
+                  </View>
                 </TouchableOpacity>
               ))}
               {!isSearching && searchQuery.trim() && searchResults.length === 0 && (

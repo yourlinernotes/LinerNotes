@@ -41,7 +41,7 @@ export function PromptCard({ prompt, accent, onOpen, onDismiss }: PromptCardProp
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      onPress={onOpen}
+      onPress={() => onOpen()}
       style={styles.card}
     >
       {/* Gradient tint */}
@@ -99,7 +99,7 @@ export function PromptCard({ prompt, accent, onOpen, onDismiss }: PromptCardProp
             />
           </View>
 
-          <TouchableOpacity onPress={onOpen} style={styles.noteButton}>
+          <TouchableOpacity onPress={() => onOpen()} style={styles.noteButton}>
             <Text style={[styles.noteButtonText, { color: gold }]}>Note</Text>
             <Text style={[styles.arrow, { color: gold }]}>→</Text>
           </TouchableOpacity>
