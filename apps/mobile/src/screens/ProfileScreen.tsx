@@ -21,6 +21,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../components/ReviewCard';
+import { Top4ShareCard } from '../components/Top4ShareCard';
+import { ProfileShareCard } from '../components/ProfileShareCard';
 import { Icon } from '../components/atoms/Icon';
 import { Avatar } from '../components/atoms/Avatar';
 import { Stars } from '../components/atoms/Stars';
@@ -72,16 +74,19 @@ export function ProfileScreen({
   const [tab, setTab] = useState<TabType>('notes');
   const [showEdit, setShowEdit] = useState(false);
   const [showTop4Editor, setShowTop4Editor] = useState(false);
+  const [showProfileShareSheet, setShowProfileShareSheet] = useState(false);
   const [fullUser, setFullUser] = useState<User | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const gold = tokens.colors.gold;
+
+  const top4CardRef = useRef(null);
+  const profileCardRef = useRef(null);
 
   async function handleRefresh() {
     setRefreshing(true);
     await loadProfile();
     setRefreshing(false);
   }
-  const top4CardRef = useRef(null);
 
   useEffect(() => {
     loadProfile();
@@ -205,6 +210,34 @@ export function ProfileScreen({
     );
   };
 
+  const handleShareProfile = async () => {
+    if (!profileCardRef.current) return;
+
+    // Show share options for Profile card
+    Alert.alert(
+      'Share your profile',
+      'Export your profile card',
+      [
+        {
+          text: 'Camera Roll',
+          onPress: () => saveCardImage(profileCardRef.current),
+        },
+        {
+          text: 'Instagram Story',
+          onPress: () => shareToInstagramStory(profileCardRef.current),
+        },
+        {
+          text: 'TikTok',
+          onPress: () => shareToTikTok(profileCardRef.current),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
   const handleSaveTop4 = async (albums: Array<{ id: string; name: string; artist: string; artworkUrl: string }>) => {
     try {
       // Update user's favourites
@@ -294,9 +327,18 @@ export function ProfileScreen({
 
         {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
 
-        <TouchableOpacity style={styles.editButton} onPress={() => setShowEdit(true)}>
-          <Text style={styles.editButtonText}>Edit profile</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity style={styles.editButton} onPress={() => setShowEdit(true)}>
+            <Text style={styles.editButtonText}>Edit profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.shareButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
+            onPress={handleShareProfile}
+          >
+            <Icon name="share" size={15} color={gold} />
+            <Text style={[styles.shareButtonText, { color: gold }]}>Share</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Favourites - Top 4 */}
         {profile.top4.length > 0 ? (
@@ -307,18 +349,10 @@ export function ProfileScreen({
               onEdit={() => setShowTop4Editor(true)}
               onShare={handleShareTop4}
             />
-            <View ref={top4CardRef} collapsable={false} style={styles.top4Container}>
-              <View style={styles.top4Grid}>
-                {profile.top4.map((entry, i) => (
-                  <AlbumTile key={i} entry={entry} big />
-                ))}
-              </View>
-              {/* User attribution for shared card */}
-              <View style={styles.top4Attribution}>
-                <Text style={styles.top4AttrText}>
-                  @{profile.user.handle}'s top 4 · linernotes.app
-                </Text>
-              </View>
+            <View style={styles.top4Grid}>
+              {profile.top4.map((entry, i) => (
+                <AlbumTile key={i} entry={entry} big />
+              ))}
             </View>
           </>
         ) : (
@@ -418,6 +452,31 @@ export function ProfileScreen({
           onSave={handleSaveTop4}
         />
       )}
+
+      {/* Offscreen share cards for capture */}
+      <View style={{ position: 'absolute', left: -10000, top: 0 }}>
+        {profile.top4.length > 0 && (
+          <View ref={top4CardRef} collapsable={false} style={{ width: 1080, height: 1920 }}>
+            <Top4ShareCard
+              userName={profile.user.name}
+              userHandle={profile.user.handle}
+              top4={profile.top4}
+              accent={profile.user.tint}
+            />
+          </View>
+        )}
+
+        <View ref={profileCardRef} collapsable={false} style={{ width: 1080, height: 1920 }}>
+          <ProfileShareCard
+            userName={profile.user.name}
+            userHandle={profile.user.handle}
+            bio={profile.bio}
+            favourites={profile.top4}
+            tintColor={profile.user.tint}
+            linkSlot={false}
+          />
+        </View>
+      </View>
     </View>
   );
 }
