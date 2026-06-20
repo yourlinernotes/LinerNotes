@@ -67,7 +67,7 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
         }
 
         // Check if the playing track matches this review's album/artist
-        const trackArtist = track.artist?.name || track.artist;
+        const trackArtist = (track.artist as any)?.name || track.artist;
         const trackAlbum = typeof track.album === 'string' ? track.album : track.album?.['#text'];
 
         const matchesArtist = trackArtist?.toLowerCase().includes(album.artist?.toLowerCase() || '') ||

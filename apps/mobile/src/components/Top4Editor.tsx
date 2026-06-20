@@ -49,8 +49,8 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
 
     setIsSearching(true);
     try {
-      const results = await api.searchAlbums(searchQuery);
-      setSearchResults(results.slice(0, 20)); // Limit to 20 results
+      const { results } = await api.searchAlbums(searchQuery);
+      setSearchResults((results || []).slice(0, 20)); // Limit to 20 results
     } catch (error) {
       console.error('Failed to search albums:', error);
       Alert.alert('Search failed', 'Could not search for albums. Please try again.');

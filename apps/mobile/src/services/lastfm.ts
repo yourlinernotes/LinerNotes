@@ -30,6 +30,8 @@ export interface LastFmTrack {
     uts: string; // Unix timestamp
     '#text': string;
   };
+  /** Present on the currently-playing item: { nowplaying: 'true' } */
+  '@attr'?: { nowplaying?: string };
   nowplaying?: string;
 }
 
