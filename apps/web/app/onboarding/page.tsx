@@ -6,7 +6,7 @@
  * Mirrors mobile onboarding but uses OAuth for Last.fm instead of just username
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -31,7 +31,7 @@ const inputStyle: React.CSSProperties = {
 
 type OnboardingStep = 1 | 2;
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const { data: session, update: updateSession } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -411,5 +411,36 @@ export default function OnboardingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            background: "radial-gradient(60% 45% at 26% 14%, #2a1f18 0%, #1a0a0c 58%, #1a1512 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              border: "3px solid rgba(248,236,219,0.15)",
+              borderTopColor: "#D4AF37",
+              animation: "ln-spin 0.8s linear infinite",
+            }}
+          />
+        </div>
+      }
+    >
+      <OnboardingContent />
+    </Suspense>
   );
 }
