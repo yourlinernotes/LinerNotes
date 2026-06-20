@@ -19,17 +19,6 @@ function generateHandle(input: string): string {
   return `${base}${randomSuffix}`;
 }
 
-// Validate required environment variables
-if (!process.env.GOOGLE_CLIENT_ID) {
-  throw new Error("Missing GOOGLE_CLIENT_ID environment variable");
-}
-if (!process.env.GOOGLE_CLIENT_SECRET) {
-  throw new Error("Missing GOOGLE_CLIENT_SECRET environment variable");
-}
-if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error("Missing NEXTAUTH_SECRET environment variable");
-}
-
 export const authOptions: NextAuthConfig = {
   adapter: PrismaAdapter(prisma) as any,
   debug: process.env.NODE_ENV === 'development',

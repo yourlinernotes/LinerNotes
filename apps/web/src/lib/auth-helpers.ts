@@ -14,16 +14,21 @@ import { prisma } from "./prisma";
  * `session.user.id` keep working unchanged for both clients.
  */
 export async function getAuthSession(): Promise<Session | null> {
-  // 1. Web: NextAuth session cookie.
-  const session = await auth();
-  if (session?.user) {
-    return session;
+  try {
+    // 1. Web: NextAuth session cookie.
+    const session = await auth();
+    if (session?.user) {
+      return session;
+    }
+  } catch (error) {
+    // If auth() fails (e.g., missing env vars), log and continue to JWT check
+    console.error("Auth session error:", error);
   }
 
   // 2. Mobile: Bearer JWT.
-  const authHeader = (await headers()).get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    try {
+  try {
+    const authHeader = (await headers()).get("authorization");
+    if (authHeader?.startsWith("Bearer ")) {
       const payload = verify(
         authHeader.slice(7),
         process.env.NEXTAUTH_SECRET as string
@@ -45,9 +50,9 @@ export async function getAuthSession(): Promise<Session | null> {
           } as unknown as Session;
         }
       }
-    } catch {
-      // Invalid/expired token — fall through to unauthenticated.
     }
+  } catch {
+    // Invalid/expired token — fall through to unauthenticated.
   }
 
   return null;
