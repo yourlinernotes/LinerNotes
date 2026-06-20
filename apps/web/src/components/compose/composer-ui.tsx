@@ -248,11 +248,11 @@ export function DepthMeter({ depth, badge }: { depth: Depth; badge?: string }) {
   );
 }
 
-// ── Mode tabs (Track | Album) — link between the two routes ──
-export function ModeTabs({ active }: { active: "track" | "album" }) {
+// ── Mode tabs (Track | Album | Playlist) — link between the three routes ──
+export function ModeTabs({ active }: { active: "track" | "album" | "playlist" }) {
   return (
     <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 12, background: "rgba(var(--ln-fg-rgb),0.05)", border: "1px solid rgba(var(--ln-fg-rgb),0.09)" }}>
-      {([["track", "Track", "/log"], ["album", "Album", "/log/album"]] as const).map(([m, label, href]) => (
+      {([["track", "Track", "/log"], ["album", "Album", "/log/album"], ["playlist", "Playlist", "/log/playlist"]] as const).map(([m, label, href]) => (
         <a key={m} href={href} style={{ flex: 1, textAlign: "center", padding: "9px 0", borderRadius: 9, textDecoration: "none", fontFamily: "var(--ln-body)", fontSize: 13.5, fontWeight: 600, background: active === m ? GOLD : "transparent", color: active === m ? "#1a0a04" : "rgba(var(--ln-fg-rgb),0.65)" }}>{label}</a>
       ))}
     </div>

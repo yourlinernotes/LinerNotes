@@ -41,6 +41,9 @@ model User {
   albumReposts           AlbumRepost[]
   friendRequestsSent     Friendship[] @relation("FriendRequestsSent")
   friendRequestsReceived Friendship[] @relation("FriendRequestsReceived")
+  playlists              Playlist[]
+  playlistLikes          PlaylistLike[]
+  playlistReposts        PlaylistRepost[]
 
   @@index([handle])
   @@index([spotifyId])
@@ -291,4 +294,67 @@ enum FriendshipStatus {
   PENDING
   ACCEPTED
   REJECTED
+}
+
+model Playlist {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tracks  PlaylistTrack[]
+  likes   PlaylistLike[]
+  reposts PlaylistRepost[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PlaylistTrack {
+  id         String  @id @default(cuid())
+  playlistId String
+  trackId    String  // iTunes/MusicBrainz track ID
+  name       String
+  artist     String
+  album      String?
+  artworkUrl String?
+  note       String? // Optional note about why this track is in the playlist
+  order      Int     // Track position in playlist (0-indexed)
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@index([playlistId])
+  @@index([order])
+}
+
+model PlaylistLike {
+  id         String   @id @default(cuid())
+  userId     String
+  playlistId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, playlistId])
+  @@index([userId])
+  @@index([playlistId])
+}
+
+model PlaylistRepost {
+  id         String   @id @default(cuid())
+  userId     String
+  playlistId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, playlistId])
+  @@index([userId])
+  @@index([playlistId])
+  @@index([createdAt])
 }
