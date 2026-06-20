@@ -149,9 +149,11 @@ export function ComposerScreen({
   const [albumTracks, setAlbumTracks] = useState<any[]>([]);
   const [loadingTracks, setLoadingTracks] = useState(false);
 
-  // Playlist (playlist mode) — name + external Spotify/Apple link
+  // Playlist (playlist mode) — name + external Spotify/Apple link + curated tracks
   const [playlistName, setPlaylistName] = useState('');
   const [playlistLink, setPlaylistLink] = useState('');
+  const [playlistTracks, setPlaylistTracks] = useState<any[]>([]);
+  const [showPlaylistSearch, setShowPlaylistSearch] = useState(false);
 
   // The item the shared bits (rating, preview, post) act on.
   const selectedItem = mode === 'album' ? selectedAlbum : selectedTrack;
@@ -176,7 +178,7 @@ export function ComposerScreen({
 
   const canPost =
     mode === 'playlist'
-      ? playlistName.trim().length > 0 && isPlaylistLink(playlistLink)
+      ? playlistName.trim().length > 0 && playlistTracks.length > 0
       : !!selectedItem && rating > 0;
 
   // Swipe down from the top (header): the sheet tracks the finger and snaps
@@ -382,9 +384,17 @@ export function ComposerScreen({
 
       if (mode === 'playlist') {
         await api.createPlaylist({
-          name: playlistName.trim(),
-          url: playlistLink.trim(),
-          note: orderedTake || undefined,
+          title: playlistName.trim(),
+          description: orderedTake || undefined,
+          url: playlistLink.trim() || undefined,
+          tracks: playlistTracks.map((t) => ({
+            trackId: String(t.id),
+            name: t.name,
+            artist: t.artist,
+            album: t.album || '',
+            artworkUrl: t.artworkUrl || null,
+            note: t.note,
+          })),
         });
       } else if (mode === 'album') {
         await api.createAlbumReview({

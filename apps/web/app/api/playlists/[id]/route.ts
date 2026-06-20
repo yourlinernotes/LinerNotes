@@ -7,11 +7,11 @@ import { getSession } from "@/lib/auth-helpers";
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession();
-    const playlistId = params.id;
+    const { id: playlistId } = await params;
 
     const playlist = await prisma.playlist.findUnique({
       where: { id: playlistId },
