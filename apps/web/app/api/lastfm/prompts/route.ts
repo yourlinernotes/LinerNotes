@@ -83,6 +83,11 @@ export async function GET() {
     const recentData = await recentResponse.json();
     const tracks: LastFmTrack[] = recentData.recenttracks?.track || [];
 
+    console.log("[Last.fm Prompts] Recent tracks count:", tracks.length);
+    if (tracks.length > 0) {
+      console.log("[Last.fm Prompts] Sample track:", JSON.stringify(tracks[0], null, 2));
+    }
+
     if (tracks.length === 0) {
       return NextResponse.json({ prompts: [] });
     }
@@ -95,6 +100,10 @@ export async function GET() {
     if (topResponse.ok) {
       const topData = await topResponse.json();
       topTracks = topData.toptracks?.track || [];
+      console.log("[Last.fm Prompts] Top tracks count:", topTracks.length);
+      if (topTracks.length > 0) {
+        console.log("[Last.fm Prompts] Sample top track:", JSON.stringify(topTracks[0], null, 2));
+      }
     }
 
     // Prompt variations for variety
@@ -148,6 +157,14 @@ export async function GET() {
       const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
       const palette = paletteFromString(track.album?.["#text"] || track.name);
 
+      console.log("[Last.fm Prompts] Creating repeat prompt:", {
+        track: track.name,
+        artist: track.artist["#text"],
+        album: track.album?.["#text"],
+        artworkUrl,
+        imageArray: track.image,
+      });
+
       // Use varied prompt
       const promptVariation = repeatPrompts[repeatCandidates.length % repeatPrompts.length];
 
@@ -176,6 +193,14 @@ export async function GET() {
       const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
       const palette = paletteFromString(track.album?.["#text"] || track.name);
 
+      console.log("[Last.fm Prompts] Creating recent prompt:", {
+        track: track.name,
+        artist: track.artist["#text"],
+        album: track.album?.["#text"],
+        artworkUrl,
+        imageArray: track.image,
+      });
+
       // Use varied prompt
       const promptText = recentPrompts[recentCandidates.length % recentPrompts.length];
 
@@ -201,6 +226,11 @@ export async function GET() {
     for (let i = 0; i < maxLength; i++) {
       if (i < repeatCandidates.length) prompts.push(repeatCandidates[i]);
       if (i < recentCandidates.length) prompts.push(recentCandidates[i]);
+    }
+
+    console.log("[Last.fm Prompts] Final prompts count:", prompts.length);
+    if (prompts.length > 0) {
+      console.log("[Last.fm Prompts] Sample final prompt:", JSON.stringify(prompts[0], null, 2));
     }
 
     return NextResponse.json({ prompts });
