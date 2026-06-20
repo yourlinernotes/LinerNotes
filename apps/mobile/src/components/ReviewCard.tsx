@@ -21,9 +21,14 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
   const depth = !review.take ? 'floor' : review.body ? 'full' : 'caption';
 
   const showPill = rating > 0 && album.kind !== 'playlist';
-  // Show the "tap to read the full review" hint on interactive feed cards that
-  // have something more to read (a take and/or moments).
-  const showCTA = context === 'feed' && (!!review.take || (review.notes?.length ?? 0) > 0);
+  const hasFullReview = !!review.body;
+
+  // Show CTA/link slot:
+  // - Feed: show simple CTA when there's a full review
+  // - Share + Story: show dashed link sticker slot when there's a full review
+  // - Share + Camera Roll: no CTA (link is copied, but no visual slot)
+  const showCTA = context === 'feed' && hasFullReview;
+  const showLinkSlot = context === 'share' && variant === 'story' && hasFullReview;
 
   const padding = tokens.layout.cardPadding[depth];
 
@@ -119,17 +124,29 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
         {/* Album: track strip */}
         {isAlbum && album.tracks && <TrackStrip tracks={album.tracks} gold={gold} />}
 
-        {/* CTA — plain text */}
+        {/* CTA — plain text for feed */}
         {showCTA && (
           <Text style={[styles.ctaText, { color: gold }]}>
             tap to read the full review
           </Text>
         )}
 
+        {/* Link sticker slot — dashed border for story exports */}
+        {showLinkSlot && (
+          <View style={[styles.linkSlot, { borderColor: `${gold}66`, backgroundColor: `${gold}0A` }]}>
+            <Text style={[styles.linkSlotTitle, { color: gold }]}>
+              Tap to read the full review
+            </Text>
+            <Text style={[styles.linkSlotHint, { color: `${gold}99` }]}>
+              Drop your link sticker here, it's already copied
+            </Text>
+          </View>
+        )}
+
         {/* Footer - export only */}
         {context === 'share' && (
           <View style={styles.footer}>
-            <Text style={styles.footerText}>made on LinerNotes</Text>
+            <Text style={styles.footerText}>Made on LinerNotes</Text>
             <Text style={styles.footerText}>@{review.user.handle}</Text>
           </View>
         )}
@@ -398,6 +415,28 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     letterSpacing: 0.1,
+    textAlign: 'center',
+  },
+  linkSlot: {
+    marginTop: 1,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    gap: 2,
+  },
+  linkSlotTitle: {
+    fontFamily: 'System',
+    fontSize: 12.5,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
+  linkSlotHint: {
+    fontFamily: 'Menlo',
+    fontSize: 9,
+    letterSpacing: 0.3,
     textAlign: 'center',
   },
   footer: {
