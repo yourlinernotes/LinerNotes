@@ -58,8 +58,10 @@ export function PromptCard({ prompt, accent, onOpen, onDismiss }: PromptCardProp
             <View style={styles.artContainer}>
               <AlbumArt
                 palette={prompt.palette}
+                artworkUrl={prompt.palette.art}
                 size={42}
                 label={prompt.album || prompt.track || ''}
+                noTag
               />
             </View>
             <Text style={[styles.tag, { color: gold }]}>{prompt.tag}</Text>
