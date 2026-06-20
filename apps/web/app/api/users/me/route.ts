@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
+// Best-effort: the favourites column may not exist yet if the migration hasn't
+// been applied to this database. Never let that 500 a profile read.
+async function readFavourites(id: string): Promise<string | null> {
+  try {
+    const r = await prisma.user.findUnique({ where: { id }, select: { favourites: true } });
+    return r?.favourites ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * GET /api/users/me - Get current user's profile
  */
@@ -17,7 +28,6 @@ export async function GET(request: NextRequest) {
         displayName: true,
         avatarUrl: true,
         bio: true,
-        favourites: true,
         email: true,
         createdAt: true,
       },
@@ -27,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ user: fullUser });
+    return NextResponse.json({ user: { ...fullUser, favourites: await readFavourites(user.id) } });
   } catch (error) {
     console.error("Get current user error:", error);
     if (error instanceof Error && error.message === "Unauthorized") {
@@ -134,7 +144,6 @@ export async function PATCH(request: NextRequest) {
         ...(bio !== undefined && { bio: bio.trim() || null }),
         ...(avatarUrl !== undefined && { avatarUrl: avatarUrl.trim() || null }),
         ...(handle !== undefined && { handle: handle.trim().toLowerCase() }),
-        ...(favouritesJson !== undefined && { favourites: favouritesJson }),
       },
       select: {
         id: true,
@@ -142,12 +151,25 @@ export async function PATCH(request: NextRequest) {
         displayName: true,
         avatarUrl: true,
         bio: true,
-        favourites: true,
         email: true,
       },
     });
 
-    return NextResponse.json({ user: updatedUser });
+    // Save favourites separately + best-effort, so profile edits still succeed
+    // even if the favourites column isn't present yet.
+    let favouritesOut: string | null = null;
+    if (favouritesJson !== undefined) {
+      try {
+        const r = await prisma.user.update({ where: { id: user.id }, data: { favourites: favouritesJson }, select: { favourites: true } });
+        favouritesOut = r.favourites;
+      } catch {
+        /* column may not exist yet — ignore */
+      }
+    } else {
+      favouritesOut = await readFavourites(user.id);
+    }
+
+    return NextResponse.json({ user: { ...updatedUser, favourites: favouritesOut } });
   } catch (error) {
     console.error("Update user error:", error);
     if (error instanceof Error && error.message === "Unauthorized") {

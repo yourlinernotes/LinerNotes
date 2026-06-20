@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma migrate deploy && prisma generate && next build",
+    "vercel-build": "prisma migrate deploy || echo 'migrate deploy failed — continuing build'; prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"

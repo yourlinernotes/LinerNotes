@@ -13,6 +13,9 @@ export async function GET(
 
     const user = await prisma.user.findUnique({
       where: { handle },
+      // Omit favourites from the main read so a missing column (migration not yet
+      // applied) can't 500 the profile; it's fetched best-effort below.
+      omit: { favourites: true },
       include: {
         _count: {
           select: {
@@ -36,9 +39,18 @@ export async function GET(
     const friendCount =
       user._count.friendRequestsSent + user._count.friendRequestsReceived;
 
+    let favourites: string | null = null;
+    try {
+      const f = await prisma.user.findUnique({ where: { handle }, select: { favourites: true } });
+      favourites = f?.favourites ?? null;
+    } catch {
+      /* favourites column may not exist yet */
+    }
+
     return NextResponse.json({
       user: {
         ...user,
+        favourites,
         friendCount,
       },
     });
