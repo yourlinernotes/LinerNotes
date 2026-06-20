@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TopBar, Footer } from "@/components/ln/nav";
 import { tintFromString } from "@/lib/palette";
@@ -37,7 +37,7 @@ const hintStyle: React.CSSProperties = {
   lineHeight: 1.5,
 };
 
-export default function EditProfilePage() {
+function EditProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -251,5 +251,19 @@ export default function EditProfilePage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function EditProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--ln-bg)" }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", border: "3px solid rgba(var(--ln-fg-rgb),0.15)", borderTopColor: "var(--ln-accent)", animation: "ln-spin 0.8s linear infinite" }} />
+        </div>
+      }
+    >
+      <EditProfileContent />
+    </Suspense>
   );
 }
