@@ -59,7 +59,7 @@ function Stat({ n, label }: { n: number; label: string }) {
   );
 }
 
-function FavTile({ item, rank, onOpen, onRemove }: { item: FavItem; rank?: number; onOpen?: () => void; onRemove?: () => void }) {
+function FavTile({ item, rank, onOpen, onRemove, selected, flat }: { item: FavItem; rank?: number; onOpen?: () => void; onRemove?: () => void; selected?: boolean; flat?: boolean }) {
   const [hover, setHover] = useState(false);
   return (
     <div
@@ -67,11 +67,19 @@ function FavTile({ item, rank, onOpen, onRemove }: { item: FavItem; rank?: numbe
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       className="ln-card-hover"
-      style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", minWidth: 0, cursor: onOpen ? "pointer" : "default", transform: hover && onOpen ? "translateY(-3px)" : "none" }}
+      style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", minWidth: 0, cursor: onOpen ? "pointer" : "default", transform: !flat && hover && onOpen ? "translateY(-3px)" : "none" }}
     >
-      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: hover && onOpen ? "0 22px 44px -22px var(--ln-shadow)" : "0 12px 28px -18px var(--ln-shadow)" }}>
+      <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: !flat && hover && onOpen ? "0 22px 44px -22px var(--ln-shadow)" : "0 12px 28px -18px var(--ln-shadow)", border: selected ? "2px solid var(--ln-accent)" : "2px solid transparent" }}>
         <LNArt palette={paletteFromString(item.seed)} src={item.artworkUrl} label="" radius={12} noTag />
-        {item.rating > 0 && !onRemove && (
+        {selected && (
+          <>
+            <div style={{ position: "absolute", inset: 0, background: "rgba(8,7,6,0.32)" }} />
+            <div style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: "50%", background: "var(--ln-accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#1a0a04" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </div>
+          </>
+        )}
+        {item.rating > 0 && !onRemove && !selected && (
           <div style={{ position: "absolute", top: 8, right: 8, padding: "4px 7px", borderRadius: 999, background: "rgba(8,7,6,0.58)", backdropFilter: "blur(6px)", border: "1px solid rgba(var(--ln-line-rgb),0.1)" }}>
             <LNStars rating={item.rating} size={9} color="var(--ln-accent)" />
           </div>
@@ -152,6 +160,9 @@ export default function ProfilePage() {
     () => [...reviews.map(trackToFav), ...albumReviews.map(albumToFav)],
     [reviews, albumReviews]
   );
+
+  const toggleFav = (ref: string) =>
+    setFavRefs((refs) => (refs.includes(ref) ? refs.filter((r) => r !== ref) : refs.length < 4 ? [...refs, ref] : refs));
 
   const saveFavs = async () => {
     setSavingFavs(true);
@@ -288,20 +299,26 @@ export default function ProfilePage() {
                         );
                       })}
                     </div>
-                    <div style={{ marginTop: 18 }}>
-                      <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--ln-fg-rgb),0.5)" }}>add from your notes · {favRefs.length}/4</div>
-                      {pool.filter((p) => !favRefs.includes(p.ref)).length === 0 ? (
-                        <div style={{ marginTop: 10, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "rgba(var(--ln-fg-rgb),0.45)" }}>{pool.length === 0 ? "Log a note first, then pick your favourites." : "Everything you've logged is already in your Top 4."}</div>
+                    <div style={{ marginTop: 22 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 9, marginBottom: 4 }}>
+                        <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--ln-fg-rgb),0.5)" }}>your ratings — tap to choose</span>
+                        <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" }}>{favRefs.length}/4</span>
+                      </div>
+                      {pool.length === 0 ? (
+                        <div style={{ marginTop: 10, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "rgba(var(--ln-fg-rgb),0.45)" }}>Log a note first, then pick your favourites.</div>
                       ) : (
-                        <div className="ln-scroll" style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 6, marginTop: 12, opacity: favRefs.length >= 4 ? 0.5 : 1 }}>
-                          {pool.filter((p) => !favRefs.includes(p.ref)).map((it) => (
-                            <div key={it.ref} style={{ width: 132, flexShrink: 0 }}>
-                              <FavTile item={it} onOpen={() => favRefs.length < 4 && setFavRefs((refs) => [...refs, it.ref])} />
-                            </div>
-                          ))}
+                        <div className="ln-scroll" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 6, marginTop: 12 }}>
+                          {pool.map((it) => {
+                            const sel = favRefs.includes(it.ref);
+                            return (
+                              <div key={it.ref} style={{ width: 150, flexShrink: 0, opacity: !sel && favRefs.length >= 4 ? 0.45 : 1 }}>
+                                <FavTile item={it} flat selected={sel} onOpen={() => toggleFav(it.ref)} />
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
-                      {favRefs.length >= 4 && <div style={{ marginTop: 8, fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" }}>Top 4 full — remove one to swap.</div>}
+                      {favRefs.length >= 4 && <div style={{ marginTop: 8, fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" }}>Top 4 full — tap a chosen one to swap.</div>}
                     </div>
                   </>
                 )}
