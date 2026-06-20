@@ -85,6 +85,10 @@ function EditProfileContent() {
           const data = await res.json();
           setLastfmConnected(data.connected);
           setLastfmUsername(data.username || "");
+        } else {
+          // Non-200 response - log the error details
+          const errorText = await res.text();
+          console.error("Failed to load Last.fm status:", res.status, errorText);
         }
       } catch (error) {
         console.error("Failed to load Last.fm status:", error);

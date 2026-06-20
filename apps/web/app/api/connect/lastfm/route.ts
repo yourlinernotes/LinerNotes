@@ -56,10 +56,11 @@ export async function POST() {
  * Otherwise, return connection status
  */
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const callbackUrl = url.searchParams.get("callbackUrl");
+
   try {
     const user = await requireAuth();
-    const url = new URL(request.url);
-    const callbackUrl = url.searchParams.get("callbackUrl");
 
     // If callbackUrl is provided, initiate OAuth flow
     if (callbackUrl) {
@@ -109,6 +110,15 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Get Last.fm connection error:", error);
+
+    // If this is a status check (no callbackUrl), return not connected instead of error
+    if (!callbackUrl) {
+      return NextResponse.json({
+        connected: false,
+      });
+    }
+
+    // For OAuth flow, return proper error
     if (error instanceof Error && error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
