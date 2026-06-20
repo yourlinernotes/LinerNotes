@@ -14,7 +14,6 @@ import { formatTimestamp } from '../lib/time-utils';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api-client';
 import type { FeedReview } from '../lib/feed-types';
-import { odesli } from '../services/odesli';
 import { lastfm } from '../services/lastfm';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -157,35 +156,33 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
     setSpotifyOpening(true);
 
     try {
-      // Try to get Spotify link via Odesli
-      const artist = album.artist;
-      const title = album.title;
-
-      if (!artist || !title) {
+      const query = `${album.title} ${album.artist}`.trim();
+      if (!query) {
         Alert.alert('Error', 'Unable to open in Spotify - missing track info');
-        setSpotifyOpening(false);
         return;
       }
 
-      const links = await odesli.resolve(artist, title);
+      // Mirror the web: open a Spotify search for "title artist". Prefer the
+      // native app via the spotify: URI, fall back to the universal web link
+      // (which opens the Spotify app if installed, otherwise the browser).
+      const encoded = encodeURIComponent(query);
+      const appUri = `spotify:search:${encoded}`;
+      const webUrl = `https://open.spotify.com/search/${encoded}`;
 
-      if (links?.linksByPlatform?.spotify) {
-        const spotifyUri = links.linksByPlatform.spotify.nativeAppUriMobile || links.linksByPlatform.spotify.url;
-
-        const canOpen = await Linking.canOpenURL(spotifyUri);
-        if (canOpen) {
-          await Linking.openURL(spotifyUri);
-        } else {
-          Alert.alert('Spotify Not Found', 'Please install Spotify to open this track');
-        }
-      } else {
-        Alert.alert('Not Found', 'Could not find this track on Spotify');
-      }
+      const canOpenApp = await Linking.canOpenURL(appUri).catch(() => false);
+      await Linking.openURL(canOpenApp ? appUri : webUrl);
     } catch (error) {
       console.error('Failed to open Spotify:', error);
-      Alert.alert('Error', 'Failed to open Spotify');
+      // Last resort: the universal web URL.
+      try {
+        await Linking.openURL(
+          `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`
+        );
+      } catch {
+        Alert.alert('Error', 'Could not open Spotify');
+      }
     } finally {
-      setTimeout(() => setSpotifyOpening(false), 1900);
+      setTimeout(() => setSpotifyOpening(false), 1200);
     }
   };
 

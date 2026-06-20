@@ -991,7 +991,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   top4Container: {
-    marginTop: 13,
+    marginTop: 20,
     backgroundColor: tokens.colors.nearBlack,
     paddingVertical: 16,
     paddingHorizontal: 16,
