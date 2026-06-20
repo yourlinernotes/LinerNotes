@@ -60,12 +60,17 @@ export async function GET(request: Request) {
   const callbackUrl = url.searchParams.get("callbackUrl");
 
   try {
+    console.log("[Last.fm GET] Request received, callbackUrl:", callbackUrl);
+
     // Get session without throwing
     const { getAuthSession } = await import("@/lib/auth-helpers");
     const session = await getAuthSession();
 
+    console.log("[Last.fm GET] Session:", session ? "exists" : "null", session?.user?.id);
+
     if (!session?.user) {
       // Not authenticated - return not connected for status checks
+      console.log("[Last.fm GET] No session, returning connected: false");
       if (!callbackUrl) {
         return NextResponse.json({ connected: false });
       }
@@ -73,6 +78,7 @@ export async function GET(request: Request) {
     }
 
     const user = session.user;
+    console.log("[Last.fm GET] Authenticated user:", user.id);
 
     // If callbackUrl is provided, initiate OAuth flow
     if (callbackUrl) {
@@ -95,6 +101,7 @@ export async function GET(request: Request) {
     // Otherwise, return connection status
     const { prisma } = await import("@/lib/prisma");
 
+    console.log("[Last.fm GET] Querying Prisma for connection...");
     const connection = await prisma.musicConnection.findFirst({
       where: {
         userId: user.id,
@@ -107,22 +114,28 @@ export async function GET(request: Request) {
       },
     });
 
+    console.log("[Last.fm GET] Connection found:", connection ? "yes" : "no", connection?.id);
+
     if (!connection) {
+      console.log("[Last.fm GET] No connection, returning connected: false");
       return NextResponse.json({
         connected: false,
       });
     }
 
+    console.log("[Last.fm GET] Returning connected: true");
     return NextResponse.json({
       connected: true,
       username: connection.serviceUsername,
       connectedAt: connection.connectedAt,
     });
   } catch (error) {
-    console.error("Get Last.fm connection error:", error);
+    console.error("[Last.fm GET] ERROR:", error);
+    console.error("[Last.fm GET] Error stack:", error instanceof Error ? error.stack : "N/A");
 
     // If this is a status check (no callbackUrl), return not connected instead of error
     if (!callbackUrl) {
+      console.log("[Last.fm GET] Error during status check, returning connected: false");
       return NextResponse.json({
         connected: false,
       });
@@ -133,7 +146,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     return NextResponse.json(
-      { error: "Failed to get connection status" },
+      { error: `Failed to get connection status: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }

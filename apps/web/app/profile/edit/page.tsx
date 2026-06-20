@@ -81,21 +81,30 @@ function EditProfileContent() {
   useEffect(() => {
     const loadLastfmStatus = async () => {
       try {
+        console.log("Fetching Last.fm connection status...");
         const res = await fetch("/api/connect/lastfm");
+        console.log("Last.fm response status:", res.status);
+
         if (res.ok) {
           const data = await res.json();
+          console.log("Last.fm response data:", data);
           setLastfmConnected(data.connected);
           setLastfmUsername(data.username || "");
           setLastfmError("");
         } else {
           // Non-200 response - log and show error
           const errorText = await res.text();
-          console.error("Failed to load Last.fm status:", res.status, errorText);
-          setLastfmError(`Failed to check Last.fm status (${res.status})`);
+          console.error("Last.fm API error:", {
+            status: res.status,
+            statusText: res.statusText,
+            body: errorText,
+            headers: Object.fromEntries(res.headers.entries())
+          });
+          setLastfmError(`Failed to check Last.fm status (${res.status}): ${errorText.substring(0, 100)}`);
         }
       } catch (error) {
-        console.error("Failed to load Last.fm status:", error);
-        setLastfmError("Failed to check Last.fm connection");
+        console.error("Last.fm fetch error:", error);
+        setLastfmError(`Failed to check Last.fm connection: ${error instanceof Error ? error.message : String(error)}`);
       }
     };
     loadLastfmStatus();
