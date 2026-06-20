@@ -88,7 +88,7 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
     };
 
     checkNowPlaying();
-    interval = setInterval(checkNowPlaying, 10000); // Check every 10 seconds
+    interval = setInterval(checkNowPlaying, 3000); // Check every 3 seconds for responsive updates
 
     return () => clearInterval(interval);
   }, [album.artist, album.title, isAlbum]);
