@@ -258,11 +258,20 @@ export async function GET() {
       const playCount = track.playcount ? parseInt(track.playcount) : 0;
       if (playCount < 3) continue; // Only show if played 3+ times
 
-      let artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+      // Try to get artwork from Last.fm first
+      let artworkUrl = track.image?.find((img) => img.size === "extralarge")?.["#text"] ||
+                       track.image?.find((img) => img.size === "large")?.["#text"] ||
+                       track.image?.find((img) => img.size === "medium")?.["#text"] || "";
 
-      // If no artwork from Last.fm, try fetching from MusicBrainz/iTunes
-      if (!artworkUrl || artworkUrl === "") {
-        artworkUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
+      // Check if Last.fm actually has valid artwork (not just empty/placeholder)
+      const hasValidLastFmArt = artworkUrl && artworkUrl !== "" && !artworkUrl.includes("2a96cbd8b46e442fc41c2b86b821562f");
+
+      // If no valid artwork from Last.fm, fetch from MusicBrainz/iTunes
+      if (!hasValidLastFmArt) {
+        const fallbackUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
+        if (fallbackUrl) {
+          artworkUrl = fallbackUrl;
+        }
       }
 
       const palette = paletteFromString(albumName || track.name);
@@ -310,11 +319,20 @@ export async function GET() {
       if (seenTracks.has(trackKey)) continue;
       seenTracks.add(trackKey);
 
-      let artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+      // Try to get artwork from Last.fm first
+      let artworkUrl = track.image?.find((img) => img.size === "extralarge")?.["#text"] ||
+                       track.image?.find((img) => img.size === "large")?.["#text"] ||
+                       track.image?.find((img) => img.size === "medium")?.["#text"] || "";
 
-      // If no artwork from Last.fm, try fetching from MusicBrainz/iTunes
-      if (!artworkUrl || artworkUrl === "") {
-        artworkUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
+      // Check if Last.fm actually has valid artwork (not just empty/placeholder)
+      const hasValidLastFmArt = artworkUrl && artworkUrl !== "" && !artworkUrl.includes("2a96cbd8b46e442fc41c2b86b821562f");
+
+      // If no valid artwork from Last.fm, fetch from MusicBrainz/iTunes
+      if (!hasValidLastFmArt) {
+        const fallbackUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
+        if (fallbackUrl) {
+          artworkUrl = fallbackUrl;
+        }
       }
 
       const palette = paletteFromString(albumName || track.name);
@@ -363,11 +381,20 @@ export async function GET() {
       const playCount = parseInt(album.playcount) || 0;
       if (playCount < 3) continue; // Only show if played 3+ times
 
-      let artworkUrl = album.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+      // Try to get artwork from Last.fm first
+      let artworkUrl = album.image?.find((img) => img.size === "extralarge")?.["#text"] ||
+                       album.image?.find((img) => img.size === "large")?.["#text"] ||
+                       album.image?.find((img) => img.size === "medium")?.["#text"] || "";
 
-      // If no artwork from Last.fm, try fetching from MusicBrainz/iTunes
-      if (!artworkUrl || artworkUrl === "") {
-        artworkUrl = await fetchFallbackArtwork("", artistName, album.name);
+      // Check if Last.fm actually has valid artwork (not just empty/placeholder)
+      const hasValidLastFmArt = artworkUrl && artworkUrl !== "" && !artworkUrl.includes("2a96cbd8b46e442fc41c2b86b821562f");
+
+      // If no valid artwork from Last.fm, fetch from MusicBrainz/iTunes
+      if (!hasValidLastFmArt) {
+        const fallbackUrl = await fetchFallbackArtwork("", artistName, album.name);
+        if (fallbackUrl) {
+          artworkUrl = fallbackUrl;
+        }
       }
 
       const palette = paletteFromString(album.name);
