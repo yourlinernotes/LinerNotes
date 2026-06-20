@@ -25,9 +25,10 @@ const PALETTES = [
 
 /** Stable palette per album/track id, with the gold accent fixed across all. */
 export function paletteFromId(id: string) {
+  const seed = id || 'default';
   let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
   const base = PALETTES[hash % PALETTES.length];
   return { ...base, accent: tokens.colors.gold };
@@ -50,16 +51,26 @@ export function reviewToFeedReview(review: EnrichedReview, fallbackAuthor: FeedA
   const author = review.user ?? fallbackAuthor;
   const depth: FeedReview['depth'] = !review.take ? 'floor' : 'caption';
 
+  // Backend endpoints are inconsistent: some return a nested `track` object
+  // (keyed by `id` or `trackId`), reposts/saves return flat `trackName` fields.
+  // Read defensively so the card never crashes on a missing `track`.
+  const t: any = (review as any).track ?? review;
+  const trackName = t.name ?? t.trackName ?? '';
+  const trackArtist = t.artist ?? t.trackArtist ?? '';
+  const trackAlbum = t.album ?? t.trackAlbum ?? '';
+  const trackArtwork = t.artworkUrl ?? '';
+  const trackId = t.id ?? t.trackId ?? review.id;
+
   return {
     id: review.id,
     depth,
     user: author,
     album: {
-      title: review.track.name,
-      artist: review.track.artist,
+      title: trackName,
+      artist: trackArtist,
       year: 0,
-      artworkUrl: review.track.artworkUrl,
-      palette: paletteFromId(review.track.album || review.track.id),
+      artworkUrl: trackArtwork,
+      palette: paletteFromId(trackAlbum || trackId),
     },
     rating: review.rating,
     at: review.createdAt,
