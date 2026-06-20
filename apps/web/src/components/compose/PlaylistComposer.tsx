@@ -164,7 +164,7 @@ export function PlaylistComposer() {
         <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.08em", color: gold, textTransform: "uppercase", marginBottom: 10 }}>
           Add tracks ({tracks.length})
         </div>
-        <TrackSearch onTrackSelect={handleAddTrack} searchAPI={searchTracks} placeholder="Search for a track to add..." />
+        <TrackSearch onTrackSelect={handleAddTrack} searchAPI={searchTracks} />
       </div>
 
       {/* Track List */}
