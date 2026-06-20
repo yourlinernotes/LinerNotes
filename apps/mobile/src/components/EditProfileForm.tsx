@@ -169,7 +169,7 @@ export function EditProfileForm({
           style={styles.lastFmGradient}
         />
         <View style={styles.lastFmContent}>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+          <View style={styles.lastFmHeader}>
             <Text style={styles.lastFmTitle}>Last.fm</Text>
             <Text
               style={[
@@ -328,6 +328,11 @@ const styles = StyleSheet.create({
   },
   lastFmContent: {
     padding: 14,
+    gap: 8,
+  },
+  lastFmHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     gap: 8,
   },
   lastFmTitle: {

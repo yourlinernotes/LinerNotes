@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform, StatusB
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FeedScreen, ExperienceScreen, ProfileScreen, ComposerScreen, LoginScreen, OnboardingScreen } from './src/screens';
+import { OtherUserProfileScreen } from './src/screens/OtherUserProfileScreen';
 import { MenuIcon, PlusIcon } from './src/components/atoms';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { SideMenu } from './src/components/SideMenu';
@@ -27,6 +28,7 @@ function AppContent() {
   const [composerPrefill, setComposerPrefill] = useState<{ track?: any; album?: any; rating?: number } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [otherUserHandle, setOtherUserHandle] = useState<string | null>(null);
   const [hasRequests, setHasRequests] = useState(false);
   // Bumping this remounts the active screen so it re-fetches after an action.
   const [contentKey, setContentKey] = useState(0);
@@ -151,6 +153,7 @@ function AppContent() {
               setComposerPrefill(prefill || null);
               setComposerOpen(true);
             }}
+            onOpenUserProfile={(userHandle) => setOtherUserHandle(userHandle)}
           />
         )}
         {activeTab === 'profile' && <ProfileScreen key={contentKey} onOpenReview={openReview} />}
@@ -225,6 +228,17 @@ function AppContent() {
           refreshContent();
         }}
       />
+
+      {/* Other user profile modal */}
+      {otherUserHandle && (
+        <View style={styles.experienceOverlay}>
+          <OtherUserProfileScreen
+            userHandle={otherUserHandle}
+            onClose={() => setOtherUserHandle(null)}
+            onOpenReview={openReview}
+          />
+        </View>
+      )}
     </View>
   );
 }

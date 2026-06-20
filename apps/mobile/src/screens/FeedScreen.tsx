@@ -43,9 +43,10 @@ interface FeedItemData {
 interface FeedScreenProps {
   onOpenReview?: (review: FeedReview) => void;
   onOpenComposer?: (prefill?: { track?: any; album?: any; rating?: number }) => void;
+  onOpenUserProfile?: (userHandle: string) => void;
 }
 
-export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
+export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: FeedScreenProps) {
   const { user } = useAuth();
   const [feedItems, setFeedItems] = useState<FeedItemData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -197,7 +198,7 @@ export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
       <FlatList
         data={feedItems}
         renderItem={({ item }) => (
-          <FeedItem item={item} onOpen={handleOpenReview} />
+          <FeedItem item={item} onOpen={handleOpenReview} onOpenUserProfile={onOpenUserProfile} />
         )}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
@@ -228,7 +229,15 @@ export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
   );
 }
 
-function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: (review: FeedReview) => void }) {
+function FeedItem({
+  item,
+  onOpen,
+  onOpenUserProfile
+}: {
+  item: FeedItemData;
+  onOpen: (review: FeedReview) => void;
+  onOpenUserProfile?: (userHandle: string) => void;
+}) {
   const [like, setLike] = useState({ on: false, n: item.likeCount });
   const [save, setSave] = useState(item.saved);
   const [repost, setRepost] = useState({ on: false, n: item.repostCount });
@@ -287,9 +296,19 @@ function FeedItem({ item, onOpen }: { item: FeedItemData; onOpen: (review: FeedR
     <View style={styles.feedItem}>
       {/* Poster row */}
       <View style={styles.poster}>
-        <Avatar user={{ name: item.user.displayName, tint: item.user.tint }} size={30} />
+        <TouchableOpacity
+          onPress={() => onOpenUserProfile?.(item.user.handle)}
+          activeOpacity={0.7}
+        >
+          <Avatar user={{ name: item.user.displayName, tint: item.user.tint }} size={30} />
+        </TouchableOpacity>
         <View style={styles.posterInfo}>
-          <Text style={styles.userName}>{item.user.displayName}</Text>
+          <TouchableOpacity
+            onPress={() => onOpenUserProfile?.(item.user.handle)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.userName}>{item.user.displayName}</Text>
+          </TouchableOpacity>
           <Text style={styles.userHandle}>
             @{item.user.handle} · {formatRelativeTime(item.createdAt)}
           </Text>
