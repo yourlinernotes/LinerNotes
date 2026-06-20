@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { getSession } from "@/lib/auth-helpers";
 
 /**
  * GET /api/playlists/[id] - Get a specific playlist
@@ -11,7 +10,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getSession();
     const playlistId = params.id;
 
     const playlist = await prisma.playlist.findUnique({
