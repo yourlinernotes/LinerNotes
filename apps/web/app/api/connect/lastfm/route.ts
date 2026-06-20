@@ -56,17 +56,27 @@ export async function POST() {
  * Otherwise, return connection status
  */
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const callbackUrl = url.searchParams.get("callbackUrl");
+  console.log("[Last.fm GET] START");
 
   try {
+    const url = new URL(request.url);
+    const callbackUrl = url.searchParams.get("callbackUrl");
     console.log("[Last.fm GET] Request received, callbackUrl:", callbackUrl);
 
     // Get session without throwing
-    const { getAuthSession } = await import("@/lib/auth-helpers");
-    const session = await getAuthSession();
-
-    console.log("[Last.fm GET] Session:", session ? "exists" : "null", session?.user?.id);
+    let session;
+    try {
+      const { getAuthSession } = await import("@/lib/auth-helpers");
+      session = await getAuthSession();
+      console.log("[Last.fm GET] Session:", session ? "exists" : "null", session?.user?.id);
+    } catch (sessionError) {
+      console.error("[Last.fm GET] Session error:", sessionError);
+      // Return not connected instead of crashing
+      if (!callbackUrl) {
+        return NextResponse.json({ connected: false });
+      }
+      return NextResponse.json({ error: "Session error" }, { status: 500 });
+    }
 
     if (!session?.user) {
       // Not authenticated - return not connected for status checks
@@ -99,22 +109,31 @@ export async function GET(request: Request) {
     }
 
     // Otherwise, return connection status
-    const { prisma } = await import("@/lib/prisma");
+    let connection;
+    try {
+      const { prisma } = await import("@/lib/prisma");
+      console.log("[Last.fm GET] Querying Prisma for connection...");
 
-    console.log("[Last.fm GET] Querying Prisma for connection...");
-    const connection = await prisma.musicConnection.findFirst({
-      where: {
-        userId: user.id,
-        service: "lastfm",
-      },
-      select: {
-        id: true,
-        serviceUsername: true,
-        connectedAt: true,
-      },
-    });
+      connection = await prisma.musicConnection.findFirst({
+        where: {
+          userId: user.id,
+          service: "lastfm",
+        },
+        select: {
+          id: true,
+          serviceUsername: true,
+          connectedAt: true,
+        },
+      });
 
-    console.log("[Last.fm GET] Connection found:", connection ? "yes" : "no", connection?.id);
+      console.log("[Last.fm GET] Connection found:", connection ? "yes" : "no", connection?.id);
+    } catch (prismaError) {
+      console.error("[Last.fm GET] Prisma error:", prismaError);
+      return NextResponse.json(
+        { error: `Database error: ${prismaError instanceof Error ? prismaError.message : String(prismaError)}` },
+        { status: 500 }
+      );
+    }
 
     if (!connection) {
       console.log("[Last.fm GET] No connection, returning connected: false");
