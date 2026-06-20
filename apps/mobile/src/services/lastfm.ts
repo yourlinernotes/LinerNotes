@@ -49,10 +49,10 @@ export interface LastFmRecentTracksResponse {
 }
 
 // Last.fm serves this placeholder star image when it has no real artwork.
-const LASTFM_PLACEHOLDER = '2a96cbd8b46e442fc41c2b86b821562f';
+export const LASTFM_PLACEHOLDER = '2a96cbd8b46e442fc41c2b86b821562f';
 
 /** Pick the largest real image URL from a Last.fm image array (or null). */
-function pickLastFmImage(images: any): string | null {
+export function pickLastFmImage(images: any): string | null {
   if (!Array.isArray(images)) return null;
   const bySize = (s: string) => images.find((i: any) => i?.size === s)?.['#text'];
   const url =

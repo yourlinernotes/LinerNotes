@@ -47,10 +47,14 @@ function isPlaylistLink(url: string): boolean {
   );
 }
 
-// Search art is missing or an unreliable Cover Art Archive URL (often 404s) —
-// in either case we try a better cover source.
+// Art is unusable when it's missing, an unreliable Cover Art Archive URL
+// (often 404s), or Last.fm's placeholder "grey star" — try a better source.
 function needsBetterArt(url?: string): boolean {
-  return !url || url.includes('coverartarchive.org');
+  return (
+    !url ||
+    url.includes('coverartarchive.org') ||
+    url.includes('2a96cbd8b46e442fc41c2b86b821562f')
+  );
 }
 
 // Resolve a cover for a prompt-autofilled track/album: use the app's normal

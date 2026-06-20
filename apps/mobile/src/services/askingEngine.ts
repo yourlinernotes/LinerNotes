@@ -10,11 +10,13 @@
  * NO homework prompts - build around acts the user took, not gaps they left
  */
 
-import { lastfm, LastFmTrack } from './lastfm';
+import { lastfm, LastFmTrack, pickLastFmImage } from './lastfm';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DISMISSED_PROMPTS_KEY = '@linernotes:dismissed_prompts';
 const LAST_PROMPT_TIME_KEY = '@linernotes:last_prompt_time';
+// "+"-generated prompts persist here so they survive a feed refresh.
+const GENERATED_PROMPTS_KEY = '@linernotes:generated_prompts';
 
 export interface PromptTrigger {
   id: string;
@@ -39,7 +41,9 @@ export interface PromptTrigger {
 
 class AskingEngineService {
   private dismissedPrompts: Set<string> = new Set();
+  private generatedPrompts: PromptTrigger[] = [];
   private lastPromptTime: number = 0;
+  private loaded = false;
 
   async initialize() {
     // Load dismissed prompts
@@ -48,11 +52,33 @@ class AskingEngineService {
       this.dismissedPrompts = new Set(JSON.parse(dismissed));
     }
 
+    // Load persisted "+"-generated prompts
+    const generated = await AsyncStorage.getItem(GENERATED_PROMPTS_KEY);
+    if (generated) {
+      try {
+        this.generatedPrompts = JSON.parse(generated);
+      } catch {
+        this.generatedPrompts = [];
+      }
+    }
+
     // Load last prompt time
     const lastTime = await AsyncStorage.getItem(LAST_PROMPT_TIME_KEY);
     if (lastTime) {
       this.lastPromptTime = parseInt(lastTime, 10);
     }
+    this.loaded = true;
+  }
+
+  private async persistGenerated() {
+    await AsyncStorage.setItem(GENERATED_PROMPTS_KEY, JSON.stringify(this.generatedPrompts));
+  }
+
+  /** Deterministic variant pick so a given prompt's wording is stable. */
+  private pickVariant(variants: string[], seed: string): string {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    return variants[h % variants.length];
   }
 
   /**
@@ -79,7 +105,13 @@ class AskingEngineService {
    */
   async getFeedPrompts(username?: string, top4Albums?: any[]): Promise<PromptTrigger[]> {
     await this.initialize();
-    return this.buildTriggers(username, top4Albums);
+    const base = await this.buildTriggers(username, top4Albums);
+    const baseIds = new Set(base.map((p) => p.id));
+    // Persisted "+"-generated prompts survive refresh until dismissed/completed.
+    const extra = this.generatedPrompts.filter(
+      (p) => !this.dismissedPrompts.has(p.id) && !baseIds.has(p.id)
+    );
+    return [...base, ...extra];
   }
 
   /**
@@ -91,7 +123,7 @@ class AskingEngineService {
     await this.initialize();
     if (!username) return [];
 
-    const exclude = new Set(excludeIds);
+    const exclude = new Set([...excludeIds, ...this.generatedPrompts.map((p) => p.id)]);
     const out: PromptTrigger[] = [];
 
     try {
@@ -106,10 +138,8 @@ class AskingEngineService {
           exclude.add(id);
 
           const playCount = parseInt(tt.playcount || '0', 10);
-          const images = Array.isArray(tt.image) ? tt.image : [];
-          const art =
-            images.find((i: any) => i?.size === 'extralarge')?.['#text'] ||
-            images.find((i: any) => i?.size === 'large')?.['#text'];
+          // pickLastFmImage filters Last.fm's placeholder "grey star".
+          const art = pickLastFmImage(tt.image) || undefined;
 
           out.push({
             id,
@@ -119,7 +149,7 @@ class AskingEngineService {
             track: tt.name,
             mbid: tt.mbid,
             playCount: playCount || undefined,
-            prompt: playCount ? `${playCount} plays — worth a note?` : 'on rotation — worth a note?',
+            prompt: this.getRotationPrompt(tt.name, playCount),
             tag: 'ON ROTATION',
             palette: { ...this.getDefaultPalette(), art },
           });
@@ -130,6 +160,13 @@ class AskingEngineService {
       }
     } catch (error) {
       console.error('getMorePrompts failed:', error);
+    }
+
+    // Persist so generated prompts survive a refresh (removed only on dismiss
+    // or when a review is completed).
+    if (out.length > 0) {
+      this.generatedPrompts.push(...out);
+      await this.persistGenerated();
     }
 
     return out;
@@ -183,8 +220,7 @@ class AskingEngineService {
             const trackData = recentTracks.find(t =>
               (t.artist as any)?.name === artist && t.name === track
             );
-            const artworkUrl = trackData?.image?.find(img => img.size === 'large')?.['#text'] ||
-                              trackData?.image?.find(img => img.size === 'extralarge')?.['#text'];
+            const artworkUrl = pickLastFmImage(trackData?.image) || undefined;
 
             allTriggers.push({
               id: triggerId,
@@ -214,8 +250,7 @@ class AskingEngineService {
             const albumName = typeof t.album === 'string' ? t.album : t.album?.['#text'];
             return (t.artist as any)?.name === album.artist && albumName === album.album;
           });
-          const artworkUrl = trackData?.image?.find(img => img.size === 'large')?.['#text'] ||
-                            trackData?.image?.find(img => img.size === 'extralarge')?.['#text'];
+          const artworkUrl = pickLastFmImage(trackData?.image) || undefined;
 
           allTriggers.push({
             id: triggerId,
@@ -241,9 +276,8 @@ class AskingEngineService {
           const triggerId = `heavy-unrated:${artistName}:${topTrack.name}`;
 
           if (!this.dismissedPrompts.has(triggerId)) {
-            // Get artwork from top track data
-            const artworkUrl = (topTrack as any).image?.find((img: any) => img.size === 'large')?.['#text'] ||
-                              (topTrack as any).image?.find((img: any) => img.size === 'extralarge')?.['#text'];
+            // Get artwork from top track data (filters the placeholder star).
+            const artworkUrl = pickLastFmImage((topTrack as any).image) || undefined;
 
             allTriggers.push({
               id: triggerId,
@@ -254,7 +288,7 @@ class AskingEngineService {
               album: (topTrack as any).album?.['#text'],
               mbid: (topTrack as any).mbid,
               playCount,
-              prompt: `${playCount} plays, no rating. verdict?`,
+              prompt: this.getHeavyPlayPrompt(topTrack.name, playCount),
               tag: 'HEAVY PLAY',
               palette: { ...this.getDefaultPalette(), art: artworkUrl },
             });
@@ -346,6 +380,34 @@ class AskingEngineService {
     return variants[Math.floor(Math.random() * variants.length)];
   }
 
+  private getHeavyPlayPrompt(track: string, count: number): string {
+    const variants = [
+      `${count} plays, no rating. verdict?`,
+      `you've spun ${track} ${count} times — worth a note?`,
+      `${count} plays deep and still no take. what's the pull?`,
+      `${track} keeps coming back (${count} plays). say something?`,
+      `${count} listens in. what makes ${track} stick?`,
+    ];
+    return this.pickVariant(variants, `${track}:${count}`);
+  }
+
+  private getRotationPrompt(track: string, count: number): string {
+    const variants = count
+      ? [
+          `${count} plays — worth a note?`,
+          `${track} on rotation (${count}). capture it?`,
+          `you keep returning to ${track}. mark a moment?`,
+          `${count} spins of ${track}. what's it doing for you?`,
+        ]
+      : [
+          `${track}'s been on rotation. worth a note?`,
+          `still playing ${track} — capture it?`,
+          `${track} again. mark a moment?`,
+          `what keeps pulling you back to ${track}?`,
+        ];
+    return this.pickVariant(variants, `${track}:${count}`);
+  }
+
   /**
    * Dismiss a prompt (won't show again)
    */
@@ -355,6 +417,11 @@ class AskingEngineService {
       DISMISSED_PROMPTS_KEY,
       JSON.stringify(Array.from(this.dismissedPrompts))
     );
+    // Also drop it from the persisted "+"-generated list so it doesn't linger.
+    if (this.generatedPrompts.some((p) => p.id === promptId)) {
+      this.generatedPrompts = this.generatedPrompts.filter((p) => p.id !== promptId);
+      await this.persistGenerated();
+    }
   }
 
   /**
