@@ -464,8 +464,9 @@ function Section({ gold, label, onShare, onEdit }: { gold: string; label: string
 
 function AlbumTile({ entry, big }: { entry: AlbumEntry; big?: boolean }) {
   const gold = tokens.colors.gold;
-  // Two-up grid for the Top 4 (big); narrower fixed tiles for the week row.
-  const tileWidth = big ? (SCREEN_WIDTH - 82) / 2 : 108;
+  // Two-up grid for the Top 4 (big) → 48% so exactly two fit per row (2x2);
+  // narrower fixed tiles for the week row.
+  const tileWidth = big ? '48%' : 108;
   const art = entry.album?.artworkUrl;
   const title = entry.album?.name || entry.album?.title || 'Unknown Album';
 
@@ -825,7 +826,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 16,
-    columnGap: 13,
   },
   top4Attribution: {
     marginTop: 16,
