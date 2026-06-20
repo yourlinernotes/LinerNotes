@@ -34,6 +34,9 @@ export const colors = {
   love: '#d98aa0',
   skip: '#7a7468',
 
+  /** Confirm green (for connected states) */
+  confirmGreen: '#7fcf9b',
+
   /** Near-black for Experience overlay */
   nearBlack: '#0a0908',
 
