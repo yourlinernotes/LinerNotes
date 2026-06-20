@@ -86,15 +86,32 @@ export function ProfileScreen({
   }, []);
 
   async function loadProfile() {
-    if (!user) return;
+    console.log('[Profile] loadProfile called, user:', user?.id);
+    if (!user) {
+      console.log('[Profile] No user, returning');
+      return;
+    }
 
     try {
       // Load independently so one failing call doesn't blank the whole profile.
       // (getMyProfile supplies bio, which the login/auth-me user lacks.)
-      const full = await api.getMyProfile().catch(() => null);
-      const reviews = await api.getUserReviews(user.id).catch(() => []);
-      const saved = await api.getSavedReviews().catch(() => []);
-      const friends = await api.getFriends().catch(() => []);
+      console.log('[Profile] Loading profile data...');
+      const full = await api.getMyProfile().catch((err) => {
+        console.error('[Profile] getMyProfile failed:', err);
+        return null;
+      });
+      const reviews = await api.getUserReviews(user.id).catch((err) => {
+        console.error('[Profile] getUserReviews failed:', err);
+        return [];
+      });
+      const saved = await api.getSavedReviews().catch((err) => {
+        console.error('[Profile] getSavedReviews failed:', err);
+        return [];
+      });
+      const friends = await api.getFriends().catch((err) => {
+        console.error('[Profile] getFriends failed:', err);
+        return [];
+      });
       const u = full ?? user;
       setFullUser(u);
 
@@ -117,9 +134,29 @@ export function ProfileScreen({
         saved,
       };
 
+      console.log('[Profile] Profile data loaded successfully');
       setProfile(profileData);
     } catch (error) {
-      console.error('Failed to load profile:', error);
+      console.error('[Profile] Failed to load profile:', error);
+      // Set a minimal profile to avoid infinite loading
+      setProfile({
+        user: {
+          id: user.id,
+          name: user.displayName || 'User',
+          handle: user.handle || 'user',
+          tint: '#d9b25a',
+          avatarUrl: user.avatarUrl,
+        },
+        bio: '',
+        reviewCount: 0,
+        friends: 0,
+        joined: new Date().getFullYear().toString(),
+        top4: [],
+        thisWeek: [],
+        reviews: [],
+        reposted: [],
+        saved: [],
+      });
     }
   }
 
