@@ -156,6 +156,20 @@ export async function GET() {
       }
     }
 
+    // Fetch top albums to identify album spins
+    const topAlbumsUrl = `https://ws.audioscrobbler.com/2.0/?method=user.gettopalbums&user=${connection.serviceUsername}&api_key=${apiKey}&format=json&limit=10&period=7day`;
+
+    const albumsResponse = await fetch(topAlbumsUrl);
+    let topAlbums: Array<{ name: string; artist: { "#text": string } | string; playcount: string; image: Array<{ "#text": string; size: string }> }> = [];
+    if (albumsResponse.ok) {
+      const albumsData = await albumsResponse.json();
+      topAlbums = albumsData.topalbums?.album || [];
+      console.log("[Last.fm Prompts] Top albums count:", topAlbums.length);
+      if (topAlbums.length > 0) {
+        console.log("[Last.fm Prompts] Sample top album:", JSON.stringify(topAlbums[0], null, 2));
+      }
+    }
+
     // Prompt variations for variety
     const repeatPrompts = [
       (pc: number) => pc >= 15
@@ -190,10 +204,30 @@ export async function GET() {
       "Fresh play. Worth a note?",
     ];
 
+    const albumPrompts = [
+      (pc: number) => pc >= 20
+        ? `You've spun this album ${pc} times. What keeps pulling you back in?`
+        : pc >= 10
+        ? `${pc} plays this week. This album's got you. What's the hook?`
+        : `You stayed with this one. What's still with you?`,
+      (pc: number) => pc >= 20
+        ? `${pc} album plays. It's clearly doing something for you.`
+        : pc >= 10
+        ? `This album keeps finding its way back. What is it about this one?`
+        : `You finished it. Worth documenting?`,
+      (pc: number) => pc >= 20
+        ? `Heavy album rotation. ${pc} plays—what's the draw?`
+        : pc >= 10
+        ? `Can't seem to leave this album alone. What keeps you here?`
+        : `Gave this the full listen. Anything stick?`,
+    ];
+
     // Generate prompts from top tracks (heavy repeat listens)
     const repeatCandidates: Prompt[] = [];
     const recentCandidates: Prompt[] = [];
+    const albumCandidates: Prompt[] = [];
     const seenTracks = new Set<string>();
+    const seenAlbums = new Set<string>();
 
     // Priority 1: Tracks on heavy repeat (from top tracks of the week) - Limit to 3
     for (const track of topTracks.slice(0, 10)) {
@@ -287,12 +321,59 @@ export async function GET() {
       if (recentCandidates.length >= 3) break; // Limit to 3 recent prompts
     }
 
-    // Intersperse repeat and recent prompts
+    // Priority 3: Album spins - Limit to 2
+    for (const album of topAlbums.slice(0, 10)) {
+      const artistName = getArtistName(album.artist);
+      const albumKey = `${artistName}::${album.name}`;
+
+      if (seenAlbums.has(albumKey)) continue;
+      seenAlbums.add(albumKey);
+
+      const playCount = parseInt(album.playcount) || 0;
+      if (playCount < 3) continue; // Only show if played 3+ times
+
+      let artworkUrl = album.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+
+      // If no artwork from Last.fm, try fetching from MusicBrainz/iTunes
+      if (!artworkUrl || artworkUrl === "") {
+        artworkUrl = await fetchFallbackArtwork("", artistName, album.name);
+      }
+
+      const palette = paletteFromString(album.name);
+
+      console.log("[Last.fm Prompts] Creating album prompt:", {
+        album: album.name,
+        artist: artistName,
+        artworkUrl,
+        playCount,
+      });
+
+      // Use varied prompt
+      const promptVariation = albumPrompts[albumCandidates.length % albumPrompts.length];
+
+      albumCandidates.push({
+        id: `album-${albumKey}`,
+        type: "album",
+        track: "", // For albums, track is empty
+        artist: artistName,
+        album: album.name,
+        playCount,
+        prompt: promptVariation(playCount),
+        tag: playCount >= 20 ? "ALBUM ON REPEAT" : playCount >= 10 ? "HEAVY ALBUM PLAY" : "ALBUM SPIN",
+        artworkUrl,
+        palette,
+      });
+
+      if (albumCandidates.length >= 2) break; // Limit to 2 album prompts
+    }
+
+    // Intersperse repeat, recent, and album prompts
     const prompts: Prompt[] = [];
-    const maxLength = Math.max(repeatCandidates.length, recentCandidates.length);
+    const maxLength = Math.max(repeatCandidates.length, recentCandidates.length, albumCandidates.length);
 
     for (let i = 0; i < maxLength; i++) {
       if (i < repeatCandidates.length) prompts.push(repeatCandidates[i]);
+      if (i < albumCandidates.length) prompts.push(albumCandidates[i]);
       if (i < recentCandidates.length) prompts.push(recentCandidates[i]);
     }
 
