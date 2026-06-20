@@ -153,10 +153,54 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
-      // For now, return empty array as Save model doesn't exist in schema yet
-      // TODO: Add Save model to Prisma schema
-      console.log("Saved reviews requested but Save model not implemented yet");
-      return NextResponse.json({ reviews: [] });
+      const saves = await prisma.save.findMany({
+        where: { userId: currentUserId },
+        include: {
+          review: {
+            include: {
+              user: true,
+              likes: true,
+              reposts: {
+                include: { user: true },
+              },
+              notes: {
+                orderBy: { createdAt: 'asc' },
+              },
+              _count: {
+                select: { likes: true, reposts: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const transformedReviews = saves.map(({ review }) => ({
+        id: review.id,
+        userId: review.userId,
+        user: review.user,
+        trackId: review.trackId,
+        trackName: review.trackName,
+        trackArtist: review.trackArtist,
+        trackAlbum: review.trackAlbum,
+        artworkUrl: review.artworkUrl,
+        previewUrl: review.previewUrl || undefined,
+        rating: review.rating,
+        take: review.take || undefined,
+        momentSeconds: review.momentSeconds || undefined,
+        momentLabel: review.momentLabel || undefined,
+        notes: review.notes.map((note) => ({
+          seconds: note.seconds,
+          label: note.label,
+          note: note.note || undefined,
+        })),
+        featuredNoteId: review.featuredNoteId || undefined,
+        createdAt: review.createdAt.toISOString(),
+        likeCount: review._count.likes,
+        repostCount: review._count.reposts,
+      }));
+
+      return NextResponse.json({ reviews: transformedReviews });
     }
 
     // Get specific user's reviews (public, no auth required if userId provided)

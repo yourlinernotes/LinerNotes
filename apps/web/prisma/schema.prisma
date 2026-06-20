@@ -36,6 +36,7 @@ model User {
   albumReviews           AlbumReview[]
   likes                  Like[]
   reposts                Repost[]
+  saves                  Save[]
   albumLikes             AlbumLike[]
   albumReposts           AlbumRepost[]
   friendRequestsSent     Friendship[] @relation("FriendRequestsSent")
@@ -145,6 +146,7 @@ model Review {
   // Relations
   likes         Like[]
   reposts       Repost[]
+  saves         Save[]
   notes         Note[]   // Multiple timestamped notes
 
   @@index([userId])
@@ -198,6 +200,21 @@ model Like {
 }
 
 model Repost {
+  id        String   @id @default(cuid())
+  userId    String
+  reviewId  String
+  createdAt DateTime @default(now())
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review    Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@index([userId])
+  @@index([reviewId])
+  @@index([createdAt])
+}
+
+model Save {
   id        String   @id @default(cuid())
   userId    String
   reviewId  String
