@@ -155,7 +155,8 @@ export function ProfileScreen({
           avatarUrl: u.avatarUrl,
         },
         bio: u.bio || '',
-        reviewCount: reviews.length,
+        // "notes" counts the user's own reviews — track + album.
+        reviewCount: reviews.length + albumReviews.length,
         friends: friends.length,
         joined: new Date(user.createdAt || Date.now()).getFullYear().toString(),
         top4: top4Albums,
@@ -586,7 +587,7 @@ function Section({ gold, label, onShare, onEdit }: { gold: string; label: string
         {onEdit && (
           <TouchableOpacity
             onPress={onEdit}
-            style={[styles.shareButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
+            style={[styles.sectionButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
           >
             <Icon name="edit" size={12} color={gold} />
             <Text style={[styles.shareText, { color: gold }]}>edit</Text>
@@ -595,7 +596,7 @@ function Section({ gold, label, onShare, onEdit }: { gold: string; label: string
         {onShare && (
           <TouchableOpacity
             onPress={onShare}
-            style={[styles.shareButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
+            style={[styles.sectionButton, { borderColor: gold, backgroundColor: `${gold}14` }]}
           >
             <Icon name="share" size={12} color={gold} />
             <Text style={[styles.shareText, { color: gold }]}>share</Text>
@@ -958,6 +959,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 11,
     borderRadius: 11,
+    borderWidth: 1,
+  },
+  // Small pill for the favourites section's edit/share (unlike the larger
+  // profile-level Edit profile / Share buttons).
+  sectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 999,
     borderWidth: 1,
   },
   shareText: {
