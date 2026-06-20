@@ -104,11 +104,12 @@ function PromptCard({
 }) {
   const [hover, setHover] = useState(false);
   const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
   const p = prompt.palette;
 
-  const handleRatingChange = (newRating: number) => {
+  const handleRatingClick = (newRating: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     setRating(newRating);
-    onOpen(newRating);
   };
 
   return (
@@ -196,31 +197,37 @@ function PromptCard({
 
         {/* Quick-rate + Note button */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 10, borderTop: "1px solid rgba(var(--ln-line-rgb),0.08)" }}>
-          <div style={{ display: "flex", gap: 4 }} onClick={(e) => e.stopPropagation()}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                onClick={() => handleRatingChange(star)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 0,
-                  color: star <= rating ? accent : "rgba(var(--ln-fg-rgb),0.2)",
-                  fontSize: 19,
-                  lineHeight: "19px",
-                  transition: "color 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = accent)}
-                onMouseLeave={(e) => (e.currentTarget.style.color = star <= rating ? accent : "rgba(var(--ln-fg-rgb),0.2)")}
-              >
-                ★
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: 4 }}>
+            {[1, 2, 3, 4, 5].map((star) => {
+              const isActive = star <= (hoverRating || rating);
+              return (
+                <button
+                  key={star}
+                  onClick={(e) => handleRatingClick(star, e)}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0,
+                    color: isActive ? accent : "rgba(var(--ln-fg-rgb),0.2)",
+                    fontSize: 19,
+                    lineHeight: "19px",
+                    transition: "color 0.15s",
+                  }}
+                >
+                  ★
+                </button>
+              );
+            })}
           </div>
 
           <button
-            onClick={() => onOpen()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen(rating || undefined);
+            }}
             style={{
               background: "none",
               border: "none",

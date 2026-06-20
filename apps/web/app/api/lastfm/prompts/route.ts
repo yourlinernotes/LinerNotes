@@ -44,6 +44,39 @@ interface Prompt {
 }
 
 /**
+ * Fetch album artwork from MusicBrainz/iTunes if Last.fm doesn't have it
+ */
+async function fetchFallbackArtwork(track: string, artist: string, album: string): Promise<string> {
+  try {
+    // Try searching for the album first
+    if (album) {
+      const searchUrl = `${process.env.NEXTAUTH_URL}/api/music/search/albums?q=${encodeURIComponent(`${album} ${artist}`)}&limit=1`;
+      const res = await fetch(searchUrl);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.albums?.[0]?.artworkUrl) {
+          return data.albums[0].artworkUrl;
+        }
+      }
+    }
+
+    // Fall back to track search
+    const trackSearchUrl = `${process.env.NEXTAUTH_URL}/api/music/search/tracks?q=${encodeURIComponent(`${track} ${artist}`)}&limit=1`;
+    const res = await fetch(trackSearchUrl);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.tracks?.[0]?.album?.artworkUrl) {
+        return data.tracks[0].album.artworkUrl;
+      }
+    }
+  } catch (error) {
+    console.error("[Last.fm Prompts] Fallback artwork fetch error:", error);
+  }
+
+  return "";
+}
+
+/**
  * GET /api/lastfm/prompts - Get "worth a note" prompts from Last.fm listening history
  */
 export async function GET() {
@@ -154,7 +187,13 @@ export async function GET() {
       const playCount = track.playcount ? parseInt(track.playcount) : 0;
       if (playCount < 3) continue; // Only show if played 3+ times
 
-      const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+      let artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+
+      // If no artwork from Last.fm, try fetching from MusicBrainz/iTunes
+      if (!artworkUrl || artworkUrl === "") {
+        artworkUrl = await fetchFallbackArtwork(track.name, track.artist["#text"], track.album?.["#text"] || "");
+      }
+
       const palette = paletteFromString(track.album?.["#text"] || track.name);
 
       console.log("[Last.fm Prompts] Creating repeat prompt:", {
@@ -190,7 +229,13 @@ export async function GET() {
       if (seenTracks.has(trackKey)) continue;
       seenTracks.add(trackKey);
 
-      const artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+      let artworkUrl = track.image?.find((img) => img.size === "large" || img.size === "extralarge")?.["#text"] || "";
+
+      // If no artwork from Last.fm, try fetching from MusicBrainz/iTunes
+      if (!artworkUrl || artworkUrl === "") {
+        artworkUrl = await fetchFallbackArtwork(track.name, track.artist["#text"], track.album?.["#text"] || "");
+      }
+
       const palette = paletteFromString(track.album?.["#text"] || track.name);
 
       console.log("[Last.fm Prompts] Creating recent prompt:", {
