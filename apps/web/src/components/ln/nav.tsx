@@ -63,7 +63,6 @@ export function TopBar({ transparent = false }: { transparent?: boolean }) {
         <nav className="lnw-nav-links" style={{ display: "flex", alignItems: "center", gap: 22 }}>
           <NavLink label="Home" href="/" active={pathname === "/"} ink={ink} muted={muted} accent={accent} />
           <NavLink label="Feed" href="/feed" active={pathname === "/feed"} ink={ink} muted={muted} accent={accent} />
-          {session && <NavLink label="Friends" href="/friends" active={pathname === "/friends"} ink={ink} muted={muted} accent={accent} />}
         </nav>
 
         <div style={{ flex: 1 }} />
@@ -94,6 +93,13 @@ export function TopBar({ transparent = false }: { transparent?: boolean }) {
 
         {session ? (
           <>
+            <Link
+              href="/friends"
+              className="ln-press lnw-nav-login"
+              style={{ color: pathname === "/friends" ? ink : muted, textDecoration: "none", fontFamily: "var(--ln-body)", fontSize: 13.5, fontWeight: 600, padding: "6px 4px", whiteSpace: "nowrap" }}
+            >
+              Friends
+            </Link>
             {handle && (
               <Link
                 href={`/profile/${handle}`}
