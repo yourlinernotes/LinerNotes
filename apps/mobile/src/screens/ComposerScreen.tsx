@@ -27,6 +27,7 @@ import { Stars } from '../components/atoms/Stars';
 import { ReviewCard } from '../components/ReviewCard';
 import { formatTimestamp } from '../lib/time-utils';
 import { api } from '../lib/api-client';
+import { lastfm } from '../services/lastfm';
 import { useAuth } from '../contexts/AuthContext';
 import { reviewToFeedReview } from '../lib/feed-adapter';
 import type { Moment, ReactionType } from '../lib/types';
@@ -263,16 +264,35 @@ export function ComposerScreen({
     artworkUrl: result.artworkUrl || (result.artworkUrl100 || '').replace('100x100', '600x600'),
   });
 
-  function selectTrack(result: any) {
-    setSelectedTrack(normalizeResult(result));
+  async function selectTrack(result: any) {
+    const t = normalizeResult(result);
+    setSelectedTrack(t);
     setTrackResults([]);
     setTrackQuery('');
+    // No cover from search? Fall back to Last.fm artwork.
+    if (!t.artworkUrl && t.artist && t.name) {
+      const art = await lastfm.getTrackArtwork(t.artist, t.name).catch(() => null);
+      if (art) {
+        setSelectedTrack((prev: any) => (prev && prev.id === t.id ? { ...prev, artworkUrl: art } : prev));
+      }
+    }
   }
 
   async function selectAlbum(result: any) {
-    setSelectedAlbum(normalizeResult(result));
+    const a = normalizeResult(result);
+    setSelectedAlbum(a);
     setAlbumResults([]);
     setAlbumQuery('');
+
+    // No cover from search? Fall back to Last.fm album artwork.
+    if (!a.artworkUrl && a.artist && (a.album || a.name)) {
+      lastfm
+        .getAlbumArtwork(a.artist, a.album || a.name)
+        .then((art) => {
+          if (art) setSelectedAlbum((prev: any) => (prev && prev.id === a.id ? { ...prev, artworkUrl: art } : prev));
+        })
+        .catch(() => {});
+    }
 
     // If we have an album id, fetch its tracklist so the album review can
     // carry per-track entries.

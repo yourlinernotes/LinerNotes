@@ -48,6 +48,24 @@ export interface LastFmRecentTracksResponse {
   };
 }
 
+// Last.fm serves this placeholder star image when it has no real artwork.
+const LASTFM_PLACEHOLDER = '2a96cbd8b46e442fc41c2b86b821562f';
+
+/** Pick the largest real image URL from a Last.fm image array (or null). */
+function pickLastFmImage(images: any): string | null {
+  if (!Array.isArray(images)) return null;
+  const bySize = (s: string) => images.find((i: any) => i?.size === s)?.['#text'];
+  const url =
+    bySize('mega') ||
+    bySize('extralarge') ||
+    bySize('large') ||
+    bySize('medium') ||
+    images[images.length - 1]?.['#text'] ||
+    '';
+  if (!url || url.includes(LASTFM_PLACEHOLDER)) return null;
+  return url;
+}
+
 class LastFmService {
   private client: AxiosInstance;
   private sessionKey: string | null = null;
@@ -202,6 +220,31 @@ class LastFmService {
 
     // Return cleanup function
     return () => clearInterval(intervalId);
+  }
+
+  /**
+   * Best album artwork URL for a track, via Last.fm track.getInfo.
+   * Returns null when Last.fm has no real cover (filters its placeholder star).
+   */
+  async getTrackArtwork(artist: string, track: string): Promise<string | null> {
+    try {
+      const info = await this.getTrackInfo(artist, track);
+      return pickLastFmImage(info?.album?.image);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Best album artwork URL via Last.fm album.getInfo.
+   */
+  async getAlbumArtwork(artist: string, album: string): Promise<string | null> {
+    try {
+      const info = await this.getAlbumInfo(artist, album);
+      return pickLastFmImage(info?.image);
+    } catch {
+      return null;
+    }
   }
 
   /**
