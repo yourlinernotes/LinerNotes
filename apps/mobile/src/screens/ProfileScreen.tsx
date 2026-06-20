@@ -18,11 +18,13 @@ import {
   Image,
   Modal,
   RefreshControl,
+  Clipboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ReviewCard } from '../components/ReviewCard';
 import { Top4ShareCard } from '../components/Top4ShareCard';
 import { ProfileShareCard } from '../components/ProfileShareCard';
+import { ShareSheet } from '../components/ShareSheet';
 import { Icon } from '../components/atoms/Icon';
 import { Avatar } from '../components/atoms/Avatar';
 import { Stars } from '../components/atoms/Stars';
@@ -76,12 +78,14 @@ export function ProfileScreen({
   const [showEdit, setShowEdit] = useState(false);
   const [showTop4Editor, setShowTop4Editor] = useState(false);
   const [showProfileShareSheet, setShowProfileShareSheet] = useState(false);
+  const [showTop4ShareSheet, setShowTop4ShareSheet] = useState(false);
   const [fullUser, setFullUser] = useState<User | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const gold = tokens.colors.gold;
 
   const top4CardRef = useRef(null);
   const profileCardRef = useRef(null);
+  const profileStoryCardRef = useRef(null); // With link slot for stories
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -190,59 +194,63 @@ export function ProfileScreen({
   }
 
   const handleShareTop4 = async () => {
-    if (!top4CardRef.current) return;
-
-    // Show share options for Top 4 card
-    Alert.alert(
-      'Share your Top 4',
-      'Export as sticker to story or camera roll',
-      [
-        {
-          text: 'Camera Roll',
-          onPress: () => saveCardImage(top4CardRef.current),
-        },
-        {
-          text: 'Instagram',
-          onPress: () => shareToInstagramStory(top4CardRef.current),
-        },
-        {
-          text: 'TikTok',
-          onPress: () => shareToTikTok(top4CardRef.current),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
+    setShowTop4ShareSheet(true);
   };
 
   const handleShareProfile = async () => {
-    if (!profileCardRef.current) return;
+    setShowProfileShareSheet(true);
+  };
 
-    // Show share options for Profile card
-    Alert.alert(
-      'Share your profile',
-      'Export your profile card',
-      [
-        {
-          text: 'Camera Roll',
-          onPress: () => saveCardImage(profileCardRef.current),
-        },
-        {
-          text: 'Instagram Story',
-          onPress: () => shareToInstagramStory(profileCardRef.current),
-        },
-        {
-          text: 'TikTok',
-          onPress: () => shareToTikTok(profileCardRef.current),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
+  const handleExportTop4 = async (format: 'instagram' | 'tiktok' | 'camera' | 'twitter') => {
+    if (!top4CardRef.current || !profile) return;
+
+    // Copy link to clipboard
+    const profileUrl = `https://beta-linernotes.vercel.app/profile/${profile.user.handle}`;
+    await Clipboard.setString(profileUrl);
+
+    // Export based on format
+    switch (format) {
+      case 'camera':
+        await saveCardImage(top4CardRef.current);
+        break;
+      case 'instagram':
+        await shareToInstagramStory(top4CardRef.current);
+        break;
+      case 'tiktok':
+        await shareToTikTok(top4CardRef.current);
+        break;
+      case 'twitter':
+        await shareToTwitter(top4CardRef.current, profileUrl);
+        break;
+    }
+  };
+
+  const handleExportProfile = async (format: 'instagram' | 'tiktok' | 'camera' | 'twitter') => {
+    if (!profile) return;
+
+    // Use different card ref based on format (only Instagram has link slot)
+    const cardRef = format === 'instagram' ? profileStoryCardRef : profileCardRef;
+    if (!cardRef.current) return;
+
+    // Copy link to clipboard
+    const profileUrl = `https://beta-linernotes.vercel.app/profile/${profile.user.handle}`;
+    await Clipboard.setString(profileUrl);
+
+    // Export based on format
+    switch (format) {
+      case 'camera':
+        await saveCardImage(cardRef.current);
+        break;
+      case 'instagram':
+        await shareToInstagramStory(cardRef.current);
+        break;
+      case 'tiktok':
+        await shareToTikTok(cardRef.current);
+        break;
+      case 'twitter':
+        await shareToTwitter(cardRef.current, profileUrl);
+        break;
+    }
   };
 
   const handleSaveTop4 = async (albums: Array<{ id: string; name: string; artist: string; artworkUrl: string }>) => {
@@ -478,8 +486,47 @@ export function ProfileScreen({
         />
       )}
 
+      {/* Share Sheets */}
+      {profile.top4.length > 0 && (
+        <ShareSheet
+          visible={showTop4ShareSheet}
+          onClose={() => setShowTop4ShareSheet(false)}
+          onExport={handleExportTop4}
+          accent={profile.user.tint}
+          type="top4"
+        >
+          <View style={{ transform: [{ scale: 0.28 }] }}>
+            <Top4ShareCard
+              userName={profile.user.name}
+              userHandle={profile.user.handle}
+              top4={profile.top4}
+              accent={profile.user.tint}
+            />
+          </View>
+        </ShareSheet>
+      )}
+
+      <ShareSheet
+        visible={showProfileShareSheet}
+        onClose={() => setShowProfileShareSheet(false)}
+        onExport={handleExportProfile}
+        accent={profile.user.tint}
+        type="profile"
+      >
+        <View style={{ transform: [{ scale: 0.28 }] }}>
+          <ProfileShareCard
+            userName={profile.user.name}
+            userHandle={profile.user.handle}
+            bio={profile.bio}
+            favourites={profile.top4}
+            tintColor={profile.user.tint}
+          />
+        </View>
+      </ShareSheet>
+
       {/* Offscreen share cards for capture */}
       <View style={{ position: 'absolute', left: -10000, top: 0 }}>
+        {/* Top 4 card (no variants needed) */}
         {profile.top4.length > 0 && (
           <View ref={top4CardRef} collapsable={false} style={{ width: 1080, height: 1920 }}>
             <Top4ShareCard
@@ -491,6 +538,7 @@ export function ProfileScreen({
           </View>
         )}
 
+        {/* Profile card - for camera roll (no link slot) */}
         <View ref={profileCardRef} collapsable={false} style={{ width: 1080, height: 1920 }}>
           <ProfileShareCard
             userName={profile.user.name}
@@ -499,6 +547,18 @@ export function ProfileScreen({
             favourites={profile.top4}
             tintColor={profile.user.tint}
             linkSlot={false}
+          />
+        </View>
+
+        {/* Profile card - for stories (with link slot) */}
+        <View ref={profileStoryCardRef} collapsable={false} style={{ width: 1080, height: 1920 }}>
+          <ProfileShareCard
+            userName={profile.user.name}
+            userHandle={profile.user.handle}
+            bio={profile.bio}
+            favourites={profile.top4}
+            tintColor={profile.user.tint}
+            linkSlot={true}
           />
         </View>
       </View>
@@ -848,7 +908,6 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
     marginTop: 14,
   },
@@ -891,12 +950,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(241,235,224,0.1)',
   },
   shareButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 5,
     paddingHorizontal: 11,
-    paddingVertical: 5,
-    borderRadius: 999,
+    paddingVertical: 11,
+    borderRadius: 11,
     borderWidth: 1,
   },
   shareText: {
