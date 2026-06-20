@@ -744,7 +744,7 @@ export function ComposerScreen({
                                 { text: 'Cancel', style: 'cancel' },
                                 {
                                   text: 'Save',
-                                  onPress: (text) => {
+                                  onPress: (text?: string) => {
                                     setPlaylistTracks((prev) =>
                                       prev.map((t, i) =>
                                         i === index ? { ...t, note: text?.trim() || undefined } : t
