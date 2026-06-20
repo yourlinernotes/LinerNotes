@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { SideMenu } from './src/components/SideMenu';
 import { EditProfileModal } from './src/components/EditProfileModal';
 import { api } from './src/lib/api-client';
+import { askingEngine } from './src/services/askingEngine';
 import { tokens } from './src/lib/tokens';
 import type { FeedReview } from './src/lib/feed-types';
 // Push notifications are temporarily disabled on BOTH platforms pending an
@@ -25,7 +26,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
   const [activeReview, setActiveReview] = useState<FeedReview | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [composerPrefill, setComposerPrefill] = useState<{ track?: any; album?: any; rating?: number } | null>(null);
+  const [composerPrefill, setComposerPrefill] = useState<{ track?: any; album?: any; rating?: number; promptId?: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [otherUserHandle, setOtherUserHandle] = useState<string | null>(null);
@@ -196,6 +197,12 @@ function AppContent() {
               setComposerOpen(false);
               setComposerPrefill(null);
               refreshContent();
+            }}
+            onPosted={() => {
+              // Completing a prompt removes it from the feed.
+              if (composerPrefill?.promptId) {
+                askingEngine.dismissPrompt(composerPrefill.promptId).catch(() => {});
+              }
             }}
             prefilledTrack={composerPrefill?.track}
             prefilledAlbum={composerPrefill?.album}

@@ -42,7 +42,7 @@ interface FeedItemData {
 
 interface FeedScreenProps {
   onOpenReview?: (review: FeedReview) => void;
-  onOpenComposer?: (prefill?: { track?: any; album?: any; rating?: number }) => void;
+  onOpenComposer?: (prefill?: { track?: any; album?: any; rating?: number; promptId?: string }) => void;
   onOpenUserProfile?: (userHandle: string) => void;
 }
 
@@ -152,7 +152,8 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
 
     if (!onOpenComposer) return;
 
-    // Convert prompt to track/album prefill data
+    // Convert prompt to track/album prefill data. Carry the prompt id so the
+    // prompt can be dismissed once a review is actually posted from it.
     if (prompt.track) {
       // Track prompt
       onOpenComposer({
@@ -165,6 +166,7 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
           previewUrl: null,
         },
         rating: rating || 0,
+        promptId: prompt.id,
       });
     } else if (prompt.album) {
       // Album prompt
@@ -176,6 +178,7 @@ export function FeedScreen({ onOpenReview, onOpenComposer, onOpenUserProfile }: 
           artworkUrl: prompt.palette.art || '',
         },
         rating: rating || 0,
+        promptId: prompt.id,
       });
     }
   }

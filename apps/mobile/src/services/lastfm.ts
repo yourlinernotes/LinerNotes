@@ -227,12 +227,25 @@ class LastFmService {
    * Returns null when Last.fm has no real cover (filters its placeholder star).
    */
   async getTrackArtwork(artist: string, track: string): Promise<string | null> {
-    try {
-      const info = await this.getTrackInfo(artist, track);
-      return pickLastFmImage(info?.album?.image);
-    } catch {
-      return null;
+    const attempt = async (t: string): Promise<string | null> => {
+      try {
+        const info = await this.getTrackInfo(artist, t);
+        return pickLastFmImage(info?.album?.image);
+      } catch {
+        return null;
+      }
+    };
+    let art = await attempt(track);
+    if (!art) {
+      // Retry with remix/feat/version suffixes stripped (Last.fm indexes the base).
+      const cleaned = track
+        .replace(/\s*[-(\[]\s*(feat\.?|ft\.?|remix|edit|version|remaster(ed)?|live|acoustic|extended|radio|mix|bonus|deluxe).*/i, '')
+        .trim();
+      if (cleaned && cleaned.toLowerCase() !== track.toLowerCase()) {
+        art = await attempt(cleaned);
+      }
     }
+    return art;
   }
 
   /**
@@ -259,6 +272,7 @@ class LastFmService {
           artist,
           track,
           username,
+          autocorrect: 1,
           format: 'json',
         },
       });
@@ -351,6 +365,7 @@ class LastFmService {
           artist,
           album,
           username,
+          autocorrect: 1,
           format: 'json',
         },
       });

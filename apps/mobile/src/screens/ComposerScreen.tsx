@@ -47,6 +47,12 @@ function isPlaylistLink(url: string): boolean {
   );
 }
 
+// Search art is missing or an unreliable Cover Art Archive URL (often 404s) —
+// in either case we try Last.fm for a better cover.
+function needsBetterArt(url?: string): boolean {
+  return !url || url.includes('coverartarchive.org');
+}
+
 function linkPlatform(url: string): string {
   if (/spotify/i.test(url)) return 'Spotify';
   if (/music\.apple\.com/i.test(url)) return 'Apple Music';
@@ -71,6 +77,8 @@ interface MomentInput {
 
 interface ComposerScreenProps {
   onClose: () => void;
+  /** Called after a review/playlist is successfully posted (before onClose). */
+  onPosted?: () => void;
   mode?: ComposerMode;
   prefilledTrack?: any;
   prefilledAlbum?: any;
@@ -79,6 +87,7 @@ interface ComposerScreenProps {
 
 export function ComposerScreen({
   onClose,
+  onPosted,
   mode: initialMode = 'track',
   prefilledTrack,
   prefilledAlbum,
@@ -269,8 +278,8 @@ export function ComposerScreen({
     setSelectedTrack(t);
     setTrackResults([]);
     setTrackQuery('');
-    // No cover from search? Fall back to Last.fm artwork.
-    if (!t.artworkUrl && t.artist && t.name) {
+    // No cover (or only an unreliable Cover Art Archive URL)? Use Last.fm.
+    if (needsBetterArt(t.artworkUrl) && t.artist && t.name) {
       const art = await lastfm.getTrackArtwork(t.artist, t.name).catch(() => null);
       if (art) {
         setSelectedTrack((prev: any) => (prev && prev.id === t.id ? { ...prev, artworkUrl: art } : prev));
@@ -284,8 +293,8 @@ export function ComposerScreen({
     setAlbumResults([]);
     setAlbumQuery('');
 
-    // No cover from search? Fall back to Last.fm album artwork.
-    if (!a.artworkUrl && a.artist && (a.album || a.name)) {
+    // No cover (or only an unreliable Cover Art Archive URL)? Use Last.fm.
+    if (needsBetterArt(a.artworkUrl) && a.artist && (a.album || a.name)) {
       lastfm
         .getAlbumArtwork(a.artist, a.album || a.name)
         .then((art) => {
@@ -366,6 +375,9 @@ export function ComposerScreen({
           featuredNoteIdx: 0,
         });
       }
+
+      // Posted successfully — let the caller react (e.g. dismiss the prompt).
+      onPosted?.();
 
       // Success feedback
       Alert.alert(
