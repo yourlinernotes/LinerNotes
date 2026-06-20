@@ -8,6 +8,7 @@ import { useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { LNArt, LNStars, LNReact, LNIcon, LNAvatar, LNMoment, lnRel } from "./atoms";
 import type { ReviewVM, AlbumVM, MomentVM } from "@/lib/view-adapter";
+import type { Palette } from "@/lib/palette";
 
 const GOLD = "var(--ln-accent)";
 
@@ -89,12 +90,12 @@ export function LNWActionBtn({
   );
 }
 
-function LNWFeedArt({ album, gold, rating }: { album: AlbumVM; gold: string; rating: number }) {
+function LNWFeedArt({ album, gold, rating, onPaletteExtracted }: { album: AlbumVM; gold: string; rating: number; onPaletteExtracted?: (palette: Palette) => void }) {
   const isPlaylist = album.kind === "playlist";
   return (
     <div className="lnw-fcard-art" style={{ width: 192, flexShrink: 0, display: "flex", flexDirection: "column", background: "rgba(var(--ln-fg-rgb),0.02)" }}>
       <div className="lnw-fcard-cover" style={{ position: "relative" }}>
-        <LNArt palette={album.palette} src={album.artworkUrl} label={album.title} dim />
+        <LNArt palette={album.palette} src={album.artworkUrl} label={album.title} dim onPaletteExtracted={onPaletteExtracted} />
       </div>
       <div className="lnw-fcard-rating" style={{ padding: "13px 15px 10px", display: "flex", alignItems: "center", gap: 8 }}>
         {isPlaylist ? (
@@ -112,7 +113,8 @@ function LNWFeedArt({ album, gold, rating }: { album: AlbumVM; gold: string; rat
 // Landscape feed card — art left, the take in the middle, the album's tracks on the side.
 export function LNWFeedCard({ vm, accent = GOLD, onOpen }: { vm: ReviewVM; accent?: string; onOpen?: () => void }) {
   const { album } = vm;
-  const p = album.palette;
+  const [palette, setPalette] = useState<Palette>(album.palette);
+  const p = palette;
   const gold = accent;
   const [hover, setHover] = useState(false);
   const isAlbum = album.kind === "album" && album.tracks.length > 0;
@@ -142,7 +144,7 @@ export function LNWFeedCard({ vm, accent = GOLD, onOpen }: { vm: ReviewVM; accen
         transform: hover && onOpen ? "translateY(-3px)" : "none",
       }}
     >
-      <LNWFeedArt album={album} gold={gold} rating={vm.rating} />
+      <LNWFeedArt album={album} gold={gold} rating={vm.rating} onPaletteExtracted={setPalette} />
 
       <div className="lnw-fcard-main" style={{ position: "relative", flex: 1, minWidth: 0, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, justifyContent: "center" }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 80, background: `linear-gradient(${p.accent}14, transparent 80%)`, pointerEvents: "none" }} />
@@ -180,7 +182,8 @@ export function LNWFeedCard({ vm, accent = GOLD, onOpen }: { vm: ReviewVM; accen
 // Vertical card (profile grids / compact lists).
 export function LNWCard({ vm, accent = GOLD, onOpen }: { vm: ReviewVM; accent?: string; onOpen?: () => void }) {
   const { album } = vm;
-  const p = album.palette;
+  const [palette, setPalette] = useState<Palette>(album.palette);
+  const p = palette;
   const gold = accent;
   const [hover, setHover] = useState(false);
   const isAlbum = album.kind === "album" && album.tracks.length > 0;
@@ -210,7 +213,7 @@ export function LNWCard({ vm, accent = GOLD, onOpen }: { vm: ReviewVM; accent?: 
     >
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "60%", background: `linear-gradient(${p.accent}${depth === "full" ? "20" : depth === "caption" ? "16" : "12"}, transparent 75%)`, pointerEvents: "none" }} />
 
-      <LNArt palette={p} src={album.artworkUrl} label={album.title} dim>
+      <LNArt palette={p} src={album.artworkUrl} label={album.title} dim onPaletteExtracted={setPalette}>
         {showPill && (
           <div style={{ position: "absolute", top: 13, right: 13, padding: "6px 9px", borderRadius: 999, background: "rgba(8,7,6,0.55)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", border: "1px solid rgba(var(--ln-line-rgb),0.1)" }}>
             <LNStars rating={vm.rating} size={12} color={gold} />
@@ -270,6 +273,7 @@ export function FeedItem({
   const [like, setLike] = useState({ on: !!vm.likedByMe, n: vm.likeCount });
   const [save, setSave] = useState(!!vm.saved);
   const [repost, setRepost] = useState({ on: !!vm.repostedByMe, n: vm.repostCount });
+  const [loading, setLoading] = useState({ like: false, repost: false, save: false });
 
   const stop = (fn: () => void) => (e: MouseEvent) => {
     e.stopPropagation();
@@ -302,9 +306,21 @@ export function FeedItem({
 
       <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 4px" }}>
         <LNWActionBtn
-          onClick={stop(() => {
+          onClick={stop(async () => {
+            if (loading.repost) return;
+            setLoading((l) => ({ ...l, repost: true }));
+
+            const wasReposted = repost.on;
             setRepost((s) => ({ on: !s.on, n: s.n + (s.on ? -1 : 1) }));
-            onRepost?.();
+
+            try {
+              await onRepost?.();
+            } catch (error) {
+              // Revert on error
+              setRepost({ on: wasReposted, n: repost.n + (wasReposted ? 1 : -1) });
+            } finally {
+              setLoading((l) => ({ ...l, repost: false }));
+            }
           })}
           active={repost.on}
           activeColor="#d98aa0"
@@ -312,9 +328,21 @@ export function FeedItem({
           count={repost.n}
         />
         <LNWActionBtn
-          onClick={stop(() => {
+          onClick={stop(async () => {
+            if (loading.save) return;
+            setLoading((l) => ({ ...l, save: true }));
+
+            const wasSaved = save;
             setSave((s) => !s);
-            onSave?.();
+
+            try {
+              await onSave?.();
+            } catch (error) {
+              // Revert on error
+              setSave(wasSaved);
+            } finally {
+              setLoading((l) => ({ ...l, save: false }));
+            }
           })}
           active={save}
           activeColor="#c8a45c"
@@ -322,9 +350,21 @@ export function FeedItem({
         />
         <div style={{ flex: 1 }} />
         <LNWActionBtn
-          onClick={stop(() => {
+          onClick={stop(async () => {
+            if (loading.like) return;
+            setLoading((l) => ({ ...l, like: true }));
+
+            const wasLiked = like.on;
             setLike((s) => ({ on: !s.on, n: s.n + (s.on ? -1 : 1) }));
-            onLike?.();
+
+            try {
+              await onLike?.();
+            } catch (error) {
+              // Revert on error
+              setLike({ on: wasLiked, n: like.n + (wasLiked ? 1 : -1) });
+            } finally {
+              setLoading((l) => ({ ...l, like: false }));
+            }
           })}
           active={like.on}
           activeColor="#e0762f"

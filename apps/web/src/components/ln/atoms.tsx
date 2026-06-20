@@ -3,8 +3,10 @@
 // LinerNotes atoms — icons, stars, reactions, placeholder/real album art, the
 // signature "moment" notch. Ported from the design bundle's atoms.jsx to TSX.
 
+import { useRef, useEffect } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { Palette } from "@/lib/palette";
+import { extractPaletteFromImage } from "@/lib/extractPalette";
 
 export const lnFmt = (sec: number): string => {
   const m = Math.floor(sec / 60);
@@ -244,6 +246,7 @@ export function LNArt({
   noTag = false,
   children,
   style = {},
+  onPaletteExtracted,
 }: {
   palette: Palette;
   src?: string | null;
@@ -253,8 +256,37 @@ export function LNArt({
   noTag?: boolean;
   children?: ReactNode;
   style?: CSSProperties;
+  onPaletteExtracted?: (palette: Palette) => void;
 }) {
   const p = palette;
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    if (!src || !imgRef.current || !onPaletteExtracted) return;
+
+    const extractColors = async () => {
+      if (!imgRef.current) return;
+
+      try {
+        const extracted = await extractPaletteFromImage(imgRef.current);
+        if (extracted) {
+          onPaletteExtracted(extracted);
+        }
+      } catch (error) {
+        // Silent fail - fallback to deterministic palette
+        console.debug("Color extraction skipped:", error);
+      }
+    };
+
+    const img = imgRef.current;
+    if (img.complete) {
+      extractColors();
+    } else {
+      img.addEventListener("load", extractColors);
+      return () => img.removeEventListener("load", extractColors);
+    }
+  }, [src, onPaletteExtracted]);
+
   return (
     <div
       style={{
@@ -270,8 +302,10 @@ export function LNArt({
       {src && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
+          ref={imgRef}
           src={src}
           alt={label || "cover"}
+          crossOrigin="anonymous"
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       )}

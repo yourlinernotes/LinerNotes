@@ -14,11 +14,12 @@ interface ComposeFormProps {
   onSubmit?: (review: Partial<Review>) => Promise<void>;
   onSuccess?: (review: Review) => void;
   searchAPI?: (query: string) => Promise<Track[]>;
+  initialTrack?: Track;
 }
 
-export function ComposeForm({ onSubmit, onSuccess, searchAPI }: ComposeFormProps) {
+export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack }: ComposeFormProps) {
   const { data: session } = useSession();
-  const [track, setTrack] = useState<Track | null>(null);
+  const [track, setTrack] = useState<Track | null>(initialTrack || null);
   const [rating, setRating] = useState(0);
   const [showLine, setShowLine] = useState(false);
   const [line, setLine] = useState("");

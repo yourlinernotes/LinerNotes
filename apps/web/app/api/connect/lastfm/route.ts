@@ -51,12 +51,35 @@ export async function POST() {
 }
 
 /**
- * GET /api/connect/lastfm - Get Last.fm connection status
+ * GET /api/connect/lastfm - Initiate Last.fm connection or get status
+ * If callbackUrl query param is present, initiate OAuth flow
+ * Otherwise, return connection status
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const user = await requireAuth();
+    const url = new URL(request.url);
+    const callbackUrl = url.searchParams.get("callbackUrl");
 
+    // If callbackUrl is provided, initiate OAuth flow
+    if (callbackUrl) {
+      const apiKey = process.env.LASTFM_API_KEY;
+
+      if (!apiKey) {
+        return NextResponse.redirect(
+          `${callbackUrl}?error=lastfm_api_not_configured`
+        );
+      }
+
+      // Last.fm auth URL - user will approve, then we get a token via callback
+      const oauthCallback = `${process.env.NEXTAUTH_URL}/api/connect/lastfm/callback?userId=${user.id}&returnTo=${encodeURIComponent(callbackUrl)}`;
+
+      const authUrl = `${LASTFM_AUTH_URL}/?api_key=${apiKey}&cb=${encodeURIComponent(oauthCallback)}`;
+
+      return NextResponse.redirect(authUrl);
+    }
+
+    // Otherwise, return connection status
     const { prisma } = await import("@/lib/prisma");
 
     const connection = await prisma.musicConnection.findUnique({

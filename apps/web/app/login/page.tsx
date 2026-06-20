@@ -50,7 +50,8 @@ function LoginForm() {
       if (result?.error) {
         setError(result.error);
       } else if (result?.ok) {
-        router.push(callbackUrl);
+        // Redirect new signups to onboarding, existing users to callback URL
+        router.push(isSignup ? "/onboarding" : callbackUrl);
         router.refresh();
       }
     } catch {

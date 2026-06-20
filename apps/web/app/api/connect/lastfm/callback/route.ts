@@ -20,10 +20,11 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get("token");
   const userId = searchParams.get("userId");
+  const returnTo = searchParams.get("returnTo") || "/profile";
 
   if (!token || !userId) {
     return NextResponse.redirect(
-      `${process.env.NEXTAUTH_URL}/profile?error=invalid_callback`
+      `${process.env.NEXTAUTH_URL}${returnTo}?error=invalid_callback`
     );
   }
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
   if (!apiKey || !apiSecret) {
     console.error("Missing Last.fm credentials");
     return NextResponse.redirect(
-      `${process.env.NEXTAUTH_URL}/profile?error=missing_credentials`
+      `${process.env.NEXTAUTH_URL}${returnTo}?error=missing_credentials`
     );
   }
 
@@ -83,14 +84,14 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Redirect back to profile with success
+    // Redirect back to returnTo URL with success
     return NextResponse.redirect(
-      `${process.env.NEXTAUTH_URL}/profile?lastfm_connected=true`
+      `${process.env.NEXTAUTH_URL}${returnTo}?lastfm_connected=true`
     );
   } catch (error) {
     console.error("Last.fm callback error:", error);
     return NextResponse.redirect(
-      `${process.env.NEXTAUTH_URL}/profile?error=lastfm_connection_failed`
+      `${process.env.NEXTAUTH_URL}${returnTo}?error=lastfm_connection_failed`
     );
   }
 }
