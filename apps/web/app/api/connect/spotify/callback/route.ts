@@ -76,30 +76,37 @@ export async function GET(request: NextRequest) {
     const spotifyProfile = await profileResponse.json();
 
     // Store connection in MusicConnection table
-    await prisma.musicConnection.upsert({
+    const existing = await prisma.musicConnection.findFirst({
       where: {
-        userId_service: {
-          userId: userId,
-          service: "spotify",
-        },
-      },
-      update: {
-        serviceUserId: spotifyProfile.id,
-        serviceUsername: spotifyProfile.display_name || spotifyProfile.id,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        expiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
-      },
-      create: {
         userId: userId,
         service: "spotify",
-        serviceUserId: spotifyProfile.id,
-        serviceUsername: spotifyProfile.display_name || spotifyProfile.id,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        expiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
       },
     });
+
+    if (existing) {
+      await prisma.musicConnection.update({
+        where: { id: existing.id },
+        data: {
+          serviceUserId: spotifyProfile.id,
+          serviceUsername: spotifyProfile.display_name || spotifyProfile.id,
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          expiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
+        },
+      });
+    } else {
+      await prisma.musicConnection.create({
+        data: {
+          userId: userId,
+          service: "spotify",
+          serviceUserId: spotifyProfile.id,
+          serviceUsername: spotifyProfile.display_name || spotifyProfile.id,
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token,
+          expiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
+        },
+      });
+    }
 
     // Redirect back to profile with success
     return NextResponse.redirect(

@@ -61,12 +61,10 @@ export async function GET() {
 
     const { prisma } = await import("@/lib/prisma");
 
-    const connection = await prisma.musicConnection.findUnique({
+    const connection = await prisma.musicConnection.findFirst({
       where: {
-        userId_service: {
-          userId: user.id,
-          service: "spotify",
-        },
+        userId: user.id,
+        service: "spotify",
       },
       select: {
         id: true,
@@ -111,14 +109,20 @@ export async function DELETE() {
 
     const { prisma } = await import("@/lib/prisma");
 
-    await prisma.musicConnection.delete({
+    const connection = await prisma.musicConnection.findFirst({
       where: {
-        userId_service: {
-          userId: user.id,
-          service: "spotify",
-        },
+        userId: user.id,
+        service: "spotify",
       },
     });
+
+    if (connection) {
+      await prisma.musicConnection.delete({
+        where: {
+          id: connection.id,
+        },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

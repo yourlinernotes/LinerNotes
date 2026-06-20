@@ -51,12 +51,10 @@ export async function GET() {
     const user = await requireAuth();
 
     // Check if user has Last.fm connected
-    const connection = await prisma.musicConnection.findUnique({
+    const connection = await prisma.musicConnection.findFirst({
       where: {
-        userId_service: {
-          userId: user.id,
-          service: "lastfm",
-        },
+        userId: user.id,
+        service: "lastfm",
       },
     });
 
