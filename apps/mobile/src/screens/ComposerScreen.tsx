@@ -376,15 +376,10 @@ export function ComposerScreen({
         });
       }
 
-      // Posted successfully — let the caller react (e.g. dismiss the prompt).
+      // Posted successfully — let the caller react (e.g. dismiss the prompt),
+      // then close the composer without a confirmation popup.
       onPosted?.();
-
-      // Success feedback
-      Alert.alert(
-        'Success!',
-        mode === 'album' ? 'Album review posted!' : 'Track review posted!',
-        [{ text: 'OK', onPress: onClose }]
-      );
+      onClose();
     } catch (error) {
       console.error('Failed to post review:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

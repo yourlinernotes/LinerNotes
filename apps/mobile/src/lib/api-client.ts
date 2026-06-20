@@ -408,9 +408,9 @@ class APIClient {
   // ==========================================================================
   async searchTracks(query: string, limit = 20): Promise<{ results: any[]; count: number }> {
     const params = new URLSearchParams({ q: query, limit: limit.toString() });
-    const data = await this.request<{ tracks: any[] }>(`/music/search/tracks?${params}`);
-    // Web API returns { tracks: [...] }, convert to { results, count }
-    return { results: data.tracks || [], count: (data.tracks || []).length };
+    // Web API returns { results: [...], count: N } (NOT { tracks }).
+    const data = await this.request<{ results: any[]; count: number }>(`/music/search/tracks?${params}`);
+    return { results: data.results || [], count: data.count || 0 };
   }
 
   async searchAlbums(query: string, limit = 20): Promise<{ results: any[]; count: number }> {
