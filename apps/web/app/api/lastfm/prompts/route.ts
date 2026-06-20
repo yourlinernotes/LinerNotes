@@ -17,11 +17,28 @@ function generateSignature(params: Record<string, string>, secret: string): stri
 
 interface LastFmTrack {
   name: string;
-  artist: { "#text": string };
-  album: { "#text": string };
+  artist: { "#text": string } | string;
+  album: { "#text": string } | string;
   image: Array<{ "#text": string; size: string }>;
   playcount?: string;
   mbid?: string;
+}
+
+/**
+ * Extract artist name from Last.fm track data (handles both string and object formats)
+ */
+function getArtistName(artist: { "#text": string } | string): string {
+  if (typeof artist === "string") return artist;
+  return artist["#text"] || "";
+}
+
+/**
+ * Extract album name from Last.fm track data (handles both string and object formats)
+ */
+function getAlbumName(album: { "#text": string } | string | undefined): string {
+  if (!album) return "";
+  if (typeof album === "string") return album;
+  return album["#text"] || "";
 }
 
 interface Prompt {
@@ -180,7 +197,10 @@ export async function GET() {
 
     // Priority 1: Tracks on heavy repeat (from top tracks of the week) - Limit to 3
     for (const track of topTracks.slice(0, 10)) {
-      const trackKey = `${track.artist["#text"]}::${track.name}`;
+      const artistName = getArtistName(track.artist);
+      const albumName = getAlbumName(track.album);
+      const trackKey = `${artistName}::${track.name}`;
+
       if (seenTracks.has(trackKey)) continue;
       seenTracks.add(trackKey);
 
@@ -191,15 +211,15 @@ export async function GET() {
 
       // If no artwork from Last.fm, try fetching from MusicBrainz/iTunes
       if (!artworkUrl || artworkUrl === "") {
-        artworkUrl = await fetchFallbackArtwork(track.name, track.artist["#text"], track.album?.["#text"] || "");
+        artworkUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
       }
 
-      const palette = paletteFromString(track.album?.["#text"] || track.name);
+      const palette = paletteFromString(albumName || track.name);
 
       console.log("[Last.fm Prompts] Creating repeat prompt:", {
         track: track.name,
-        artist: track.artist["#text"],
-        album: track.album?.["#text"],
+        artist: artistName,
+        album: albumName,
         artworkUrl,
         imageArray: track.image,
       });
@@ -211,8 +231,8 @@ export async function GET() {
         id: `repeat-${trackKey}`,
         type: "repeat",
         track: track.name,
-        artist: track.artist["#text"],
-        album: track.album?.["#text"] || "",
+        artist: artistName,
+        album: albumName,
         playCount,
         prompt: promptVariation(playCount),
         tag: playCount >= 15 ? "HEAVY ROTATION" : playCount >= 10 ? "ON HEAVY PLAY" : "ON REPEAT",
@@ -225,7 +245,10 @@ export async function GET() {
 
     // Priority 2: Recently played unique tracks - Limit to 3
     for (const track of tracks.slice(0, 20)) {
-      const trackKey = `${track.artist["#text"]}::${track.name}`;
+      const artistName = getArtistName(track.artist);
+      const albumName = getAlbumName(track.album);
+      const trackKey = `${artistName}::${track.name}`;
+
       if (seenTracks.has(trackKey)) continue;
       seenTracks.add(trackKey);
 
@@ -233,15 +256,15 @@ export async function GET() {
 
       // If no artwork from Last.fm, try fetching from MusicBrainz/iTunes
       if (!artworkUrl || artworkUrl === "") {
-        artworkUrl = await fetchFallbackArtwork(track.name, track.artist["#text"], track.album?.["#text"] || "");
+        artworkUrl = await fetchFallbackArtwork(track.name, artistName, albumName);
       }
 
-      const palette = paletteFromString(track.album?.["#text"] || track.name);
+      const palette = paletteFromString(albumName || track.name);
 
       console.log("[Last.fm Prompts] Creating recent prompt:", {
         track: track.name,
-        artist: track.artist["#text"],
-        album: track.album?.["#text"],
+        artist: artistName,
+        album: albumName,
         artworkUrl,
         imageArray: track.image,
       });
@@ -253,8 +276,8 @@ export async function GET() {
         id: `recent-${trackKey}`,
         type: "recent",
         track: track.name,
-        artist: track.artist["#text"],
-        album: track.album?.["#text"] || "",
+        artist: artistName,
+        album: albumName,
         prompt: promptText,
         tag: "JUST PLAYED",
         artworkUrl,
