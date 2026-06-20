@@ -10,6 +10,7 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Linki
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../components/atoms/Icon';
 import { Stars } from '../components/atoms/Stars';
+import { ReactionIcon } from '../components/atoms/Reactions';
 import { formatTimestamp } from '../lib/time-utils';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api-client';
@@ -390,6 +391,10 @@ function AlbumTrackStrip({
     <View style={styles.trackStrip}>
       {tracks.map((t) => {
         const hasMoments = t.moments && t.moments.length > 0;
+        // A track can also carry a plain text note (album take / playlist note).
+        const trackNote: string = (t.review || '').trim();
+        const hasNote = !!trackNote;
+        const hasContent = hasMoments || hasNote;
         const isExpanded = expanded[t.n];
 
         return (
@@ -397,12 +402,15 @@ function AlbumTrackStrip({
             <TouchableOpacity
               onPress={() => toggle(t.n)}
               style={styles.trackStripRow}
-              disabled={!hasMoments}
+              disabled={!hasContent}
             >
               <Text style={styles.trackStripNum}>{String(t.n).padStart(2, '0')}</Text>
               <Text style={styles.trackStripName} numberOfLines={1}>
                 {t.name}
               </Text>
+              {/* Optional per-track reaction */}
+              {t.reaction && <ReactionIcon kind={t.reaction} size={15} />}
+              {hasNote && <Icon name="bookmark" size={13} color={gold} filled />}
               {hasMoments && (
                 <Text style={[styles.trackStripMomentCount, { color: gold }]}>
                   {t.moments.length}
@@ -410,9 +418,15 @@ function AlbumTrackStrip({
               )}
             </TouchableOpacity>
 
-            {isExpanded && hasMoments && (
+            {isExpanded && hasContent && (
               <View style={styles.trackMoments}>
-                {t.moments.map((m: any, idx: number) => {
+                {/* Plain text note for this track */}
+                {hasNote && (
+                  <View style={[styles.trackMomentRow, { borderColor: 'rgba(241,235,224,0.08)', backgroundColor: 'rgba(241,235,224,0.02)' }]}>
+                    <Text style={styles.trackMomentText}>{trackNote}</Text>
+                  </View>
+                )}
+                {hasMoments && t.moments.map((m: any, idx: number) => {
                   const key = `track-${t.n}-${idx}`;
                   const isActive = activeNote === key;
                   return (

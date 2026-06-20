@@ -106,37 +106,18 @@ export function ProfileScreen({
     }
 
     try {
-      // Load independently so one failing call doesn't blank the whole profile.
-      // (getMyProfile supplies bio, which the login/auth-me user lacks.)
+      // Fetch everything in parallel (was sequential → very slow). Each call
+      // catches independently so one failure doesn't blank the whole profile.
       console.log('[Profile] Loading profile data...');
-      const full = await api.getMyProfile().catch((err) => {
-        console.error('[Profile] getMyProfile failed:', err);
-        return null;
-      });
-      const reviews = await api.getUserReviews(user.id).catch((err) => {
-        console.error('[Profile] getUserReviews failed:', err);
-        return [];
-      });
-      const saved = await api.getSavedReviews().catch((err) => {
-        console.error('[Profile] getSavedReviews failed:', err);
-        return [];
-      });
-      const reposted = await api.getRepostedReviews().catch((err) => {
-        console.error('[Profile] getRepostedReviews failed:', err);
-        return [];
-      });
-      const friends = await api.getFriends().catch((err) => {
-        console.error('[Profile] getFriends failed:', err);
-        return [];
-      });
-      const albumReviews = await api.getUserAlbumReviews(user.id).catch((err) => {
-        console.error('[Profile] getUserAlbumReviews failed:', err);
-        return [];
-      });
-      const playlists = await api.getUserPlaylists(user.id).catch((err) => {
-        console.error('[Profile] getUserPlaylists failed:', err);
-        return [];
-      });
+      const [full, reviews, saved, reposted, friends, albumReviews, playlists] = await Promise.all([
+        api.getMyProfile().catch((err) => { console.error('[Profile] getMyProfile failed:', err); return null; }),
+        api.getUserReviews(user.id).catch((err) => { console.error('[Profile] getUserReviews failed:', err); return []; }),
+        api.getSavedReviews().catch((err) => { console.error('[Profile] getSavedReviews failed:', err); return []; }),
+        api.getRepostedReviews().catch((err) => { console.error('[Profile] getRepostedReviews failed:', err); return []; }),
+        api.getFriends().catch((err) => { console.error('[Profile] getFriends failed:', err); return []; }),
+        api.getUserAlbumReviews(user.id).catch((err) => { console.error('[Profile] getUserAlbumReviews failed:', err); return []; }),
+        api.getUserPlaylists(user.id).catch((err) => { console.error('[Profile] getUserPlaylists failed:', err); return []; }),
+      ]);
       const u = full ?? user;
       setFullUser(u);
 
@@ -991,7 +972,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   top4Container: {
-    marginTop: 20,
+    marginTop: 30,
     backgroundColor: tokens.colors.nearBlack,
     paddingVertical: 16,
     paddingHorizontal: 16,

@@ -21,10 +21,14 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
   const depth = !review.take ? 'floor' : review.body ? 'full' : 'caption';
 
   const showPill = rating > 0 && album.kind !== 'playlist';
-  const hasFullReview = !!review.body;
+  // There's more to read in the Experience when the take has extra lines beyond
+  // the caption, there's a separate body, or there are moments/notes/tracks.
+  const takeLines = (review.take || '').split('\n').filter((l) => l.trim());
+  const hasFullReview =
+    !!review.body || takeLines.length > 1 || (review.notes?.length ?? 0) > 0 || isAlbum;
 
   // Show CTA/link slot:
-  // - Feed: show simple CTA when there's a full review
+  // - Feed: show "tap to read the full review" when there's more than the caption
   // - Share + Story: show dashed link sticker slot when there's a full review
   // - Share + Camera Roll: no CTA (link is copied, but no visual slot)
   const showCTA = context === 'feed' && hasFullReview;
@@ -127,7 +131,7 @@ export function ReviewCard({ review, accent, onPress, context = 'feed', variant 
         {/* CTA — plain text for feed */}
         {showCTA && (
           <Text style={[styles.ctaText, { color: gold }]}>
-            tap to read the full review
+            {album.kind === 'playlist' ? 'tap to open the playlist' : 'tap to read the full review'}
           </Text>
         )}
 
