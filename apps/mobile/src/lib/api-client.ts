@@ -301,15 +301,43 @@ class APIClient {
   // ALBUM REVIEWS
   // ==========================================================================
 
-  async createAlbumReview(data: Omit<AlbumReview, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<AlbumReview> {
-    return this.request('/album-reviews', {
-      method: 'POST',
-      body: data,
-    });
+  async createAlbumReview(data: Omit<AlbumReview, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<any> {
+    const album = data.album as any;
+    // Backend expects flat album fields + a trackReviews[] array (not the
+    // nested { album, tracks } shape the composer builds).
+    const body = {
+      albumId: album.id,
+      albumName: album.name,
+      albumArtist: album.artist,
+      artworkUrl: album.artworkUrl || '',
+      releaseDate: album.releaseDate,
+      totalTracks: album.totalTracks,
+      overallRating: data.overallRating,
+      take: (data as any).body || (data as any).take,
+      trackReviews: ((data.tracks as any[]) ?? []).map((t) => ({
+        trackId: String(t.trackId),
+        trackName: t.trackName,
+        trackArtist: album.artist,
+        artworkUrl: album.artworkUrl || '',
+        rating: t.rating ?? data.overallRating ?? 0,
+        reaction: t.reaction ?? undefined,
+        trackNumber: t.trackNumber,
+        notes: t.moment
+          ? [{ seconds: t.moment.seconds, label: t.moment.label ?? '', note: t.moment.note ?? '' }]
+          : [],
+      })),
+    };
+    return this.request('/album-reviews', { method: 'POST', body });
   }
 
   async getAlbumReview(id: string): Promise<AlbumReview> {
     return this.request(`/album-reviews/${id}`);
+  }
+
+  /** A user's album reviews — GET /album-reviews?userId= ({ albumReviews }). */
+  async getUserAlbumReviews(userId: string): Promise<any[]> {
+    const data = await this.request<{ albumReviews: any[] }>(`/album-reviews?userId=${userId}`);
+    return data.albumReviews ?? [];
   }
 
   async updateAlbumReview(id: string, data: Partial<AlbumReview>): Promise<AlbumReview> {

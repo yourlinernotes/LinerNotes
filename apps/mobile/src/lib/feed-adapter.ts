@@ -84,3 +84,63 @@ export function reviewToFeedReview(review: EnrichedReview, fallbackAuthor: FeedA
     via: review.via,
   };
 }
+
+/**
+ * Map an API album review (with nested trackReviews) into the card display
+ * shape, so album reviews render as album cards (with a track strip).
+ */
+export function albumReviewToFeedReview(ar: any, fallbackAuthor: FeedAuthor): FeedReview {
+  const u = ar?.user;
+  const author: FeedAuthor = u
+    ? {
+        id: u.id,
+        handle: u.handle ?? fallbackAuthor.handle,
+        name: u.displayName || u.name || fallbackAuthor.name,
+        displayName: u.displayName,
+        avatarUrl: u.avatarUrl,
+        tint: fallbackAuthor.tint,
+      }
+    : fallbackAuthor;
+
+  const album = ar?.album ?? {};
+  const albumName = album.name ?? album.title ?? '';
+  const albumId = album.albumId ?? album.id ?? ar?.id ?? albumName;
+  const trackReviews: any[] = Array.isArray(ar?.trackReviews) ? ar.trackReviews : [];
+
+  const tracks = trackReviews.map((tr, i) => ({
+    n: tr.trackNumber || i + 1,
+    name: tr.track?.name ?? tr.trackName ?? '',
+    reaction: (tr.reaction ?? null) as 'flame' | 'love' | 'skip' | null,
+    review: tr.take,
+    moments: (tr.notes ?? []).map((n: any) => ({ sec: n.seconds, note: n.note ?? n.label ?? '' })),
+  }));
+
+  // All per-track moments, for the card's moment line / experience read-along.
+  const notes = trackReviews.flatMap((tr) =>
+    (tr.notes ?? []).map((n: any) => ({ sec: n.seconds, label: n.label, note: n.note ?? '' }))
+  );
+
+  return {
+    id: ar.id,
+    depth: ar.take ? 'full' : 'caption',
+    user: author,
+    album: {
+      title: albumName,
+      artist: album.artist ?? '',
+      year: 0,
+      kind: 'album',
+      artworkUrl: album.artworkUrl,
+      palette: paletteFromId(String(albumId)),
+      tracks,
+    },
+    rating: ar.overallRating ?? 0,
+    at: ar.createdAt,
+    take: ar.take,
+    body: null,
+    notes,
+    featured: 0,
+    likeCount: ar.likeCount ?? 0,
+    repostCount: ar.repostCount ?? 0,
+    saved: false,
+  };
+}

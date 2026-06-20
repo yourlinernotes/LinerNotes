@@ -33,7 +33,7 @@ import { EditProfileModal } from '../components/EditProfileModal';
 import { Top4Editor } from '../components/Top4Editor';
 import type { User } from '../lib/types';
 import { shareToInstagramStory, shareToTikTok, shareToTwitter, saveCardImage } from '../lib/share-utils';
-import { reviewToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
+import { reviewToFeedReview, albumReviewToFeedReview, type EnrichedReview } from '../lib/feed-adapter';
 import type { FeedAuthor, FeedReview } from '../lib/feed-types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -60,6 +60,7 @@ interface ProfileData {
   reviews: EnrichedReview[];
   reposted: EnrichedReview[];
   saved: EnrichedReview[];
+  albumReviews: any[];
 }
 
 type TabType = 'notes' | 'saved';
@@ -123,6 +124,10 @@ export function ProfileScreen({
         console.error('[Profile] getFriends failed:', err);
         return [];
       });
+      const albumReviews = await api.getUserAlbumReviews(user.id).catch((err) => {
+        console.error('[Profile] getUserAlbumReviews failed:', err);
+        return [];
+      });
       const u = full ?? user;
       setFullUser(u);
 
@@ -154,6 +159,7 @@ export function ProfileScreen({
         reviews,
         reposted,
         saved,
+        albumReviews,
       };
 
       console.log('[Profile] Profile data loaded successfully');
@@ -178,6 +184,7 @@ export function ProfileScreen({
         reviews: [],
         reposted: [],
         saved: [],
+        albumReviews: [],
       });
     }
   }
@@ -279,16 +286,34 @@ export function ProfileScreen({
     );
   }
 
-  const notesList = [
-    ...profile.reposted.map((r) => ({ review: r, kind: 'repost' as const })),
-    ...profile.reviews.map((r) => ({ review: r, kind: 'own' as const })),
-  ];
-
   const profileAuthor: FeedAuthor = {
     name: profile.user.name,
     handle: profile.user.handle,
     tint: profile.user.tint,
   };
+
+  // Track reviews, reposts, and album reviews — pre-adapted to FeedReview and
+  // interleaved newest-first.
+  const notesList = [
+    ...profile.reposted.map((r) => ({
+      key: 'repost' + r.id,
+      kind: 'repost' as const,
+      feedReview: reviewToFeedReview(r, profileAuthor),
+      at: r.createdAt,
+    })),
+    ...profile.reviews.map((r) => ({
+      key: 'own' + r.id,
+      kind: 'own' as const,
+      feedReview: reviewToFeedReview(r, profileAuthor),
+      at: r.createdAt,
+    })),
+    ...profile.albumReviews.map((a) => ({
+      key: 'album' + a.id,
+      kind: 'own' as const,
+      feedReview: albumReviewToFeedReview(a, profileAuthor),
+      at: a.createdAt,
+    })),
+  ].sort((x, y) => new Date(y.at || 0).getTime() - new Date(x.at || 0).getTime());
 
   return (
     <View style={styles.container}>
@@ -418,11 +443,11 @@ export function ProfileScreen({
 
         {/* Notes feed */}
         <View style={styles.feed}>
-          {tab === 'notes' && notesList.map(({ review, kind }) => (
-            <ProfileNote key={kind + review.id} review={review} kind={kind} gold={gold} author={profileAuthor} onOpenReview={onOpenReview} />
+          {tab === 'notes' && notesList.map(({ key, feedReview, kind }) => (
+            <ProfileNote key={key} feedReview={feedReview} kind={kind} gold={gold} onOpenReview={onOpenReview} />
           ))}
           {tab === 'saved' && profile.saved.map((review) => (
-            <ProfileNote key={'sv' + review.id} review={review} kind="saved" gold={gold} author={profileAuthor} onOpenReview={onOpenReview} />
+            <ProfileNote key={'sv' + review.id} feedReview={reviewToFeedReview(review, profileAuthor)} kind="saved" gold={gold} onOpenReview={onOpenReview} />
           ))}
           {tab === 'saved' && profile.saved.length === 0 && (
             <View style={styles.emptyState}>
@@ -558,19 +583,16 @@ function AlbumTile({ entry, big }: { entry: AlbumEntry; big?: boolean }) {
 }
 
 function ProfileNote({
-  review,
+  feedReview,
   kind,
   gold,
-  author,
   onOpenReview,
 }: {
-  review: EnrichedReview;
+  feedReview: FeedReview;
   kind: 'own' | 'repost' | 'saved';
   gold: string;
-  author: FeedAuthor;
   onOpenReview?: (review: FeedReview) => void;
 }) {
-  const feedReview = reviewToFeedReview(review, author);
   const [like, setLike] = useState({ on: false, n: 0 });
   const [save, setSave] = useState(kind === 'saved');
   const [repost, setRepost] = useState({ on: kind === 'repost', n: 0 });
@@ -578,7 +600,7 @@ function ProfileNote({
   const regularCardRef = useRef(null); // For TikTok/Twitter (no space)
 
   const handleShare = async () => {
-    const reviewUrl = `https://beta-linernotes.vercel.app/review/${review.id}`;
+    const reviewUrl = `https://beta-linernotes.vercel.app/review/${feedReview.id}`;
 
     // Show share options matching Claude Design: Camera Roll, Instagram, TikTok
     Alert.alert(
@@ -610,16 +632,16 @@ function ProfileNote({
       {kind === 'repost' && (
         <View style={styles.noteHeader}>
           <Icon name="repost" size={13} color="rgba(241,235,224,0.45)" />
-          <Text style={styles.noteHeaderText}>you reposted · {review.user?.name}'s note</Text>
+          <Text style={styles.noteHeaderText}>you reposted · {feedReview.user?.name}'s note</Text>
         </View>
       )}
-      {kind === 'saved' && review.user && (
+      {kind === 'saved' && feedReview.user && (
         <View style={styles.noteHeader}>
-          <Avatar user={{ name: review.user.name, tint: review.user.tint || gold }} size={28} />
+          <Avatar user={{ name: feedReview.user.name, tint: feedReview.user.tint || gold }} size={28} />
           <View style={styles.noteHeaderInfo}>
-            <Text style={styles.noteUserName}>{review.user.name}</Text>
+            <Text style={styles.noteUserName}>{feedReview.user.name}</Text>
             <Text style={styles.noteUserHandle}>
-              @{review.user.handle} · {formatRelativeTime(review.createdAt)}
+              @{feedReview.user.handle} · {formatRelativeTime(feedReview.at)}
             </Text>
           </View>
         </View>
