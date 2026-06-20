@@ -110,6 +110,8 @@ export function ComposerScreen({
   const [albumResults, setAlbumResults] = useState<any[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
   const [searchingAlbum, setSearchingAlbum] = useState(false);
+  const [albumTracks, setAlbumTracks] = useState<any[]>([]);
+  const [loadingTracks, setLoadingTracks] = useState(false);
 
   // Playlist (playlist mode) — name + external Spotify/Apple link
   const [playlistName, setPlaylistName] = useState('');
@@ -276,16 +278,21 @@ export function ComposerScreen({
     // carry per-track entries.
     const albumId = result.albumId || result.id || result.collectionId;
     if (albumId) {
+      setLoadingTracks(true);
       try {
-        const { tracks: albumTracks } = await api.getAlbumTracks(String(albumId));
+        const { tracks: fetchedTracks } = await api.getAlbumTracks(String(albumId));
+        setAlbumTracks(fetchedTracks || []);
         const tracksMap: Record<number, TrackData> = {};
-        (albumTracks || []).forEach((track: any, index: number) => {
+        (fetchedTracks || []).forEach((track: any, index: number) => {
           const n = track.trackNumber || index + 1;
           tracksMap[n] = { n, name: track.name, moments: [], reaction: null, review: '' };
         });
         setTracks(tracksMap);
       } catch (error) {
         console.error('Failed to fetch album tracks:', error);
+        setAlbumTracks([]);
+      } finally {
+        setLoadingTracks(false);
       }
     }
   }
@@ -443,6 +450,75 @@ export function ComposerScreen({
               onSelect={selectAlbum}
               onClear={() => setSelectedAlbum(null)}
             />
+          )}
+
+          {/* Album track strip - shows after album is selected */}
+          {mode === 'album' && selectedAlbum && (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>
+                ALBUM TRACKS {albumTracks.length > 0 && `· ${albumTracks.length}`}
+              </Text>
+              {loadingTracks ? (
+                <View style={styles.trackStripLoading}>
+                  <ActivityIndicator size="small" color={gold} />
+                  <Text style={styles.trackStripLoadingText}>Loading tracks...</Text>
+                </View>
+              ) : albumTracks.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.trackStrip}
+                >
+                  {albumTracks.map((track, index) => {
+                    const trackNum = track.trackNumber || index + 1;
+                    const trackData = tracks[trackNum];
+                    return (
+                      <TouchableOpacity
+                        key={track.id || index}
+                        style={[
+                          styles.trackChip,
+                          trackData?.reaction && {
+                            borderColor: gold,
+                            backgroundColor: `${gold}14`,
+                          },
+                        ]}
+                        onPress={() => {
+                          // TODO: Open track detail modal for adding reaction/notes
+                          Alert.alert(
+                            `Track ${trackNum}`,
+                            `${track.name}${track.artist ? `\nby ${track.artist}` : ''}`,
+                            [
+                              { text: 'OK', style: 'cancel' },
+                            ]
+                          );
+                        }}
+                      >
+                        <Text style={styles.trackChipNumber}>{trackNum}</Text>
+                        <View style={styles.trackChipInfo}>
+                          <Text style={styles.trackChipName} numberOfLines={1}>
+                            {track.name}
+                          </Text>
+                          {trackData?.reaction && (
+                            <View style={styles.trackChipReaction}>
+                              <Icon
+                                name={trackData.reaction}
+                                size={12}
+                                color={gold}
+                                filled
+                              />
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <Text style={styles.trackStripEmpty}>
+                  No tracks available for this album
+                </Text>
+              )}
+            </View>
           )}
 
           {/* Playlist — name + external Spotify/Apple Music link (no search) */}
@@ -1140,5 +1216,66 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: tokens.colors.gold,
+  },
+  trackStripLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 16,
+  },
+  trackStripLoadingText: {
+    fontFamily: 'System',
+    fontSize: 13,
+    color: 'rgba(241,235,224,0.5)',
+  },
+  trackStrip: {
+    gap: 8,
+    paddingVertical: 8,
+  },
+  trackChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.14)',
+    backgroundColor: 'rgba(241,235,224,0.04)',
+    minWidth: 140,
+    maxWidth: 200,
+  },
+  trackChipNumber: {
+    fontFamily: 'Menlo',
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(241,235,224,0.5)',
+    minWidth: 20,
+  },
+  trackChipInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  trackChipName: {
+    flex: 1,
+    fontFamily: 'System',
+    fontSize: 13,
+    fontWeight: '500',
+    color: tokens.colors.fg,
+  },
+  trackChipReaction: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackStripEmpty: {
+    fontFamily: 'System',
+    fontSize: 13,
+    color: 'rgba(241,235,224,0.4)',
+    paddingVertical: 16,
+    textAlign: 'center',
   },
 });
