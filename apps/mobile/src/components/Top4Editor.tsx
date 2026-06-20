@@ -28,21 +28,51 @@ interface Album {
   artworkUrl: string;
 }
 
+/** Map one of the user's reviews into a selectable favourite (album). */
+function reviewToAlbum(r: any): Album {
+  const t = r?.track ?? r ?? {};
+  const name = t.album || t.trackAlbum || t.name || t.trackName || 'Unknown';
+  const artist = t.artist || t.trackArtist || 'Unknown';
+  return {
+    id: String(t.album || t.trackAlbum || t.trackId || t.id || r?.id || name),
+    name,
+    artist,
+    artworkUrl: t.artworkUrl || '',
+  };
+}
+
 interface Top4EditorProps {
   visible: boolean;
   currentTop4: Album[];
+  /** The user's own reviews, for picking favourites from them. */
+  reviews?: any[];
   onClose: () => void;
   onSave: (albums: Album[]) => Promise<void>;
 }
 
-export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4EditorProps) {
+export function Top4Editor({ visible, currentTop4, reviews, onClose, onSave }: Top4EditorProps) {
   const [selectedAlbums, setSelectedAlbums] = useState<Album[]>(currentTop4);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Album[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [mode, setMode] = useState<'search' | 'reviews'>('search');
 
   const gold = tokens.colors.gold;
+
+  // De-duplicated albums derived from the user's reviews.
+  const reviewAlbums: Album[] = React.useMemo(() => {
+    const seen = new Set<string>();
+    const out: Album[] = [];
+    for (const r of reviews || []) {
+      const a = reviewToAlbum(r);
+      if (!seen.has(a.id)) {
+        seen.add(a.id);
+        out.push(a);
+      }
+    }
+    return out;
+  }, [reviews]);
 
   async function handleSearch() {
     if (!searchQuery.trim()) return;
@@ -155,77 +185,108 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
             </View>
           )}
 
-          {/* Search */}
-          <View style={styles.searchSection}>
-            <Text style={styles.sectionLabel}>SEARCH ALBUMS</Text>
-            <View style={styles.searchRow}>
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                onSubmitEditing={handleSearch}
-                placeholder="Search for albums..."
-                placeholderTextColor="rgba(241,235,224,0.3)"
-                style={styles.searchInput}
-                returnKeyType="search"
-              />
-              <TouchableOpacity
-                onPress={handleSearch}
-                disabled={isSearching || !searchQuery.trim()}
-                style={[
-                  styles.searchButton,
-                  { backgroundColor: isSearching || !searchQuery.trim() ? 'rgba(241,235,224,0.12)' : gold },
-                ]}
-              >
-                {isSearching ? (
-                  <ActivityIndicator size="small" color={tokens.colors.nearBlack} />
-                ) : (
-                  <Text style={[styles.searchButtonText, { color: tokens.colors.nearBlack }]}>
-                    Search
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          {/* Mode toggle: search albums vs pick from your reviews */}
+          <View style={styles.modeToggle}>
+            <TouchableOpacity
+              onPress={() => setMode('search')}
+              style={[styles.modeButton, mode === 'search' && { backgroundColor: gold }]}
+            >
+              <Text style={[styles.modeButtonText, mode === 'search' && styles.modeButtonTextActive]}>
+                Search albums
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setMode('reviews')}
+              style={[styles.modeButton, mode === 'reviews' && { backgroundColor: gold }]}
+            >
+              <Text style={[styles.modeButtonText, mode === 'reviews' && styles.modeButtonTextActive]}>
+                From your reviews
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Results — fills the space between the search bar and Save */}
-          <View style={styles.resultsRegion}>
-          {searchResults.length > 0 && (
-            <FlatList
-              data={searchResults}
-              style={styles.resultsFlat}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => {
-                const isSelected = selectedAlbums.some(a => a.id === item.id);
-                return (
+          {mode === 'search' ? (
+            <>
+              {/* Search */}
+              <View style={styles.searchSection}>
+                <Text style={styles.sectionLabel}>SEARCH ALBUMS</Text>
+                <View style={styles.searchRow}>
+                  <TextInput
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    onSubmitEditing={handleSearch}
+                    placeholder="Search for albums..."
+                    placeholderTextColor="rgba(241,235,224,0.3)"
+                    style={styles.searchInput}
+                    returnKeyType="search"
+                  />
                   <TouchableOpacity
-                    onPress={() => toggleAlbum(item)}
+                    onPress={handleSearch}
+                    disabled={isSearching || !searchQuery.trim()}
                     style={[
-                      styles.resultItem,
-                      isSelected && { backgroundColor: `${gold}14`, borderColor: gold },
+                      styles.searchButton,
+                      { backgroundColor: isSearching || !searchQuery.trim() ? 'rgba(241,235,224,0.12)' : gold },
                     ]}
                   >
-                    <Image source={{ uri: item.artworkUrl }} style={styles.resultArt} />
-                    <View style={styles.resultInfo}>
-                      <Text style={styles.resultAlbum} numberOfLines={1}>
-                        {item.name}
+                    {isSearching ? (
+                      <ActivityIndicator size="small" color={tokens.colors.nearBlack} />
+                    ) : (
+                      <Text style={[styles.searchButtonText, { color: tokens.colors.nearBlack }]}>
+                        Search
                       </Text>
-                      <Text style={styles.resultArtist} numberOfLines={1}>
-                        {item.artist}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <View style={[styles.checkmark, { backgroundColor: gold }]}>
-                        <Text style={styles.checkmarkText}>✓</Text>
-                      </View>
                     )}
                   </TouchableOpacity>
-                );
-              }}
-              contentContainerStyle={styles.resultsList}
-              showsVerticalScrollIndicator={false}
-            />
+                </View>
+              </View>
+
+              {/* Results — fills the space between the search bar and Save */}
+              <View style={styles.resultsRegion}>
+                {searchResults.length > 0 && (
+                  <FlatList
+                    data={searchResults}
+                    style={styles.resultsFlat}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <AlbumRow
+                        item={item}
+                        selected={selectedAlbums.some(a => a.id === item.id)}
+                        gold={gold}
+                        onPress={() => toggleAlbum(item)}
+                      />
+                    )}
+                    contentContainerStyle={styles.resultsList}
+                    showsVerticalScrollIndicator={false}
+                  />
+                )}
+              </View>
+            </>
+          ) : (
+            /* Pick from the user's own reviews */
+            <View style={styles.resultsRegion}>
+              <Text style={styles.sectionLabel}>PICK FROM YOUR REVIEWS</Text>
+              {reviewAlbums.length > 0 ? (
+                <FlatList
+                  data={reviewAlbums}
+                  style={styles.resultsFlat}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <AlbumRow
+                      item={item}
+                      selected={selectedAlbums.some(a => a.id === item.id)}
+                      gold={gold}
+                      onPress={() => toggleAlbum(item)}
+                    />
+                  )}
+                  contentContainerStyle={styles.resultsList}
+                  showsVerticalScrollIndicator={false}
+                />
+              ) : (
+                <Text style={styles.emptyReviews}>
+                  No reviews yet — post some notes to pick favourites from them.
+                </Text>
+              )}
+            </View>
           )}
-          </View>
 
           {/* Save Button */}
           <View style={styles.footer}>
@@ -262,6 +323,48 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
         </SafeAreaView>
       </View>
     </Modal>
+  );
+}
+
+/** A selectable album/track row used by both the search and reviews lists. */
+function AlbumRow({
+  item,
+  selected,
+  gold,
+  onPress,
+}: {
+  item: Album;
+  selected: boolean;
+  gold: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.resultItem,
+        selected && { backgroundColor: `${gold}14`, borderColor: gold },
+      ]}
+    >
+      {item.artworkUrl ? (
+        <Image source={{ uri: item.artworkUrl }} style={styles.resultArt} />
+      ) : (
+        <View style={[styles.resultArt, styles.resultArtFallback]} />
+      )}
+      <View style={styles.resultInfo}>
+        <Text style={styles.resultAlbum} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={styles.resultArtist} numberOfLines={1}>
+          {item.artist}
+        </Text>
+      </View>
+      {selected && (
+        <View style={[styles.checkmark, { backgroundColor: gold }]}>
+          <Text style={styles.checkmarkText}>✓</Text>
+        </View>
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -358,6 +461,38 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: 'rgba(241,235,224,0.3)',
   },
+  modeToggle: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(241,235,224,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.09)',
+    marginBottom: 16,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 9,
+    alignItems: 'center',
+  },
+  modeButtonText: {
+    fontFamily: 'System',
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(241,235,224,0.65)',
+  },
+  modeButtonTextActive: {
+    color: tokens.colors.nearBlack,
+  },
+  emptyReviews: {
+    fontFamily: 'System',
+    fontSize: 13.5,
+    color: 'rgba(241,235,224,0.5)',
+    lineHeight: 20,
+    paddingVertical: 12,
+  },
   searchSection: {
     marginBottom: 16,
   },
@@ -413,6 +548,11 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 6,
     marginRight: 12,
+  },
+  resultArtFallback: {
+    backgroundColor: 'rgba(241,235,224,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.12)',
   },
   resultInfo: {
     flex: 1,

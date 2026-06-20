@@ -400,6 +400,7 @@ export function ProfileScreen({
         <Top4Editor
           visible={showTop4Editor}
           currentTop4={fullUser.favourites?.albums || []}
+          reviews={profile.reviews}
           onClose={() => setShowTop4Editor(false)}
           onSave={handleSaveTop4}
         />
@@ -450,20 +451,30 @@ function Section({ gold, label, onShare, onEdit }: { gold: string; label: string
 
 function AlbumTile({ entry, big }: { entry: AlbumEntry; big?: boolean }) {
   const gold = tokens.colors.gold;
+  // Two-up grid for the Top 4 (big); narrower fixed tiles for the week row.
+  const tileWidth = big ? (SCREEN_WIDTH - 82) / 2 : 108;
+  const art = entry.album?.artworkUrl;
+  const title = entry.album?.name || entry.album?.title || 'Unknown Album';
 
   return (
-    <TouchableOpacity style={styles.albumTile}>
+    <TouchableOpacity style={[styles.albumTile, { width: tileWidth }]} activeOpacity={0.85}>
       <View style={styles.albumCover}>
-        <View style={styles.albumArtPlaceholder}>
-          <Text style={styles.albumArtLabel}>{entry.album?.title?.toLowerCase() || 'album'}</Text>
-        </View>
-        <View style={styles.ratingPill}>
-          <Stars rating={entry.rating} size={9} color={gold} />
-        </View>
+        {art ? (
+          <Image source={{ uri: art }} style={styles.albumArtImage} />
+        ) : (
+          <View style={styles.albumArtPlaceholder}>
+            <Text style={styles.albumArtLabel}>{title.toLowerCase()}</Text>
+          </View>
+        )}
+        {entry.rating > 0 && (
+          <View style={styles.ratingPill}>
+            <Stars rating={entry.rating} size={9} color={gold} />
+          </View>
+        )}
       </View>
       <View style={styles.albumInfo}>
         <Text style={[styles.albumTitle, { fontSize: big ? 14.5 : 13 }]} numberOfLines={1}>
-          {entry.album?.title || 'Unknown Album'}
+          {title}
         </Text>
         <Text style={styles.albumArtist} numberOfLines={1}>
           {entry.album?.artist || 'Unknown Artist'}
@@ -799,7 +810,9 @@ const styles = StyleSheet.create({
   top4Grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 13,
+    justifyContent: 'space-between',
+    rowGap: 16,
+    columnGap: 13,
   },
   top4Attribution: {
     marginTop: 16,
@@ -843,7 +856,6 @@ const styles = StyleSheet.create({
     width: 108,
   },
   albumTile: {
-    width: (SCREEN_WIDTH - 36 - 13) / 2,
     gap: 7,
   },
   albumCover: {
@@ -855,6 +867,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 13,
     elevation: 8,
+  },
+  albumArtImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
   },
   albumArtPlaceholder: {
     width: '100%',
