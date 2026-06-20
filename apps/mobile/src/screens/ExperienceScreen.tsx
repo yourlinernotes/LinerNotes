@@ -5,7 +5,7 @@ import { tokens } from '../lib/tokens';
  * Based on Claude Design handoff: experience.jsx
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Linking, Alert, Image, Animated, PanResponder } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../components/atoms/Icon';
@@ -15,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api-client';
 import type { FeedReview } from '../lib/feed-types';
 import { odesli } from '../services/odesli';
+import { lastfm } from '../services/lastfm';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -40,9 +41,57 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [spotifyOpening, setSpotifyOpening] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [nowPlayingTrack, setNowPlayingTrack] = useState<{ name: string; artist: string } | null>(null);
 
   const isAlbum = !!(album.tracks && album.tracks.length > 0);
   const npTrack = album.tracks?.find((t) => t.moments && t.moments.length > 0);
+
+  // Check Last.fm for currently playing track that matches this album/artist
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    const checkNowPlaying = async () => {
+      try {
+        const username = await lastfm.getUsername();
+        if (!username) return;
+
+        const recentTracks = await lastfm.getRecentTracks(username, 1);
+        if (!recentTracks || recentTracks.length === 0) return;
+
+        const track = recentTracks[0];
+        const isPlaying = track['@attr']?.nowplaying === 'true';
+
+        if (!isPlaying) {
+          setNowPlayingTrack(null);
+          return;
+        }
+
+        // Check if the playing track matches this review's album/artist
+        const trackArtist = track.artist?.name || track.artist;
+        const trackAlbum = typeof track.album === 'string' ? track.album : track.album?.['#text'];
+
+        const matchesArtist = trackArtist?.toLowerCase().includes(album.artist?.toLowerCase() || '') ||
+                             album.artist?.toLowerCase().includes(trackArtist?.toLowerCase() || '');
+        const matchesAlbum = trackAlbum?.toLowerCase() === album.title?.toLowerCase();
+
+        if (matchesArtist && (matchesAlbum || !isAlbum)) {
+          setNowPlayingTrack({
+            name: track.name,
+            artist: trackArtist,
+          });
+        } else {
+          setNowPlayingTrack(null);
+        }
+      } catch (error) {
+        console.error('[Experience] Failed to check Last.fm now playing:', error);
+      }
+    };
+
+    checkNowPlaying();
+    interval = setInterval(checkNowPlaying, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [album.artist, album.title, isAlbum]);
 
   // Own note → can delete (backend also enforces ownership).
   const isOwn = !!user?.handle && review.user?.handle === user.handle;
@@ -203,8 +252,8 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
             <Text style={styles.spotifyText}>Open in Spotify</Text>
           </TouchableOpacity>
 
-          {/* Now playing companion (if applicable) */}
-          {npTrack && (
+          {/* Now playing companion (if Last.fm detects user is listening to this album/track) */}
+          {nowPlayingTrack && (
             <View style={[styles.nowPlaying, { backgroundColor: `${gold}12`, borderColor: `${gold}3a` }]}>
               <View style={styles.equalizer}>
                 {[0, 1, 2].map((i) => (
@@ -212,9 +261,9 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
                 ))}
               </View>
               <View style={styles.nowPlayingInfo}>
-                <Text style={[styles.nowPlayingLabel, { color: gold }]}>following along</Text>
+                <Text style={[styles.nowPlayingLabel, { color: gold }]}>listening now</Text>
                 <Text style={styles.nowPlayingTrack} numberOfLines={1}>
-                  {npTrack.name}
+                  {nowPlayingTrack.name}
                 </Text>
               </View>
               <Text style={styles.nowPlayingSource}>via{'\n'}last.fm</Text>
