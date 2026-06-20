@@ -17,6 +17,7 @@ function LogPageContent() {
   const artworkUrl = searchParams.get("artwork");
   const promptText = searchParams.get("prompt");
   const promptTag = searchParams.get("tag");
+  const initialRating = searchParams.get("rating");
 
   // Create initial track object if params exist
   const initialTrack: Track | undefined = trackName && artistName ? {
@@ -44,7 +45,11 @@ function LogPageContent() {
             </div>
           )}
 
-          <ComposeForm searchAPI={searchTracks} initialTrack={initialTrack} />
+          <ComposeForm
+            searchAPI={searchTracks}
+            initialTrack={initialTrack}
+            initialRating={initialRating ? parseInt(initialRating) : undefined}
+          />
         </section>
       </main>
 
