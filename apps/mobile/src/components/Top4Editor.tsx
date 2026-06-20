@@ -81,8 +81,8 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
   }
 
   async function handleSave() {
-    if (selectedAlbums.length !== 4) {
-      Alert.alert('Select 4 albums', 'Please select exactly 4 albums for your favorites');
+    if (selectedAlbums.length === 0) {
+      Alert.alert('Select an album', 'Pick at least one album for your favorites (up to 4)');
       return;
     }
 
@@ -231,12 +231,12 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
           <View style={styles.footer}>
             <TouchableOpacity
               onPress={handleSave}
-              disabled={selectedAlbums.length !== 4 || isSaving}
+              disabled={selectedAlbums.length === 0 || isSaving}
               style={[
                 styles.saveButton,
                 {
                   backgroundColor:
-                    selectedAlbums.length === 4 && !isSaving ? gold : 'rgba(241,235,224,0.12)',
+                    selectedAlbums.length > 0 && !isSaving ? gold : 'rgba(241,235,224,0.12)',
                 },
               ]}
             >
@@ -248,7 +248,7 @@ export function Top4Editor({ visible, currentTop4, onClose, onSave }: Top4Editor
                     styles.saveButtonText,
                     {
                       color:
-                        selectedAlbums.length === 4
+                        selectedAlbums.length > 0
                           ? tokens.colors.nearBlack
                           : 'rgba(241,235,224,0.4)',
                     },
