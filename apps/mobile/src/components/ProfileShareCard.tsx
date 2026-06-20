@@ -94,7 +94,7 @@ export function ProfileShareCard({
             <Text style={[styles.favouritesLabel, { color: userTint }]}>
               A FEW FAVOURITES
             </Text>
-            <View style={[styles.favouritesGrid, { gridTemplateColumns: `repeat(${favs.length}, 1fr)` }]}>
+            <View style={styles.favouritesGrid}>
               {favs.map((entry) => (
                 <View key={entry.album.id} style={styles.favouriteItem}>
                   <Image
@@ -210,11 +210,13 @@ const styles = StyleSheet.create({
   },
   favouritesGrid: {
     flexDirection: 'row',
-    gap: 7,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 7,
     marginTop: 8,
   },
   favouriteItem: {
-    flex: 1,
+    width: '48%',
     borderRadius: 8,
     overflow: 'hidden',
     shadowColor: '#000',
