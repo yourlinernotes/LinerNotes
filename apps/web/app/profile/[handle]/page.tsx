@@ -117,6 +117,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState<ProfileUser | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [albumReviews, setAlbumReviews] = useState<AlbumReview[]>([]);
+  const [repostedReviews, setRepostedReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<"notes" | "saved">("notes");
@@ -153,6 +154,12 @@ export default function ProfilePage() {
         if (albumReviewsResponse.ok) {
           const albumReviewsData = await albumReviewsResponse.json();
           setAlbumReviews(albumReviewsData.albumReviews || []);
+        }
+
+        const repostsResponse = await fetch(`/api/reviews?type=reposts`);
+        if (repostsResponse.ok) {
+          const repostsData = await repostsResponse.json();
+          setRepostedReviews(repostsData.reviews || []);
         }
       } catch (err) {
         console.error("Failed to load profile:", err);
@@ -240,6 +247,7 @@ export default function ProfilePage() {
   const noteVms: ReviewVM[] = [
     ...reviews.map((r) => toReviewVM({ ...r, user: r.user || user })),
     ...albumReviews.map((ar) => toAlbumReviewVM({ ...ar, user: ar.user || user })),
+    ...repostedReviews.map((r) => ({ ...toReviewVM({ ...r, user: r.user || user }), via: 'repost' as const })),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   const ghostBtn: React.CSSProperties = { padding: "6px 14px", borderRadius: 999, cursor: "pointer", background: "rgba(var(--ln-fg-rgb),0.05)", color: "rgba(var(--ln-fg-rgb),0.75)", border: "1px solid rgba(var(--ln-fg-rgb),0.18)", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600 };
