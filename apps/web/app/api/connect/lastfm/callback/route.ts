@@ -65,24 +65,31 @@ export async function GET(request: NextRequest) {
     const { key: sessionKey, name: username } = sessionData.session;
 
     // Store connection in MusicConnection table
-    await prisma.musicConnection.upsert({
+    const existing = await prisma.musicConnection.findFirst({
       where: {
-        userId_service: {
-          userId: userId,
-          service: "lastfm",
-        },
-      },
-      update: {
-        sessionKey: sessionKey,
-        serviceUsername: username,
-      },
-      create: {
         userId: userId,
         service: "lastfm",
-        sessionKey: sessionKey,
-        serviceUsername: username,
       },
     });
+
+    if (existing) {
+      await prisma.musicConnection.update({
+        where: { id: existing.id },
+        data: {
+          sessionKey: sessionKey,
+          serviceUsername: username,
+        },
+      });
+    } else {
+      await prisma.musicConnection.create({
+        data: {
+          userId: userId,
+          service: "lastfm",
+          sessionKey: sessionKey,
+          serviceUsername: username,
+        },
+      });
+    }
 
     // Redirect back to returnTo URL with success
     return NextResponse.redirect(
