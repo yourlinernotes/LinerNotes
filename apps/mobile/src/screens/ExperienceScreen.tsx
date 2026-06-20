@@ -44,6 +44,9 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
   const [nowPlayingTrack, setNowPlayingTrack] = useState<{ name: string; artist: string } | null>(null);
 
   const isAlbum = !!(album.tracks && album.tracks.length > 0);
+  // Album *reviews* are flagged by the adapter (kind === 'album'); use this to
+  // route deletes to the album endpoint, never the track one.
+  const isAlbumReview = album.kind === 'album';
   const npTrack = album.tracks?.find((t) => t.moments && t.moments.length > 0);
 
   // Check Last.fm for currently playing track that matches this album/artist
@@ -120,8 +123,10 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
 
   const confirmDelete = () => {
     Alert.alert(
-      'Delete note?',
-      'This permanently removes your note. This can’t be undone.',
+      isAlbumReview ? 'Delete album review?' : 'Delete note?',
+      isAlbumReview
+        ? 'This permanently removes your album review. This can’t be undone.'
+        : 'This permanently removes your note. This can’t be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -131,7 +136,12 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
             if (deleting) return;
             setDeleting(true);
             try {
-              await api.deleteReview(review.id);
+              // Route by type so an album review never hits the track endpoint.
+              if (isAlbumReview) {
+                await api.deleteAlbumReview(review.id);
+              } else {
+                await api.deleteReview(review.id);
+              }
               (onDeleted ?? onClose)();
             } catch (e: any) {
               setDeleting(false);
@@ -345,7 +355,9 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
             disabled={deleting}
             activeOpacity={0.8}
           >
-            <Text style={styles.deleteButtonText}>{deleting ? 'Deleting…' : 'Delete note'}</Text>
+            <Text style={styles.deleteButtonText}>
+              {deleting ? 'Deleting…' : isAlbumReview ? 'Delete album review' : 'Delete note'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
