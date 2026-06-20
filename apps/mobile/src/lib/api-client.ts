@@ -397,9 +397,9 @@ class APIClient {
 
   async searchAlbums(query: string, limit = 20): Promise<{ results: any[]; count: number }> {
     const params = new URLSearchParams({ q: query, limit: limit.toString() });
-    const data = await this.request<{ albums: any[] }>(`/music/search/albums?${params}`);
-    // Web API returns { albums: [...] }, convert to { results, count }
-    return { results: data.albums || [], count: (data.albums || []).length };
+    const data = await this.request<{ results: any[]; count: number }>(`/music/search/albums?${params}`);
+    // Web API returns { results: [...], count: N }
+    return { results: data.results || [], count: data.count || 0 };
   }
 
   async getAlbumTracks(albumId: string): Promise<{ album: any; tracks: any[] }> {
