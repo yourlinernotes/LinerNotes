@@ -330,6 +330,7 @@ class APIClient {
         artworkUrl: album.artworkUrl || '',
         rating: t.rating ?? data.overallRating ?? 0,
         reaction: t.reaction ?? undefined,
+        take: t.take ?? undefined,
         trackNumber: t.trackNumber,
         notes: t.moment
           ? [{ seconds: t.moment.seconds, label: t.moment.label ?? '', note: t.moment.note ?? '' }]

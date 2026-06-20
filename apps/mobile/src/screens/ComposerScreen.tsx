@@ -24,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from '../components/atoms/Icon';
 import { Stars } from '../components/atoms/Stars';
+import { ReactionIcon } from '../components/atoms/Reactions';
 import { ReviewCard } from '../components/ReviewCard';
 import { formatTimestamp } from '../lib/time-utils';
 import { api } from '../lib/api-client';
@@ -83,6 +84,13 @@ function linkPlatform(url: string): string {
   if (/spotify/i.test(url)) return 'Spotify';
   if (/music\.apple\.com/i.test(url)) return 'Apple Music';
   return 'Playlist';
+}
+
+// Optional per-track reaction cycles none → flame → love → skip → none.
+const REACTION_CYCLE: ReactionType[] = [null, 'flame', 'love', 'skip'];
+function nextReaction(r: ReactionType): ReactionType {
+  const i = REACTION_CYCLE.indexOf(r ?? null);
+  return REACTION_CYCLE[(i + 1) % REACTION_CYCLE.length];
 }
 
 interface TrackData {
@@ -413,6 +421,7 @@ export function ComposerScreen({
             trackNumber: t.n,
             reaction: t.reaction,
             moment: t.moments[0],
+            take: t.review || undefined,
           })),
           notes: soloMoments,
           featuredNoteIdx: 0,
@@ -548,55 +557,37 @@ export function ComposerScreen({
                   <Text style={styles.trackStripLoadingText}>Loading tracks...</Text>
                 </View>
               ) : albumTracks.length > 0 ? (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.trackStrip}
-                >
+                <>
+                  <Text style={styles.playlistHint}>
+                    Tap the icon to react (optional), or the bookmark to add a note.
+                  </Text>
                   {albumTracks.map((track, index) => {
                     const trackNum = track.trackNumber || index + 1;
                     const trackData = tracks[trackNum];
+                    const key = `album-${trackNum}`;
+                    const setTrack = (patch: Partial<TrackData>) =>
+                      setTracks((prev) => {
+                        const base: TrackData =
+                          prev[trackNum] ?? { n: trackNum, name: track.name, reaction: null, review: '', moments: [] };
+                        return { ...prev, [trackNum]: { ...base, ...patch } };
+                      });
                     return (
-                      <TouchableOpacity
+                      <EditableTrackRow
                         key={track.id || index}
-                        style={[
-                          styles.trackChip,
-                          trackData?.reaction && {
-                            borderColor: gold,
-                            backgroundColor: `${gold}14`,
-                          },
-                        ]}
-                        onPress={() => {
-                          // TODO: Open track detail modal for adding reaction/notes
-                          Alert.alert(
-                            `Track ${trackNum}`,
-                            `${track.name}${track.artist ? `\nby ${track.artist}` : ''}`,
-                            [
-                              { text: 'OK', style: 'cancel' },
-                            ]
-                          );
-                        }}
-                      >
-                        <Text style={styles.trackChipNumber}>{trackNum}</Text>
-                        <View style={styles.trackChipInfo}>
-                          <Text style={styles.trackChipName} numberOfLines={1}>
-                            {track.name}
-                          </Text>
-                          {trackData?.reaction && (
-                            <View style={styles.trackChipReaction}>
-                              <Icon
-                                name={trackData.reaction}
-                                size={12}
-                                color={gold}
-                                filled
-                              />
-                            </View>
-                          )}
-                        </View>
-                      </TouchableOpacity>
+                        number={trackNum}
+                        name={track.name}
+                        reaction={trackData?.reaction ?? null}
+                        note={trackData?.review || ''}
+                        noteOpen={noteEditingId === key}
+                        gold={gold}
+                        onCycleReaction={() => setTrack({ reaction: nextReaction(trackData?.reaction ?? null) })}
+                        onToggleNote={() => setNoteEditingId((cur) => (cur === key ? null : key))}
+                        onChangeNote={(text) => setTrack({ review: text })}
+                        onFocusNote={scrollToInput}
+                      />
                     );
                   })}
-                </ScrollView>
+                </>
               ) : (
                 <Text style={styles.trackStripEmpty}>
                   No tracks available for this album
@@ -634,9 +625,7 @@ export function ComposerScreen({
                 />
                 {playlistLink.trim().length > 0 &&
                   (isPlaylistLink(playlistLink) ? (
-                    <Text style={[styles.linkOk, { color: gold }]}>
-                      {linkPlatform(playlistLink)} link added
-                    </Text>
+                    <Text style={[styles.linkOk, { color: gold }]}>valid link</Text>
                   ) : (
                     <Text style={styles.linkWarn}>paste a Spotify or Apple Music playlist link</Text>
                   ))}
@@ -721,64 +710,31 @@ export function ComposerScreen({
               {/* Playlist Track List */}
               {playlistTracks.length > 0 && (
                 <View style={styles.section}>
-                  {playlistTracks.map((track, index) => (
-                    <View key={`${track.id}-${index}`} style={styles.playlistTrackRow}>
-                      <View style={styles.playlistTrackInfo}>
-                        <Text style={styles.selectedTrackName} numberOfLines={1}>
-                          {track.name}
-                        </Text>
-                        <Text style={styles.selectedTrackArtist} numberOfLines={1}>
-                          {track.artist}
-                        </Text>
-                        {track.note && noteEditingId !== track.id && (
-                          <Text style={styles.playlistTrackNote} numberOfLines={2}>
-                            "{track.note}"
-                          </Text>
-                        )}
-                        {noteEditingId === track.id && (
-                          <TextInput
-                            style={styles.playlistNoteInput}
-                            value={track.note}
-                            onChangeText={(text) =>
-                              setPlaylistTracks((prev) =>
-                                prev.map((t, i) => (i === index ? { ...t, note: text } : t))
-                              )
-                            }
-                            placeholder="why this track? (optional)"
-                            placeholderTextColor="rgba(241,235,224,0.3)"
-                            multiline
-                            textAlignVertical="top"
-                            autoFocus
-                            onFocus={scrollToInput}
-                            onBlur={() => setNoteEditingId((cur) => (cur === track.id ? null : cur))}
-                          />
-                        )}
-                      </View>
-                      <View style={styles.playlistTrackActions}>
-                        <TouchableOpacity
-                          style={[
-                            styles.playlistActionButton,
-                            noteEditingId === track.id && { borderColor: gold, backgroundColor: `${gold}14` },
-                          ]}
-                          onPress={() =>
-                            setNoteEditingId((cur) => (cur === track.id ? null : track.id))
-                          }
-                        >
-                          <Text style={[styles.playlistActionNote, { color: noteEditingId === track.id ? gold : 'rgba(241,235,224,0.6)' }]}>
-                            note
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.playlistActionButton}
-                          onPress={() => {
-                            setPlaylistTracks((prev) => prev.filter((_, i) => i !== index));
-                          }}
-                        >
-                          <Icon name="close" size={16} color="rgba(241,235,224,0.6)" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))}
+                  {playlistTracks.map((track, index) => {
+                    const key = `pl-${track.id}`;
+                    const setTrack = (patch: any) =>
+                      setPlaylistTracks((prev) => prev.map((t, i) => (i === index ? { ...t, ...patch } : t)));
+                    return (
+                      <EditableTrackRow
+                        key={`${track.id}-${index}`}
+                        number={index + 1}
+                        name={track.name}
+                        artist={track.artist}
+                        reaction={track.reaction ?? null}
+                        note={track.note || ''}
+                        noteOpen={noteEditingId === key}
+                        gold={gold}
+                        onCycleReaction={() => setTrack({ reaction: nextReaction(track.reaction ?? null) })}
+                        onToggleNote={() => setNoteEditingId((cur) => (cur === key ? null : key))}
+                        onChangeNote={(text) => setTrack({ note: text })}
+                        onRemove={() => {
+                          setNoteEditingId((cur) => (cur === key ? null : cur));
+                          setPlaylistTracks((prev) => prev.filter((_, i) => i !== index));
+                        }}
+                        onFocusNote={scrollToInput}
+                      />
+                    );
+                  })}
                 </View>
               )}
             </>
@@ -1105,6 +1061,94 @@ function MomentsInput({ moments, onAdd, onRemove, onFieldFocus, gold }: MomentsI
           <Text style={[styles.momentAddIcon, { color: input.note.trim() ? tokens.colors.nearBlack : 'rgba(241,235,224,0.4)' }]}>+</Text>
         </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+/**
+ * A vertical track row with an optional reaction toggle and a bookmark icon
+ * that opens an inline note editor. Shared by album + playlist composers so
+ * reacting/noting a track is consistent everywhere.
+ */
+function EditableTrackRow({
+  number,
+  name,
+  artist,
+  reaction,
+  note,
+  noteOpen,
+  gold,
+  onCycleReaction,
+  onToggleNote,
+  onChangeNote,
+  onRemove,
+  onFocusNote,
+}: {
+  number: number;
+  name: string;
+  artist?: string;
+  reaction: ReactionType;
+  note?: string;
+  noteOpen: boolean;
+  gold: string;
+  onCycleReaction: () => void;
+  onToggleNote: () => void;
+  onChangeNote: (text: string) => void;
+  onRemove?: () => void;
+  onFocusNote?: () => void;
+}) {
+  return (
+    <View style={styles.etrItem}>
+      <View style={styles.etrRow}>
+        <Text style={styles.etrNum}>{String(number).padStart(2, '0')}</Text>
+        <View style={styles.etrInfo}>
+          <Text style={styles.etrName} numberOfLines={1}>{name}</Text>
+          {!!artist && (
+            <Text style={styles.etrArtist} numberOfLines={1}>{artist}</Text>
+          )}
+          {!!note && !noteOpen && (
+            <Text style={styles.etrNote} numberOfLines={2}>"{note}"</Text>
+          )}
+        </View>
+
+        {/* Optional reaction: tap to cycle none → flame → love → skip */}
+        <TouchableOpacity style={styles.etrReact} onPress={onCycleReaction} activeOpacity={0.7}>
+          {reaction ? (
+            <ReactionIcon kind={reaction} size={18} />
+          ) : (
+            <View style={styles.etrReactEmpty} />
+          )}
+        </TouchableOpacity>
+
+        {/* Bookmark → write a note for this track */}
+        <TouchableOpacity
+          style={[styles.etrBtn, (noteOpen || !!note) && { borderColor: gold, backgroundColor: `${gold}14` }]}
+          onPress={onToggleNote}
+          activeOpacity={0.7}
+        >
+          <Icon name="bookmark" size={15} color={noteOpen || !!note ? gold : 'rgba(241,235,224,0.55)'} filled={!!note} />
+        </TouchableOpacity>
+
+        {onRemove && (
+          <TouchableOpacity style={styles.etrBtn} onPress={onRemove} activeOpacity={0.7}>
+            <Icon name="close" size={15} color="rgba(241,235,224,0.55)" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {noteOpen && (
+        <TextInput
+          style={styles.playlistNoteInput}
+          value={note}
+          onChangeText={onChangeNote}
+          placeholder="why this track? (optional)"
+          placeholderTextColor="rgba(241,235,224,0.3)"
+          multiline
+          textAlignVertical="top"
+          autoFocus
+          onFocus={onFocusNote}
+        />
+      )}
     </View>
   );
 }
@@ -1567,5 +1611,72 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: tokens.colors.fg,
     minHeight: 54,
+  },
+  etrItem: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(241,235,224,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.08)',
+  },
+  etrRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  etrNum: {
+    fontFamily: 'Menlo',
+    fontSize: 11,
+    color: 'rgba(241,235,224,0.4)',
+    width: 22,
+  },
+  etrInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  etrName: {
+    fontFamily: 'System',
+    fontSize: 14,
+    fontWeight: '600',
+    color: tokens.colors.fg,
+  },
+  etrArtist: {
+    fontFamily: 'System',
+    fontSize: 12,
+    color: 'rgba(241,235,224,0.6)',
+    marginTop: 1,
+  },
+  etrNote: {
+    fontFamily: 'System',
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: 'rgba(241,235,224,0.7)',
+    marginTop: 4,
+  },
+  etrReact: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  etrReactEmpty: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(241,235,224,0.28)',
+  },
+  etrBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(241,235,224,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.12)',
   },
 });
