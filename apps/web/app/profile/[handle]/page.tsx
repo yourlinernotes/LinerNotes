@@ -247,7 +247,15 @@ export default function ProfilePage() {
   const noteVms: ReviewVM[] = [
     ...reviews.map((r) => toReviewVM({ ...r, user: r.user || user })),
     ...albumReviews.map((ar) => toAlbumReviewVM({ ...ar, user: ar.user || user })),
-    ...repostedReviews.map((r) => ({ ...toReviewVM({ ...r, user: r.user || user }), via: 'repost' as const })),
+    ...repostedReviews.map((r) =>
+      toReviewVM(
+        { ...r, user: r.user || user },
+        {
+          name: (r.user as any)?.displayName || (r.user as any)?.name || 'User',
+          handle: (r.user as any)?.handle || '',
+        }
+      )
+    ),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   const ghostBtn: React.CSSProperties = { padding: "6px 14px", borderRadius: 999, cursor: "pointer", background: "rgba(var(--ln-fg-rgb),0.05)", color: "rgba(var(--ln-fg-rgb),0.75)", border: "1px solid rgba(var(--ln-fg-rgb),0.18)", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600 };
