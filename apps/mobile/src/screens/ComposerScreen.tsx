@@ -71,12 +71,21 @@ interface MomentInput {
 interface ComposerScreenProps {
   onClose: () => void;
   mode?: ComposerMode;
+  prefilledTrack?: any;
+  prefilledAlbum?: any;
+  prefilledRating?: number;
 }
 
-export function ComposerScreen({ onClose, mode: initialMode = 'track' }: ComposerScreenProps) {
+export function ComposerScreen({
+  onClose,
+  mode: initialMode = 'track',
+  prefilledTrack,
+  prefilledAlbum,
+  prefilledRating,
+}: ComposerScreenProps) {
   const { user } = useAuth();
   const [mode, setMode] = useState<ComposerMode>(initialMode);
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(prefilledRating || 0);
   const [take, setTake] = useState('');
   const [soloMoments, setSoloMoments] = useState<Moment[]>([]);
   const [isPosting, setIsPosting] = useState(false);
@@ -158,6 +167,17 @@ export function ComposerScreen({ onClose, mode: initialMode = 'track' }: Compose
       },
     })
   ).current;
+
+  // Set prefilled track/album from Last.fm prompts
+  useEffect(() => {
+    if (prefilledTrack) {
+      setSelectedTrack(prefilledTrack);
+      setMode('track');
+    } else if (prefilledAlbum) {
+      setSelectedAlbum(prefilledAlbum);
+      setMode('album');
+    }
+  }, [prefilledTrack, prefilledAlbum]);
 
   // Live preview of the note — only once a song/album and rating are chosen.
   const previewReview =

@@ -12,7 +12,7 @@ import type { PromptTrigger } from '../services/askingEngine';
 interface PromptShelfProps {
   prompts: PromptTrigger[];
   accent?: string;
-  onOpenComposer: (prompt: PromptTrigger) => void;
+  onOpenComposer: (prompt: PromptTrigger, rating?: number) => void;
   onDismiss: (promptId: string) => void;
 }
 
@@ -41,7 +41,7 @@ export function PromptShelf({ prompts, accent, onOpenComposer, onDismiss }: Prom
             key={prompt.id}
             prompt={prompt}
             accent={gold}
-            onOpen={() => onOpenComposer(prompt)}
+            onOpen={(rating) => onOpenComposer(prompt, rating)}
             onDismiss={() => onDismiss(prompt.id)}
           />
         ))}
@@ -53,6 +53,7 @@ export function PromptShelf({ prompts, accent, onOpenComposer, onDismiss }: Prom
 const styles = StyleSheet.create({
   container: {
     marginBottom: 24,
+    marginTop: 16, // Prevent overlay with sticky header
   },
   header: {
     flexDirection: 'row',

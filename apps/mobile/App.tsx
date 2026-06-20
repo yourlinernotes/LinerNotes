@@ -24,6 +24,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<'feed' | 'profile'>('feed');
   const [activeReview, setActiveReview] = useState<FeedReview | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [composerPrefill, setComposerPrefill] = useState<{ track?: any; album?: any; rating?: number } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [hasRequests, setHasRequests] = useState(false);
@@ -146,7 +147,10 @@ function AppContent() {
           <FeedScreen
             key={contentKey}
             onOpenReview={openReview}
-            onOpenComposer={() => setComposerOpen(true)}
+            onOpenComposer={(prefill) => {
+              setComposerPrefill(prefill || null);
+              setComposerOpen(true);
+            }}
           />
         )}
         {activeTab === 'profile' && <ProfileScreen key={contentKey} onOpenReview={openReview} />}
@@ -187,8 +191,12 @@ function AppContent() {
           <ComposerScreen
             onClose={() => {
               setComposerOpen(false);
+              setComposerPrefill(null);
               refreshContent();
             }}
+            prefilledTrack={composerPrefill?.track}
+            prefilledAlbum={composerPrefill?.album}
+            prefilledRating={composerPrefill?.rating}
           />
         </View>
       )}

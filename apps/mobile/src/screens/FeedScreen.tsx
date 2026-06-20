@@ -42,7 +42,7 @@ interface FeedItemData {
 
 interface FeedScreenProps {
   onOpenReview?: (review: FeedReview) => void;
-  onOpenComposer?: () => void;
+  onOpenComposer?: (prefill?: { track?: any; album?: any; rating?: number }) => void;
 }
 
 export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
@@ -146,11 +146,36 @@ export function FeedScreen({ onOpenReview, onOpenComposer }: FeedScreenProps) {
     }
   }
 
-  function handleOpenComposer(prompt: PromptTrigger) {
-    console.log('Opening composer for prompt:', prompt);
-    // Open the composer - track/album pre-filling will be implemented when we add prompt data structure
-    if (onOpenComposer) {
-      onOpenComposer();
+  function handleOpenComposer(prompt: PromptTrigger, rating?: number) {
+    console.log('Opening composer for prompt:', prompt, 'rating:', rating);
+
+    if (!onOpenComposer) return;
+
+    // Convert prompt to track/album prefill data
+    if (prompt.track) {
+      // Track prompt
+      onOpenComposer({
+        track: {
+          id: prompt.mbid || `lastfm-${prompt.track}-${prompt.artist}`,
+          name: prompt.track,
+          artist: prompt.artist,
+          album: prompt.album || '',
+          artworkUrl: prompt.palette.art || '',
+          previewUrl: null,
+        },
+        rating: rating || 0,
+      });
+    } else if (prompt.album) {
+      // Album prompt
+      onOpenComposer({
+        album: {
+          id: prompt.mbid || `lastfm-${prompt.album}-${prompt.artist}`,
+          name: prompt.album,
+          artist: prompt.artist,
+          artworkUrl: prompt.palette.art || '',
+        },
+        rating: rating || 0,
+      });
     }
   }
 

@@ -15,7 +15,7 @@ import type { PromptTrigger } from '../services/askingEngine';
 interface PromptCardProps {
   prompt: PromptTrigger;
   accent?: string;
-  onOpen: () => void;
+  onOpen: (rating?: number) => void;
   onDismiss: () => void;
 }
 
@@ -35,7 +35,7 @@ export function PromptCard({ prompt, accent, onOpen, onDismiss }: PromptCardProp
 
   const handleRatingChange = (newRating: number) => {
     setRating(newRating);
-    onOpen();
+    onOpen(newRating);
   };
 
   return (
