@@ -13,29 +13,37 @@ import { paletteFromString, tintFromString } from "@/lib/palette";
 
 type ProfileUser = User & { bio?: string; friendCount?: number; favourites?: string | null };
 
-type FavItem = {
-  ref: string; // "track:<id>" | "album:<id>"
-  kind: "track" | "album";
-  id: string;
-  title: string;
-  artist: string;
-  artworkUrl?: string | null;
-  seed: string;
-  rating: number;
-  href: string;
-};
+// A favourite is self-contained metadata (NOT a review reference), so picks made
+// before anything is rated (e.g. mobile onboarding Top-4 from search) still work.
+type FavMeta = { kind: "track" | "album"; id: string; name: string; artist: string; artworkUrl?: string | null };
+
+// What a tile renders from. `href` is "" when there's no review to open.
+type FavItem = { key: string; kind: "track" | "album"; musicId: string; title: string; artist: string; artworkUrl?: string | null; rating: number; href: string };
 
 function trackToFav(r: Review): FavItem {
-  return { ref: `track:${r.id}`, kind: "track", id: r.id, title: r.track.name, artist: r.track.artist, artworkUrl: r.track.artworkUrl, seed: r.track.trackId || r.track.album || r.track.name, rating: r.rating || 0, href: `/card/${r.id}` };
+  return { key: `t-${r.id}`, kind: "track", musicId: r.track.trackId, title: r.track.name, artist: r.track.artist, artworkUrl: r.track.artworkUrl, rating: r.rating || 0, href: `/card/${r.id}` };
 }
 function albumToFav(a: AlbumReview): FavItem {
-  return { ref: `album:${a.id}`, kind: "album", id: a.id, title: a.album.name, artist: a.album.artist, artworkUrl: a.album.artworkUrl, seed: a.album.albumId || a.album.name, rating: a.overallRating || 0, href: `/album-card/${a.id}` };
+  return { key: `a-${a.id}`, kind: "album", musicId: a.album.albumId, title: a.album.name, artist: a.album.artist, artworkUrl: a.album.artworkUrl, rating: a.overallRating || 0, href: `/album-card/${a.id}` };
 }
 
-function parseFavs(json?: string | null): string[] {
+// Parse the stored favourites JSON. Shared shape with mobile: { albums, tracks }.
+// Tolerates a bare array of metas too. (Old review-ref strings are ignored.)
+function parseFavs(json?: string | null): FavMeta[] {
   try {
-    const a = JSON.parse(json || "[]");
-    return Array.isArray(a) ? a.filter((x) => typeof x === "string") : [];
+    const v = JSON.parse(json || "null");
+    if (!v) return [];
+    const toMeta = (x: Record<string, unknown>, kind: "album" | "track"): FavMeta => ({
+      kind: x.kind === "track" || x.kind === "album" ? (x.kind as "track" | "album") : kind,
+      id: String(x.id ?? x.musicId ?? ""),
+      name: String(x.name ?? x.title ?? ""),
+      artist: String(x.artist ?? ""),
+      artworkUrl: (x.artworkUrl as string) ?? null,
+    });
+    const collect = (arr: unknown, kind: "album" | "track"): FavMeta[] =>
+      (Array.isArray(arr) ? arr : []).filter((x): x is Record<string, unknown> => !!x && typeof x === "object").map((x) => toMeta(x, kind)).filter((m) => m.name);
+    if (Array.isArray(v)) return collect(v, "album").slice(0, 4);
+    return [...collect(v.albums, "album"), ...collect(v.tracks, "track")].slice(0, 4);
   } catch {
     return [];
   }
@@ -70,7 +78,7 @@ function FavTile({ item, rank, onOpen, onRemove, selected, flat }: { item: FavIt
       style={{ display: "flex", flexDirection: "column", gap: 9, width: "100%", minWidth: 0, cursor: onOpen ? "pointer" : "default", transform: !flat && hover && onOpen ? "translateY(-3px)" : "none" }}
     >
       <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", boxShadow: !flat && hover && onOpen ? "0 22px 44px -22px var(--ln-shadow)" : "0 12px 28px -18px var(--ln-shadow)", border: selected ? "2px solid var(--ln-accent)" : "2px solid transparent" }}>
-        <LNArt palette={paletteFromString(item.seed)} src={item.artworkUrl} label="" radius={12} noTag />
+        <LNArt palette={paletteFromString(item.musicId || item.title)} src={item.artworkUrl} label="" radius={12} noTag />
         {selected && (
           <>
             <div style={{ position: "absolute", inset: 0, background: "rgba(8,7,6,0.32)" }} />
@@ -85,7 +93,7 @@ function FavTile({ item, rank, onOpen, onRemove, selected, flat }: { item: FavIt
           </div>
         )}
         {onRemove && (
-          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove" style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.18)", background: "rgba(8,7,6,0.7)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove" style={{ position: "absolute", top: 7, right: 7, width: 24, height: 24, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.18)", background: "rgba(8,7,6,0.7)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, zIndex: 2 }}>
             <LNIcon name="close" size={13} color="#f1ebe0" />
           </button>
         )}
@@ -113,8 +121,8 @@ export default function ProfilePage() {
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<"notes" | "saved">("notes");
 
-  const [favRefs, setFavRefs] = useState<string[]>([]);
-  const [savedFavRefs, setSavedFavRefs] = useState<string[]>([]);
+  const [favs, setFavs] = useState<FavMeta[]>([]);
+  const [savedFavs, setSavedFavs] = useState<FavMeta[]>([]);
   const [editingFavs, setEditingFavs] = useState(false);
   const [savingFavs, setSavingFavs] = useState(false);
 
@@ -131,9 +139,9 @@ export default function ProfilePage() {
         }
         const userData = await userResponse.json();
         setUser(userData.user);
-        const favs = parseFavs(userData.user.favourites);
-        setFavRefs(favs);
-        setSavedFavRefs(favs);
+        const favList = parseFavs(userData.user.favourites);
+        setFavs(favList);
+        setSavedFavs(favList);
 
         const reviewsResponse = await fetch(`/api/reviews?userId=${userData.user.id}`);
         if (reviewsResponse.ok) {
@@ -161,19 +169,32 @@ export default function ProfilePage() {
     [reviews, albumReviews]
   );
 
-  const toggleFav = (ref: string) =>
-    setFavRefs((refs) => (refs.includes(ref) ? refs.filter((r) => r !== ref) : refs.length < 4 ? [...refs, ref] : refs));
+  const isSelected = (item: FavItem) => favs.some((f) => f.kind === item.kind && f.id === item.musicId);
+  const toggleFav = (item: FavItem) =>
+    setFavs((cur) => {
+      if (cur.some((f) => f.kind === item.kind && f.id === item.musicId)) return cur.filter((f) => !(f.kind === item.kind && f.id === item.musicId));
+      if (cur.length >= 4) return cur;
+      return [...cur, { kind: item.kind, id: item.musicId, name: item.title, artist: item.artist, artworkUrl: item.artworkUrl }];
+    });
+
+  // Turn a stored favourite into a renderable tile, enriching with a matching
+  // review (rating + clickable link) when one exists.
+  const metaToTile = (m: FavMeta): FavItem => {
+    const match = pool.find((p) => p.kind === m.kind && p.musicId === m.id);
+    return { key: `${m.kind}-${m.id}`, kind: m.kind, musicId: m.id, title: m.name, artist: m.artist, artworkUrl: m.artworkUrl || match?.artworkUrl || null, rating: match?.rating ?? 0, href: match?.href ?? "" };
+  };
 
   const saveFavs = async () => {
     setSavingFavs(true);
     try {
+      const toMeta = (f: FavMeta) => ({ id: f.id, name: f.name, artist: f.artist, artworkUrl: f.artworkUrl || "" });
       const res = await fetch("/api/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ favourites: favRefs }),
+        body: JSON.stringify({ favourites: { albums: favs.filter((f) => f.kind === "album").map(toMeta), tracks: favs.filter((f) => f.kind === "track").map(toMeta) } }),
       });
       if (!res.ok) throw new Error("save failed");
-      setSavedFavRefs(favRefs);
+      setSavedFavs(favs);
       setEditingFavs(false);
     } catch {
       alert("Couldn't save favourites. Please try again.");
@@ -214,8 +235,7 @@ export default function ProfilePage() {
     reviews.reduce((s, r) => s + (r.notes?.length || 0), 0) +
     albumReviews.reduce((s, ar) => s + (ar.trackReviews?.reduce((t, tr) => t + (tr.notes?.length || 0), 0) || 0), 0);
 
-  const selectedFavs = favRefs.map((ref) => pool.find((p) => p.ref === ref)).filter(Boolean) as FavItem[];
-  const favsToShow = selectedFavs.length > 0 ? selectedFavs : [...pool].sort((a, b) => b.rating - a.rating).slice(0, 4);
+  const favsToShow = favs.length > 0 ? favs.map(metaToTile) : [...pool].sort((a, b) => b.rating - a.rating).slice(0, 4);
 
   const noteVms: ReviewVM[] = [
     ...reviews.map((r) => toReviewVM({ ...r, user: r.user || user })),
@@ -267,17 +287,17 @@ export default function ProfilePage() {
                   <span style={{ flex: 1, height: 1, background: "rgba(var(--ln-fg-rgb),0.1)" }} />
                   {isOwnProfile && (editingFavs ? (
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => { setFavRefs(savedFavRefs); setEditingFavs(false); }} className="ln-press" style={ghostBtn}>Cancel</button>
+                      <button onClick={() => { setFavs(savedFavs); setEditingFavs(false); }} className="ln-press" style={ghostBtn}>Cancel</button>
                       <button onClick={saveFavs} disabled={savingFavs} className="ln-press" style={{ ...goldBtn, opacity: savingFavs ? 0.6 : 1 }}>{savingFavs ? "Saving…" : "Done"}</button>
                     </div>
                   ) : (
-                    <button onClick={() => setEditingFavs(true)} className="ln-press" style={ghostBtn}>{savedFavRefs.length ? "Edit" : "Choose"}</button>
+                    <button onClick={() => setEditingFavs(true)} className="ln-press" style={ghostBtn}>{savedFavs.length ? "Edit" : "Choose"}</button>
                   ))}
                 </div>
 
                 {!editingFavs && favsToShow.length > 0 && (
                   <div className="lnw-fav-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
-                    {favsToShow.map((it, i) => <FavTile key={it.ref} item={it} rank={i + 1} onOpen={() => router.push(it.href)} />)}
+                    {favsToShow.map((it, i) => <FavTile key={it.key} item={it} rank={i + 1} onOpen={it.href ? () => router.push(it.href) : undefined} />)}
                   </div>
                 )}
                 {!editingFavs && favsToShow.length === 0 && (
@@ -290,10 +310,10 @@ export default function ProfilePage() {
                   <>
                     <div className="lnw-fav-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
                       {Array.from({ length: 4 }).map((_, i) => {
-                        const ref = favRefs[i];
-                        const it = ref ? pool.find((p) => p.ref === ref) : null;
+                        const m = favs[i];
+                        const it = m ? metaToTile(m) : null;
                         return it ? (
-                          <FavTile key={it.ref} item={it} rank={i + 1} onRemove={() => setFavRefs((refs) => refs.filter((r) => r !== ref))} />
+                          <FavTile key={it.key} item={it} rank={i + 1} onRemove={() => setFavs((cur) => cur.filter((f) => !(f.kind === m.kind && f.id === m.id)))} />
                         ) : (
                           <div key={`slot-${i}`} style={{ aspectRatio: "1 / 1", borderRadius: 12, border: "1.5px dashed rgba(var(--ln-fg-rgb),0.18)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--ln-mono)", fontSize: 18, color: "rgba(var(--ln-fg-rgb),0.25)" }}>{i + 1}</div>
                         );
@@ -302,23 +322,23 @@ export default function ProfilePage() {
                     <div style={{ marginTop: 22 }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 9, marginBottom: 4 }}>
                         <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--ln-fg-rgb),0.5)" }}>your ratings — tap to choose</span>
-                        <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" }}>{favRefs.length}/4</span>
+                        <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" }}>{favs.length}/4</span>
                       </div>
                       {pool.length === 0 ? (
                         <div style={{ marginTop: 10, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "rgba(var(--ln-fg-rgb),0.45)" }}>Log a note first, then pick your favourites.</div>
                       ) : (
                         <div className="ln-scroll" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 6, marginTop: 12 }}>
                           {pool.map((it) => {
-                            const sel = favRefs.includes(it.ref);
+                            const sel = isSelected(it);
                             return (
-                              <div key={it.ref} style={{ width: 150, flexShrink: 0, opacity: !sel && favRefs.length >= 4 ? 0.45 : 1 }}>
-                                <FavTile item={it} flat selected={sel} onOpen={() => toggleFav(it.ref)} />
+                              <div key={it.key} style={{ width: 150, flexShrink: 0, opacity: !sel && favs.length >= 4 ? 0.45 : 1 }}>
+                                <FavTile item={it} flat selected={sel} onOpen={() => toggleFav(it)} />
                               </div>
                             );
                           })}
                         </div>
                       )}
-                      {favRefs.length >= 4 && <div style={{ marginTop: 8, fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" }}>Top 4 full — tap a chosen one to swap.</div>}
+                      {favs.length >= 4 && <div style={{ marginTop: 8, fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" }}>Top 4 full — tap a chosen one to swap.</div>}
                     </div>
                   </>
                 )}
@@ -330,7 +350,7 @@ export default function ProfilePage() {
                 <SectionLabel>recent ratings</SectionLabel>
                 <div className="ln-scroll" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 6 }}>
                   {recentItems.map((it) => (
-                    <div key={it.ref} style={{ width: 150, flexShrink: 0 }}>
+                    <div key={it.key} style={{ width: 150, flexShrink: 0 }}>
                       <FavTile item={it} onOpen={() => router.push(it.href)} />
                     </div>
                   ))}

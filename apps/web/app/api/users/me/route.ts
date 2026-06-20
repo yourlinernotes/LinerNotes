@@ -50,13 +50,26 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { displayName, bio, avatarUrl, handle, favourites } = body;
 
-    // Validate favourites: an array of up to 4 string refs ("track:<id>" / "album:<id>")
+    // Favourites: self-contained album/track metadata (NOT review references),
+    // so picks made before anything is rated — e.g. the mobile onboarding Top-4
+    // chosen from search — persist and display. Shared shape with mobile, which
+    // sends `{ albums: [{ id, name, artist, artworkUrl }] }`.
+    // Stored as JSON: { albums: Meta[], tracks: Meta[] } (≤4 each).
     let favouritesJson: string | undefined;
     if (favourites !== undefined) {
-      if (!Array.isArray(favourites) || favourites.some((f) => typeof f !== "string")) {
-        return NextResponse.json({ error: "Favourites must be an array of refs" }, { status: 400 });
-      }
-      favouritesJson = JSON.stringify(favourites.slice(0, 4));
+      const sanitize = (arr: unknown) =>
+        (Array.isArray(arr) ? arr : [])
+          .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+          .map((x) => ({
+            id: String(x.id ?? ""),
+            name: String(x.name ?? x.title ?? ""),
+            artist: String(x.artist ?? ""),
+            artworkUrl: x.artworkUrl ? String(x.artworkUrl) : "",
+          }))
+          .filter((m) => m.name)
+          .slice(0, 4);
+      const f = (favourites ?? {}) as { albums?: unknown; tracks?: unknown };
+      favouritesJson = JSON.stringify({ albums: sanitize(f.albums), tracks: sanitize(f.tracks) });
     }
 
     // Validate input
