@@ -190,7 +190,69 @@ export function ImmersiveReview({
   const p = album.palette;
   const gold = "var(--ln-accent)";
   const isAlbum = album.kind === "album" && album.tracks.length > 0;
-  const npTrack = (album.tracks || []).find((t) => t.moments && t.moments.length) || null;
+
+  // "following along" = the viewer is *currently* scrobbling a track from this
+  // review on Last.fm. Poll the now-playing endpoint and match it against this
+  // release's tracks; null when nothing live matches (so the badge stays hidden).
+  const [npLive, setNpLive] = useState<{ name: string; artist: string; album: string } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    let iv: ReturnType<typeof setInterval> | null = null;
+
+    const tick = async () => {
+      // Don't poll a backgrounded tab — no point, and it keeps Last.fm calls minimal.
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      try {
+        const r = await fetch("/api/lastfm/now-playing", { cache: "no-store" });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!cancelled) setNpLive(d.nowPlaying || null);
+      } catch {
+        /* fail soft — leave the badge hidden */
+      }
+    };
+
+    // Fast poll (3s) while the tab is visible; pause it when hidden and resume +
+    // fetch immediately on refocus so the badge reacts the instant you come back.
+    const start = () => {
+      if (iv) return;
+      tick();
+      iv = setInterval(tick, 3000);
+    };
+    const stop = () => {
+      if (iv) { clearInterval(iv); iv = null; }
+    };
+    const onVisibility = () => (document.visibilityState === "visible" ? start() : stop());
+
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      cancelled = true;
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  const npNorm = (s: string) =>
+    (s || "")
+      .toLowerCase()
+      .replace(/\s*[([][^)\]]*[)\]]/g, "")
+      .replace(/\s+(feat|ft|featuring|with)\.?\s.*$/i, "")
+      .replace(/[^a-z0-9]+/g, "");
+  // Match the live track's name to a track on this release, with an artist/album
+  // guard so a same-titled song by someone else doesn't trigger it.
+  const npTrack: TrackVM | null = (() => {
+    if (!npLive) return null;
+    const guard = npNorm(album.artist) === npNorm(npLive.artist) || npNorm(album.title) === npNorm(npLive.album);
+    if (!guard) return null;
+    const hit = (album.tracks || []).find((t) => npNorm(t.name) === npNorm(npLive.name));
+    if (hit) return hit;
+    // single-track review (album.tracks is empty): the release title IS the track
+    if (!isAlbum && npNorm(album.title) === npNorm(npLive.name)) {
+      return { n: 1, name: album.title, reaction: null, moments: vm.notes ?? [] } as TrackVM;
+    }
+    return null;
+  })();
 
   // The note: the first line is the caption pull-quote (quoted + italic headline);
   // everything after it is the full review, kept in the order it was written.
