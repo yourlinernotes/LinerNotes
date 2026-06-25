@@ -57,7 +57,17 @@ export function PromptShelf({ prompts, accent, onRefresh }: PromptShelfProps) {
   };
 
   const handleOpenComposer = (prompt: Prompt, rating?: number) => {
-    // Navigate to compose with pre-filled track data via URL params
+    // Album prompts open the album composer pre-filled with the album (the user
+    // still picks which tracks to react to). Track prompts open the note composer.
+    if (prompt.type === "album") {
+      const params = new URLSearchParams({
+        album: prompt.album,
+        artist: prompt.artist,
+        artwork: prompt.artworkUrl || "",
+      });
+      router.push(`/log/album?${params.toString()}`);
+      return;
+    }
     const params = new URLSearchParams({
       track: prompt.track,
       artist: prompt.artist,
@@ -108,7 +118,7 @@ export function PromptShelf({ prompts, accent, onRefresh }: PromptShelfProps) {
             <svg
               width="14"
               height="14"
-              viewBox="0 0 16 16"
+              viewBox="0 0 24 24"
               fill="none"
               style={{
                 transform: isRefreshing ? "rotate(360deg)" : "rotate(0deg)",
@@ -116,9 +126,9 @@ export function PromptShelf({ prompts, accent, onRefresh }: PromptShelfProps) {
               }}
             >
               <path
-                d="M14 8a6 6 0 01-6 6m0 0a6 6 0 01-6-6m6 6V8m0 6l2-2m-2 2l-2-2M2 8a6 6 0 016-6m0 0a6 6 0 016 6M8 2v6m0-6l2 2M8 2L6 4"
+                d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"
                 stroke="currentColor"
-                strokeWidth="1.5"
+                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -160,6 +170,7 @@ function PromptCard({
   const [hover, setHover] = useState(false);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
+  const [imgError, setImgError] = useState(false);
   const p = prompt.palette;
 
   const handleRatingClick = (newRating: number, e: React.MouseEvent) => {
@@ -196,16 +207,21 @@ function PromptCard({
           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
             {/* Album art thumbnail */}
             <div style={{ width: 42, height: 42, borderRadius: 9, overflow: "hidden", flexShrink: 0, background: `radial-gradient(120% 120% at 22% 18%, ${p.mid} 0%, ${p.deep} 55%, ${p.lo} 100%)` }}>
-              {prompt.artworkUrl ? (
+              {/* Last.fm serves a literal grey-star placeholder image (this hash) that
+                  loads fine (so onError won't catch it) — treat it as no artwork. */}
+              {prompt.artworkUrl && !prompt.artworkUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") && !imgError ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={prompt.artworkUrl}
                   alt={prompt.album}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  crossOrigin="anonymous"
+                  onError={() => setImgError(true)}
                 />
               ) : (
-                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: p.accent, fontSize: 20 }}>★</div>
+                // No artwork (or it failed to load) — show the album-colour tile.
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#f4ecdd", fontSize: 18, fontFamily: "var(--ln-album)", fontWeight: 700, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>
+                  {(prompt.album || prompt.track || prompt.artist || "♪").trim()[0]?.toUpperCase() || "♪"}
+                </div>
               )}
             </div>
             <span style={{ fontFamily: "var(--ln-mono)", fontSize: 9.5, letterSpacing: "0.4px", lineHeight: "12px", color: accent }}>
@@ -247,7 +263,16 @@ function PromptCard({
 
         {/* Track/album info */}
         <div style={{ fontFamily: "var(--ln-body)", fontSize: 12, color: "rgba(var(--ln-fg-rgb),0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {prompt.track} · {prompt.artist}
+          {prompt.type === "album" ? (
+            <>
+              {prompt.album} · {prompt.artist}
+            </>
+          ) : (
+            <>
+              {prompt.track} · {prompt.artist}
+              {prompt.album && <> · {prompt.album}</>}
+            </>
+          )}
         </div>
 
         {/* Quick-rate + Note button */}

@@ -165,6 +165,7 @@ model Note {
   seconds   Float    // Timestamp in seconds
   label     String   // Label for the moment (e.g., "best bit", "intro")
   note      String?  // Optional longer note/commentary
+  lyric     String?  // Optional synced lyric line captured at save time (from LRCLIB / legacy Musixmatch)
 
   createdAt DateTime @default(now())
 
