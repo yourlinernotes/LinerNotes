@@ -273,15 +273,32 @@ export function ImmersiveReview({
   const [spotify, setSpotify] = useState(false);
   const openSpotify = () => {
     setSpotify(true);
-    // Deeplink straight to the track/album when we stored a real Spotify id
-    // (22-char base62). Otherwise — iTunes/MusicBrainz id, or none — fall back to
-    // a Spotify search, since the beta has no Spotify API to resolve an id.
-    const id = album.extId || "";
-    const url = /^[A-Za-z0-9]{22}$/.test(id)
-      ? `https://open.spotify.com/${album.kind === "album" ? "album" : "track"}/${id}`
-      : `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`;
-    window.open(url, "_blank", "noopener");
     window.setTimeout(() => setSpotify(false), 1900);
+    const id = album.extId || "";
+    const seg = album.kind === "album" ? "album" : "track";
+    const search = `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`;
+
+    // Stored Spotify id → deeplink instantly, no lookup.
+    if (/^[A-Za-z0-9]{22}$/.test(id)) {
+      window.open(`https://open.spotify.com/${seg}/${id}`, "_blank", "noopener");
+      return;
+    }
+
+    // iTunes/MusicBrainz id (or none): resolve the real Spotify deeplink via the
+    // API. Open the tab now (synchronously, so it isn't popup-blocked) and point
+    // it at the resolved URL — or search if resolution fails.
+    const w = window.open("about:blank", "_blank");
+    const params = new URLSearchParams({ id, kind: seg, title: album.title, artist: album.artist });
+    fetch(`/api/spotify-link?${params.toString()}`)
+      .then((r) => r.json())
+      .then(({ url }: { url: string | null }) => {
+        const dest = url || search;
+        if (w) w.location.href = dest;
+        else window.open(dest, "_blank", "noopener");
+      })
+      .catch(() => {
+        if (w) w.location.href = search;
+      });
   };
 
   const relatedTitle = isAlbum ? "more on LinerNotes" : "more on LinerNotes";

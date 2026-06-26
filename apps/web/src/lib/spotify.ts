@@ -101,6 +101,39 @@ async function refreshAccessToken(refreshToken: string): Promise<{
   return response.json();
 }
 
+// Cached app-level token (client credentials) — no user auth, so it isn't
+// subject to the dev-mode user allowlist; only used for metadata/search.
+let appToken: { value: string; expiresAt: number } | null = null;
+
+/**
+ * Get an app-level Spotify access token via the Client Credentials flow.
+ * Cached until ~30s before expiry. Returns null if creds are missing/rejected.
+ */
+export async function getSpotifyAppToken(): Promise<string | null> {
+  if (appToken && Date.now() < appToken.expiresAt) return appToken.value;
+  const id = process.env.SPOTIFY_CLIENT_ID;
+  const secret = process.env.SPOTIFY_CLIENT_SECRET;
+  if (!id || !secret) return null;
+  try {
+    const res = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
+      },
+      body: new URLSearchParams({ grant_type: "client_credentials" }),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data: { access_token?: string; expires_in?: number } = await res.json();
+    if (!data.access_token) return null;
+    appToken = { value: data.access_token, expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000 - 30000 };
+    return appToken.value;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Search for tracks on Spotify
  */
