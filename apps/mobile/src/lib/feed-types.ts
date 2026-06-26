@@ -10,6 +10,8 @@ export interface Album {
   artist: string;
   year: number;
   kind?: 'playlist' | 'album';
+  /** Source id (Spotify/iTunes/MB) — track id or album id — for deeplinking. */
+  extId?: string;
   /** Real album artwork URL; palette is the gradient fallback / tint source. */
   artworkUrl?: string;
   palette: {

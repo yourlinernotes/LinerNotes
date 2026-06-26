@@ -166,10 +166,11 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
       }
 
       // Resolve a real deeplink via the beta API (Spotify Search, server-side).
+      // Passing the stored id lets Spotify-id reviews resolve instantly (no search).
       // Falls back to search if it can't resolve.
       let dest = searchUrl;
       try {
-        const params = new URLSearchParams({ kind: isAlbumReview ? 'album' : 'track', title, artist });
+        const params = new URLSearchParams({ id: album.extId ?? '', kind: isAlbumReview ? 'album' : 'track', title, artist });
         const res = await fetch(`${API_BASE_URL}/spotify-link?${params.toString()}`);
         if (res.ok) {
           const { url } = await res.json();
