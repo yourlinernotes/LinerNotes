@@ -6,6 +6,7 @@ import type { Track, Review } from "@/lib/types";
 import { TrackSearch } from "./TrackSearch";
 import { StarsInput, MomentsEditor, CaptionPicker, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type DraftMoment, type Depth } from "./composer-ui";
 import { LNArt, LNIcon } from "@/components/ln/atoms";
+import { PreviewPlayer } from "@/components/PreviewPlayer";
 import { LNWCard } from "@/components/ln/cards";
 import { paletteFromString } from "@/lib/palette";
 import type { ReviewVM } from "@/lib/view-adapter";
@@ -138,6 +139,8 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
                 <div style={{ fontFamily: "var(--ln-album)", fontWeight: 600, fontSize: 18, color: "var(--ln-fg)", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.name}</div>
                 <div style={{ fontFamily: "var(--ln-body)", fontSize: 13, color: "var(--ln-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.artist} · {track.album}</div>
               </div>
+              {/* a reminder of the song you're writing about */}
+              <PreviewPlayer previewUrl={track.previewUrl} track={track.name} artist={track.artist} accent="var(--ln-accent)" size={40} title="Play 30s preview" />
               <button type="button" onClick={() => { setTrack(null); setRating(0); }} className="ln-press" style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 999, cursor: "pointer", background: "rgba(var(--ln-fg-rgb),0.06)", color: "rgba(var(--ln-fg-rgb),0.7)", border: "1px solid rgba(var(--ln-fg-rgb),0.16)", fontFamily: "var(--ln-body)", fontSize: 12.5, fontWeight: 600 }}>Change</button>
             </div>
 

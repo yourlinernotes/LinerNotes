@@ -12,6 +12,7 @@ export type TrackVM = {
   reaction?: "flame" | "love" | "skip" | null;
   moments: MomentVM[];
   review?: string;
+  previewUrl?: string | null; // 30s iTunes preview, when available
 };
 
 export type UserVM = {
@@ -30,6 +31,7 @@ export type AlbumVM = {
   palette: Palette;
   kind: "track" | "album" | "playlist";
   tracks: TrackVM[];
+  previewUrl?: string | null; // 30s iTunes preview for single-track reviews
 };
 
 export type ReviewVM = {
@@ -104,6 +106,7 @@ export function toReviewVM(review: Review, via?: { name: string; handle: string 
       palette: paletteFromString(t.trackId || t.album || t.name),
       kind: "track",
       tracks: [],
+      previewUrl: t.previewUrl ?? null,
     },
     user: toUserVM(review.user),
     rating: review.rating || 0,
@@ -134,6 +137,7 @@ export function toAlbumReviewVM(
       reaction: tr.reaction ?? null,
       moments: notesToMoments(tr.notes, tr.featuredNoteId),
       review: tr.take || undefined,
+      previewUrl: tr.track?.previewUrl ?? null,
     }));
   return {
     id: ar.id,

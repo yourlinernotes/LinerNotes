@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { LNArt, LNStars, LNReact, LNIcon, LNAvatar, lnFmt, lnRel, LN_REACT } from "./atoms";
+import { PreviewPlayer } from "@/components/PreviewPlayer";
 import type { ReviewVM, MomentVM, TrackVM } from "@/lib/view-adapter";
 
 // Follow = friend request. Reflects the real relationship: send a request, see
@@ -106,13 +107,14 @@ function MomentLine({ m, gold, compact }: { m: MomentVM; gold: string; compact?:
   );
 }
 
-function TrackCard({ t, gold, np }: { t: TrackVM; gold: string; np: boolean }) {
+function TrackCard({ t, gold, np, artist }: { t: TrackVM; gold: string; np: boolean; artist?: string }) {
   const mc = t.moments?.length || 0;
   return (
     <div style={{ borderRadius: 14, border: `1px solid ${np ? gold + "55" : "rgba(241,235,224,0.1)"}`, background: np ? `${gold}0d` : "rgba(241,235,224,0.03)", padding: "15px 16px", display: "flex", flexDirection: "column", gap: 11 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
         {np ? <Eq color={gold} small /> : <span style={{ fontFamily: "var(--ln-mono)", fontSize: 11, color: muted(0.4), width: 18, textAlign: "center" }}>{String(t.n).padStart(2, "0")}</span>}
         <span style={{ flex: 1, fontFamily: "var(--ln-album)", fontWeight: 600, fontSize: 17, color: np ? gold : INK, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+        <PreviewPlayer previewUrl={t.previewUrl} track={t.name} artist={artist} accent={gold} size={30} />
         {mc > 0 && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontFamily: "var(--ln-mono)", fontSize: 10, color: gold, background: `${gold}16`, borderRadius: 999, padding: "2px 7px" }}>
             <LNIcon name="save" size={10} color={gold} />
@@ -315,12 +317,17 @@ export function ImmersiveReview({
               )}
             </div>
 
-            <button onClick={openSpotify} className="ln-press" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, padding: "12px 16px", borderRadius: 999, border: "1px solid rgba(241,235,224,0.18)", background: "rgba(241,235,224,0.06)", cursor: "pointer", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 600, color: INK }}>
-              <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#1db954", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                <LNIcon name="play" size={9} color="#fff" />
-              </span>
-              Open in Spotify
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+              {!isAlbum && album.kind !== "playlist" && (
+                <PreviewPlayer previewUrl={album.previewUrl} track={album.title} artist={album.artist} accent={gold} size={44} title="Play 30s preview" />
+              )}
+              <button onClick={openSpotify} className="ln-press" style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, padding: "12px 16px", borderRadius: 999, border: "1px solid rgba(241,235,224,0.18)", background: "rgba(241,235,224,0.06)", cursor: "pointer", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 600, color: INK }}>
+                <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#1db954", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                  <LNIcon name="play" size={9} color="#fff" />
+                </span>
+                Open in Spotify
+              </button>
+            </div>
 
             {npTrack && (
               <div style={{ padding: "13px 15px", borderRadius: 14, background: `${gold}12`, border: `1px solid ${gold}3a`, display: "flex", alignItems: "center", gap: 12 }}>
@@ -400,7 +407,7 @@ export function ImmersiveReview({
             <SectionLabel gold={gold}>tracks &amp; moments</SectionLabel>
             <div className="lnw-track-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 20 }}>
               {album.tracks.map((tr) => (
-                <TrackCard key={tr.n} t={tr} gold={gold} np={!!npTrack && tr.n === npTrack.n} />
+                <TrackCard key={tr.n} t={tr} gold={gold} np={!!npTrack && tr.n === npTrack.n} artist={album.artist} />
               ))}
             </div>
           </section>
