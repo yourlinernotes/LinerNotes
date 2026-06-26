@@ -32,6 +32,7 @@ export type AlbumVM = {
   kind: "track" | "album" | "playlist";
   tracks: TrackVM[];
   previewUrl?: string | null; // 30s iTunes preview for single-track reviews
+  extId?: string | null; // source id (Spotify/iTunes/MB) for deeplinking — track id or album id
 };
 
 export type ReviewVM = {
@@ -107,6 +108,7 @@ export function toReviewVM(review: Review, via?: { name: string; handle: string 
       kind: "track",
       tracks: [],
       previewUrl: t.previewUrl ?? null,
+      extId: t.trackId ?? null,
     },
     user: toUserVM(review.user),
     rating: review.rating || 0,
@@ -151,6 +153,7 @@ export function toAlbumReviewVM(
       palette: paletteFromString(a.albumId || a.name),
       kind: "album",
       tracks,
+      extId: a.albumId ?? null,
     },
     user: toUserVM(ar.user),
     rating: ar.overallRating || 0,

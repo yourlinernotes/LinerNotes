@@ -273,7 +273,14 @@ export function ImmersiveReview({
   const [spotify, setSpotify] = useState(false);
   const openSpotify = () => {
     setSpotify(true);
-    window.open(`https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`, "_blank", "noopener");
+    // Deeplink straight to the track/album when we stored a real Spotify id
+    // (22-char base62). Otherwise — iTunes/MusicBrainz id, or none — fall back to
+    // a Spotify search, since the beta has no Spotify API to resolve an id.
+    const id = album.extId || "";
+    const url = /^[A-Za-z0-9]{22}$/.test(id)
+      ? `https://open.spotify.com/${album.kind === "album" ? "album" : "track"}/${id}`
+      : `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`;
+    window.open(url, "_blank", "noopener");
     window.setTimeout(() => setSpotify(false), 1900);
   };
 
