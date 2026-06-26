@@ -13,7 +13,7 @@ import { Stars } from '../components/atoms/Stars';
 import { ReactionIcon } from '../components/atoms/Reactions';
 import { formatTimestamp } from '../lib/time-utils';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../lib/api-client';
+import { api, API_BASE_URL } from '../lib/api-client';
 import type { FeedReview } from '../lib/feed-types';
 import { lastfm } from '../services/lastfm';
 
@@ -156,22 +156,39 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
   const openSpotify = async () => {
     setSpotifyOpening(true);
 
+    const searchUrl = `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`.trim())}`;
     try {
-      const query = `${album.title} ${album.artist}`.trim();
-      if (!query) {
+      const title = album.title || '';
+      const artist = album.artist || '';
+      if (!title) {
         Alert.alert('Error', 'Unable to open in Spotify - missing track info');
         return;
       }
 
-      // Mirror the web: open a Spotify search for "title artist". Prefer the
-      // native app via the spotify: URI, fall back to the universal web link
-      // (which opens the Spotify app if installed, otherwise the browser).
-      const encoded = encodeURIComponent(query);
-      const appUri = `spotify:search:${encoded}`;
-      const webUrl = `https://open.spotify.com/search/${encoded}`;
+      // Resolve a real deeplink via the beta API (Spotify Search, server-side).
+      // Falls back to search if it can't resolve.
+      let dest = searchUrl;
+      try {
+        const params = new URLSearchParams({ kind: isAlbumReview ? 'album' : 'track', title, artist });
+        const res = await fetch(`${API_BASE_URL}/spotify-link?${params.toString()}`);
+        if (res.ok) {
+          const { url } = await res.json();
+          if (url) dest = url;
+        }
+      } catch {
+        /* keep search fallback */
+      }
 
-      const canOpenApp = await Linking.canOpenURL(appUri).catch(() => false);
-      await Linking.openURL(canOpenApp ? appUri : webUrl);
+      // Prefer the native app via the spotify: URI when we resolved a concrete
+      // track/album; otherwise open the web URL (which opens the app if installed).
+      const m = dest.match(/open\.spotify\.com\/(track|album)\/([A-Za-z0-9]+)/);
+      if (m) {
+        const appUri = `spotify:${m[1]}:${m[2]}`;
+        const canOpenApp = await Linking.canOpenURL(appUri).catch(() => false);
+        await Linking.openURL(canOpenApp ? appUri : dest);
+      } else {
+        await Linking.openURL(dest);
+      }
     } catch (error) {
       console.error('Failed to open Spotify:', error);
       // Last resort: the universal web URL.
