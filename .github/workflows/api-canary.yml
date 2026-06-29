@@ -1,17 +1,20 @@
 name: API Canary
 
-# Live-hits the external APIs LinerNotes actually depends on (web + mobile) and
-# fails loudly if any changed shape / went down. This is the layer the weekly
-# cloud Health Audit CANNOT do (its sandbox blocks outbound network).
+# Live-checks the external integrations LinerNotes depends on (web + mobile) and
+# fails loudly only on REAL breakage. This is the layer the weekly cloud Health
+# Audit can't do (its sandbox blocks outbound network).
 #
-# Coverage comes from the audit's integration map:
-#   web    → iTunes, MusicBrainz, Cover Art Archive, Spotify (client-creds)
-#   mobile → Odesli/song.link, Last.fm
-# We also hit our DEPLOYED endpoints so the check exercises the real chain
-# mobile depends on (it calls beta-linernotes.vercel.app/api) AND the prod
-# secrets, without copying them into GitHub.
-# (LRCLIB / ListenBrainz / Audius are researched but NOT yet in the codebase —
-#  add them here when they ship.)
+# Design: HARD checks hit our DEPLOYED endpoints (run from Vercel's IP, so they
+# exercise the real prod chain + secrets and aren't subject to CI-IP blocking):
+#   /api/music/search/tracks  → iTunes + MusicBrainz
+#   /api/music/search/albums  → Cover Art Archive
+#   /api/spotify-link         → Spotify client-credentials (prod secret)
+# These cover what BOTH web and mobile rely on (mobile calls the same API).
+# SOFT checks hit the third-party APIs directly for extra signal, but only WARN —
+# MusicBrainz/iTunes/etc. routinely throttle shared GitHub-Actions IPs, so a
+# direct failure usually means "CI IP blocked", not "integration down".
+# (LRCLIB / ListenBrainz / Audius are researched but not yet in the code — add
+#  them when they ship.)
 on:
   schedule:
     - cron: "0 7 * * *" # daily 07:00 UTC
@@ -27,7 +30,7 @@ jobs:
   canary:
     runs-on: ubuntu-latest
     env:
-      LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }} # optional; skipped if unset
+      LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }} # optional; soft-skipped if unset
       WEB: https://beta-linernotes.vercel.app
     steps:
       - name: Run canaries
@@ -37,59 +40,51 @@ jobs:
           fail=0
           UA="LinerNotes-canary/1.0 (github actions; https://github.com/yourlinernotes/LinerNotes)"
 
-          # json_check <name> <url> <python-bool-expr over `d`>
+          # _miss <hard|soft> <name> <reason>
+          _miss() {
+            if [ "$1" = hard ]; then echo "::error::🔴 $2 — $3"; fail=1
+            else echo "::warning::⚠️ $2 — $3 (soft — often CI-IP throttling, not a real outage)"; fi
+          }
+          # json_check <hard|soft> <name> <url> <python-bool over `d`>
           json_check() {
-            local name="$1" url="$2" expr="$3" body
+            local mode="$1" name="$2" url="$3" expr="$4" body
             body=$(curl -fsS --max-time 25 -H "User-Agent: $UA" -H "Accept: application/json" "$url" 2>/dev/null) \
-              || { echo "::error::🔴 $name — request failed (down / network / non-2xx)"; fail=1; return; }
-            if printf '%s' "$body" | python3 -c "import sys,json
-d=json.load(sys.stdin); sys.exit(0 if ($expr) else 1)" 2>/dev/null; then
+              || { _miss "$mode" "$name" "request failed (down / network / non-2xx)"; return; }
+            if printf '%s' "$body" | python3 -c "import sys,json;d=json.load(sys.stdin);sys.exit(0 if ($expr) else 1)" 2>/dev/null; then
               echo "🟢 $name — OK"
-            else
-              echo "::error::🔴 $name — response shape changed (expected: $expr)"; fail=1
-            fi
+            else _miss "$mode" "$name" "response shape changed (expected: $expr)"; fi
           }
-
-          # code_check <name> <url> <ok-codes-regex>  (reachability only)
+          # code_check <hard|soft> <name> <url> <ok-codes-regex>
           code_check() {
-            local name="$1" url="$2" ok="$3" code
+            local mode="$1" name="$2" url="$3" ok="$4" code
             code=$(curl -s -o /dev/null --max-time 25 -H "User-Agent: $UA" -w "%{http_code}" "$url")
-            if [[ "$code" =~ $ok ]]; then echo "🟢 $name — OK (HTTP $code)"; else echo "::error::🔴 $name — HTTP $code"; fail=1; fi
+            if [[ "$code" =~ $ok ]]; then echo "🟢 $name — OK (HTTP $code)"; else _miss "$mode" "$name" "HTTP $code"; fi
           }
 
-          echo "── External APIs (web) ──"
-          json_check "iTunes Search" \
-            "https://itunes.apple.com/search?term=joji&entity=song&limit=1" \
-            "d.get('results') and d['results'][0].get('previewUrl')"
-          json_check "MusicBrainz" \
-            "https://musicbrainz.org/ws/2/recording/?query=artist:Joji%20AND%20recording:Glimpse%20of%20Us&fmt=json&limit=1" \
-            "d.get('recordings') is not None"
-          code_check "Cover Art Archive" \
-            "https://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd" \
-            "^(200|307|404)$"
+          echo "── HARD: deployed prod chain (web + mobile both rely on these) ──"
+          json_check hard "web /api/music/search/tracks (iTunes+MusicBrainz)" \
+            "$WEB/api/music/search/tracks?q=joji&limit=1" "d.get('results') is not None and len(d['results'])>0"
+          json_check hard "web /api/music/search/albums (Cover Art Archive)" \
+            "$WEB/api/music/search/albums?q=joji&limit=1" "d.get('results') is not None"
+          json_check hard "web /api/spotify-link (Spotify client-creds)" \
+            "$WEB/api/spotify-link?id=1776741889&kind=track&title=Glimpse%20of%20Us&artist=Joji" "'url' in d"
 
-          echo "── External APIs (mobile) ──"
-          json_check "Odesli / song.link" \
+          echo "── SOFT: direct third-party APIs (extra signal; warn only) ──"
+          json_check soft "iTunes Search" \
+            "https://itunes.apple.com/search?term=joji&entity=song&limit=1" "d.get('results') and d['results'][0].get('previewUrl')"
+          json_check soft "MusicBrainz" \
+            "https://musicbrainz.org/ws/2/recording/?query=artist:Joji&fmt=json&limit=1" "d.get('recordings') is not None"
+          code_check soft "Cover Art Archive" \
+            "https://coverartarchive.org/release/76df3287-6cda-33eb-8e9a-044b5e15ffdd" "^(200|307|404)$"
+          json_check soft "Odesli / song.link (mobile deeplinks)" \
             "https://api.song.link/v1-alpha.1/links?url=https%3A%2F%2Fopen.spotify.com%2Ftrack%2F3aBGKDiAAvH2H7HLOyQ4US&userCountry=US" \
             "isinstance(d.get('linksByPlatform'), dict)"
-
-          echo "── Deployed chain (mobile calls these; also exercises prod secrets) ──"
-          json_check "web /api/music/search/tracks" \
-            "$WEB/api/music/search/tracks?q=joji&limit=1" \
-            "d.get('results') is not None"
-          json_check "web /api/spotify-link (Spotify client-creds)" \
-            "$WEB/api/spotify-link?id=1776741889&kind=track&title=Glimpse%20of%20Us&artist=Joji" \
-            "'url' in d"
-
-          echo "── Secret-gated (optional) ──"
           if [ -n "${LASTFM_API_KEY:-}" ]; then
-            json_check "Last.fm" \
+            json_check soft "Last.fm" \
               "https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${LASTFM_API_KEY}&artist=Joji&track=Glimpse%20of%20Us&format=json" \
               "d.get('track',{}).get('name')"
-          else
-            echo "⚪ Last.fm — SKIPPED (no LASTFM_API_KEY secret; the deployed now-playing/prompts routes also exercise it once a user is connected)"
-          fi
+          else echo "⚪ Last.fm — SKIPPED (no LASTFM_API_KEY secret)"; fi
 
           echo "───────────────"
-          if [ "$fail" -ne 0 ]; then echo "::error::One or more API canaries FAILED — an integration likely broke."; exit 1; fi
-          echo "✅ All canaries healthy."
+          if [ "$fail" -ne 0 ]; then echo "::error::A HARD canary failed — a prod integration is broken."; exit 1; fi
+          echo "✅ All hard canaries healthy (soft warnings above are informational)."
