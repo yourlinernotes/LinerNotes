@@ -57,13 +57,25 @@ export function PreviewPlayer({
       const q = encodeURIComponent(`${track} ${artist || ""}`.trim());
       // Pull a few candidates and pick the best name match that actually has a
       // preview — iTunes' top hit for "<track> <artist>" can be the wrong song.
-      const r = await fetch(`/api/music/search/tracks?q=${q}&limit=5`, { cache: "force-cache" });
+      const r = await fetch(`/api/music/search/tracks?q=${q}&limit=8`, { cache: "force-cache" });
       if (!r.ok) return null;
       const d = await r.json();
-      const results: Array<{ name?: string; previewUrl?: string | null }> = d.results || [];
+      const results: Array<{ name?: string; artist?: string; artistName?: string; previewUrl?: string | null }> =
+        d.results || [];
       const withPreview = results.filter((x) => x.previewUrl);
-      const exact = withPreview.find((x) => norm(x.name || "") === norm(track));
-      const url = (exact || withPreview[0])?.previewUrl || null;
+
+      // Only accept a preview whose TRACK NAME actually matches — never fall back
+      // to an arbitrary result (that's how obscure tracks got a totally wrong
+      // song, e.g. "turmeric – the twins"). Among name matches, prefer one whose
+      // artist also matches; if nothing matches, report unavailable, not a lie.
+      const nT = norm(track);
+      const nA = norm(artist || "");
+      const nameMatches = withPreview.filter((x) => norm(x.name || "") === nT);
+      const best =
+        (nA ? nameMatches.find((x) => norm(x.artist || x.artistName || "") === nA) : undefined) ||
+        nameMatches[0] ||
+        null;
+      const url = best?.previewUrl || null;
       resolvedRef.current = url;
       return url;
     } catch {

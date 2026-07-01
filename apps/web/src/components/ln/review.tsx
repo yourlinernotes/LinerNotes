@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { LNArt, LNStars, LNReact, LNIcon, LNAvatar, lnFmt, lnRel, LN_REACT } from "./atoms";
 import { PreviewPlayer } from "@/components/PreviewPlayer";
+import { ExperienceOverlay } from "@/components/ExperienceOverlay";
 import type { ReviewVM, MomentVM, TrackVM } from "@/lib/view-adapter";
 
 // Follow = friend request. Reflects the real relationship: send a request, see
@@ -192,6 +193,7 @@ export function ImmersiveReview({
   const p = album.palette;
   const gold = "var(--ln-accent)";
   const isAlbum = album.kind === "album" && album.tracks.length > 0;
+  const [expOpen, setExpOpen] = useState(false);
 
   // "following along" = the viewer is *currently* scrobbling a track from this
   // review on Last.fm. Poll the now-playing endpoint and match it against this
@@ -340,6 +342,18 @@ export function ImmersiveReview({
                 <span style={{ fontFamily: "var(--ln-mono)", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: gold }}>curated set</span>
               )}
             </div>
+
+            {/* The immersive Experience — playback + synced lyrics + moments */}
+            {album.kind !== "playlist" && (
+              <button
+                onClick={() => setExpOpen(true)}
+                className="ln-press"
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 9, padding: "13px 16px", borderRadius: 999, border: `1px solid ${gold}`, background: `${gold}18`, cursor: "pointer", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 700, color: gold }}
+              >
+                <LNIcon name="play" size={11} color={gold} />
+                The Experience
+              </button>
+            )}
 
             <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
               {!isAlbum && album.kind !== "playlist" && (
@@ -492,6 +506,8 @@ export function ImmersiveReview({
           .lnw-rel-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
+
+      {expOpen && <ExperienceOverlay review={vm} onClose={() => setExpOpen(false)} />}
     </main>
   );
 }
