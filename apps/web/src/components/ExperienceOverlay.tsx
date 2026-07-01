@@ -422,6 +422,24 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     window.open(url, "_blank");
   };
 
+  // Share a specific annotated moment (its note + the lyric line it sits on).
+  const [shared, setShared] = useState(false);
+  const shareMoment = async (note: MomentVM) => {
+    const text = `"${note.note}" — ${subject.track} by ${subject.artist} @ ${fmt(note.sec * 1000)}`;
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({ title: "LinerNotes", text, url });
+      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        setShared(true);
+        setTimeout(() => setShared(false), 1600);
+      }
+    } catch {
+      /* user cancelled */
+    }
+  };
+
   const toggleTranslation = async () => {
     if (translations) {
       setShowTranslation((v) => !v);
@@ -542,6 +560,9 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
                   {activeMoment.label ? `${activeMoment.label} — ` : ""}
                   {activeMoment.note}
                 </span>
+                <button onClick={() => shareMoment(activeMoment)} style={S.calloutShare} aria-label="Share moment">
+                  {shared ? "copied" : "share ⤴"}
+                </button>
               </div>
             )}
           </div>
@@ -562,6 +583,7 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
             translating={translating}
             onToggleTranslation={toggleTranslation}
             showTranslation={showTranslation}
+            onShare={shareMoment}
           />
         </div>
       </div>
@@ -582,6 +604,7 @@ function LyricsBlock({
   translating,
   onToggleTranslation,
   showTranslation,
+  onShare,
 }: {
   loading: boolean;
   lyrics: LyricsResult | null;
@@ -595,6 +618,7 @@ function LyricsBlock({
   translating: boolean;
   onToggleTranslation: () => void;
   showTranslation: boolean;
+  onShare: (note: MomentVM) => void;
 }) {
   if (loading)
     return (
@@ -654,9 +678,16 @@ function LyricsBlock({
                   </div>
                 ) : null}
                 {lineNotes?.map((n, j) => (
-                  <div key={j} onClick={() => onSeek(n.sec * 1000)} style={S.inlineNote}>
-                    <span style={S.inlineNoteTime}>{fmt(n.sec * 1000)}</span>
-                    <span style={S.inlineNoteText}>{n.note}</span>
+                  <div key={j} style={S.inlineNote}>
+                    <span style={S.inlineNoteTime} onClick={() => onSeek(n.sec * 1000)}>
+                      {fmt(n.sec * 1000)}
+                    </span>
+                    <span style={S.inlineNoteText} onClick={() => onSeek(n.sec * 1000)}>
+                      {n.note}
+                    </span>
+                    <button onClick={() => onShare(n)} style={S.inlineShare} aria-label="Share moment">
+                      ⤴
+                    </button>
                   </div>
                 ))}
               </div>
@@ -811,6 +842,27 @@ const S: Record<string, React.CSSProperties> = {
   calloutTime: { fontFamily: "var(--ln-mono)", fontWeight: 700, fontSize: 12, color: "#0a0908" },
   calloutDivider: { width: 1, height: 16, background: "rgba(10,9,8,0.25)" },
   calloutText: { flex: 1, fontFamily: "var(--ln-body)", fontWeight: 600, fontSize: 13, color: "#0a0908" },
+  calloutShare: {
+    flexShrink: 0,
+    background: "rgba(10,9,8,0.14)",
+    border: "none",
+    borderRadius: 999,
+    color: "#0a0908",
+    fontFamily: "var(--ln-mono)",
+    fontSize: 10,
+    fontWeight: 700,
+    padding: "4px 9px",
+    cursor: "pointer",
+  },
+  inlineShare: {
+    flexShrink: 0,
+    background: "none",
+    border: "none",
+    color: "var(--ln-accent)",
+    fontSize: 14,
+    cursor: "pointer",
+    padding: "0 4px",
+  },
   quote: {
     marginTop: 24,
     fontFamily: "var(--ln-display, var(--ln-body))",
