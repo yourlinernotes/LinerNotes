@@ -6,15 +6,16 @@
  * Full-screen album-colour flood + in-app playback + karaoke-style synced
  * lyrics with the author's moment-notes interleaved. Playback engine:
  *  - SoundCloud HTML5 Widget (full track, real ms position) when resolvable
- *  - a 30s iTunes preview (<audio>) as the fallback
+ *  - a 30s browser-playable preview (Deezer MP3) as the fallback
  * Lyrics come from LRCLIB via /api/lyrics; SoundCloud ids from /api/soundcloud-link.
  *
- * The sync engine is player-agnostic — it only consumes `positionMs` — so the
- * audio source is swappable without touching the highlight logic.
+ * For a single-track review it opens straight into the track experience. For an
+ * album/playlist it shows the tracklist; tapping a track opens that track's
+ * experience (its preview + synced lyrics + its moment notes).
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import type { ReviewVM } from "@/lib/view-adapter";
+import type { ReviewVM, MomentVM } from "@/lib/view-adapter";
 
 // --- Inlined sync engine (web doesn't wire in @linernotes/core). Keep in step
 // with packages/core/src/sync-engine.ts. -----------------------------------
@@ -50,11 +51,7 @@ function activeLineIndex(lines: LyricLine[], positionMs: number): number {
   return ans;
 }
 
-type LyricsResult = {
-  syncedLyrics: string | null;
-  plainLyrics: string | null;
-  instrumental: boolean;
-};
+type LyricsResult = { syncedLyrics: string | null; plainLyrics: string | null; instrumental: boolean };
 
 declare global {
   interface Window {
@@ -82,22 +79,174 @@ const fmt = (ms: number) => {
   const s = Math.max(0, Math.floor(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
+const normName = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 
 type Source = "soundcloud" | "preview" | "none";
+type Palette = ReviewVM["album"]["palette"];
+
+/** What a single track experience needs, independent of album vs single-track. */
+interface Subject {
+  track: string;
+  artist: string;
+  artworkUrl?: string | null;
+  notes: MomentVM[];
+  /** Optional lead line rendered as an italic pull-quote (the review's take). */
+  quote?: string;
+  /** Optional body copy (a per-track note or the rest of the take). */
+  body?: string;
+  /** A pre-resolved browser-playable preview (from the album finder). */
+  presetPreviewUrl?: string | null;
+  /** A source URL / id Odesli can turn into a SoundCloud link. */
+  extId?: string | null;
+}
 
 export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClose: () => void }) {
-  const { album, rating } = review;
+  const { album } = review;
   const p = album.palette;
-  const gold = "var(--ln-accent)";
-  const isSingleTrack = album.kind !== "album" && album.kind !== "playlist";
+  const isCollection = album.kind === "album" || album.kind === "playlist";
 
-  // Resolve the preview fresh via /api/preview (Deezer MP3) — the stored iTunes
-  // previewUrl is often an unplayable `m4p`, so don't seed with it.
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // Album/playlist: resolve the real tracklist's previews once (album-scoped).
+  const [previewMap, setPreviewMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!isCollection) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = new URLSearchParams({ album: album.title, artist: album.artist });
+        const r = await fetch(`/api/album-previews?${q}`);
+        const d = r.ok ? await r.json() : null;
+        const tracks: Array<{ name: string; previewUrl: string }> = d?.album?.tracks || [];
+        if (cancelled || !tracks.length) return;
+        const map: Record<string, string> = {};
+        for (const t of tracks) map[normName(t.name)] = t.previewUrl;
+        setPreviewMap(map);
+      } catch {
+        /* per-track /api/preview fallback still applies */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isCollection, album.title, album.artist]);
+
+  // Which track (index into album.tracks) is being experienced; null = the list.
+  const [selected, setSelected] = useState<number | null>(null);
+
+  const subject: Subject | null = useMemo(() => {
+    if (!isCollection) {
+      // Single-track review: the release title IS the track.
+      const take = review.take || "";
+      const firstLine = take.split("\n")[0];
+      const rest = take.split("\n").slice(1).join("\n").trim();
+      return {
+        track: album.title,
+        artist: album.artist,
+        artworkUrl: album.artworkUrl,
+        notes: review.notes || [],
+        quote: firstLine || undefined,
+        body: [rest, review.body].filter(Boolean).join("\n\n") || undefined,
+        presetPreviewUrl: null,
+        extId: album.extId,
+      };
+    }
+    if (selected == null) return null;
+    const t = album.tracks[selected];
+    if (!t) return null;
+    return {
+      track: t.name,
+      artist: album.artist,
+      artworkUrl: album.artworkUrl,
+      notes: t.moments || [],
+      body: t.review || undefined,
+      presetPreviewUrl: previewMap[normName(t.name)] || null,
+      extId: null,
+    };
+  }, [isCollection, selected, album, review.take, review.body, review.notes, previewMap]);
+
+  const backToList = isCollection && selected != null ? () => setSelected(null) : null;
+
+  return (
+    <div style={S.overlay}>
+      <style>{BREATHE_KEYFRAMES}</style>
+      <div style={{ ...S.flood, background: `linear-gradient(155deg, ${p.mid} 0%, ${p.deep} 60%, ${p.lo} 100%)` }} />
+      <div style={{ ...S.floodGlow, background: `radial-gradient(circle at 78% 78%, ${p.glow}cc, transparent 60%)` }} />
+      <div style={{ ...S.floodGlow, background: `radial-gradient(circle at 14% 88%, ${p.accent}55, transparent 55%)` }} />
+      <div style={S.darken} />
+
+      <div style={S.topBar}>
+        <button onClick={backToList || onClose} style={S.closeBtn} aria-label={backToList ? "Back" : "Close"}>
+          {backToList ? "‹" : "✕"}
+        </button>
+        <span style={S.expLabel}>the experience</span>
+        <span style={{ width: 34 }} />
+      </div>
+
+      {subject ? (
+        <TrackExperience key={selected ?? "single"} subject={subject} palette={p} />
+      ) : (
+        <AlbumList album={album} previewMap={previewMap} onPick={setSelected} />
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Album / playlist tracklist — pick a track to experience it
+// ===========================================================================
+
+function AlbumList({
+  album,
+  previewMap,
+  onPick,
+}: {
+  album: ReviewVM["album"];
+  previewMap: Record<string, string>;
+  onPick: (i: number) => void;
+}) {
+  return (
+    <div style={S.scroll}>
+      <div style={S.content}>
+        <div style={S.cover}>
+          {album.artworkUrl ? (
+            <img src={album.artworkUrl} alt={album.title} style={S.coverImg} />
+          ) : (
+            <div style={{ ...S.coverImg, ...S.coverPlaceholder }}>{album.title?.toLowerCase()}</div>
+          )}
+        </div>
+        <h1 style={S.title}>{album.title}</h1>
+        <div style={S.artist}>{album.artist}</div>
+        <div style={{ ...S.sectionLabel, marginTop: 24, alignSelf: "flex-start" }}>
+          {album.kind === "playlist" ? "playlist" : "tracks"} · tap to play
+        </div>
+        <div style={{ width: "100%", marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+          {album.tracks.map((t, i) => {
+            const has = !!previewMap[normName(t.name)];
+            const mc = t.moments?.length || 0;
+            return (
+              <button key={t.n} onClick={() => onPick(i)} style={S.trackRow}>
+                <span style={S.trackNum}>{String(t.n).padStart(2, "0")}</span>
+                <span style={S.trackName}>{t.name}</span>
+                {t.reaction && <span style={S.trackTag}>{t.reaction}</span>}
+                {mc > 0 && <span style={S.trackMoments}>{mc} ✎</span>}
+                <span style={{ ...S.trackPlay, opacity: has ? 1 : 0.4 }}>►</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// TrackExperience — playback + synced lyrics for one track
+// ===========================================================================
+
+function TrackExperience({ subject, palette }: { subject: Subject; palette: Palette }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(subject.presetPreviewUrl ?? null);
   const [scTrackId, setScTrackId] = useState<string | null>(null);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
-  const [lyricsLoading, setLyricsLoading] = useState(isSingleTrack);
-
+  const [lyricsLoading, setLyricsLoading] = useState(true);
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -112,41 +261,36 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     [syncedLines, positionMs],
   );
   const activeMoment = useMemo(
-    () =>
-      (review.notes || []).find(
-        (n) => positionMs >= n.sec * 1000 && positionMs < (n.sec + 5) * 1000,
-      ) || null,
-    [review.notes, positionMs],
+    () => subject.notes.find((n) => positionMs >= n.sec * 1000 && positionMs < (n.sec + 5) * 1000) || null,
+    [subject.notes, positionMs],
   );
 
-  // ---- Resolve media (preview + duration), lyrics, SoundCloud id ----
+  // Resolve preview (unless preset), lyrics, and a SoundCloud id.
   useEffect(() => {
-    if (!isSingleTrack) return;
     let cancelled = false;
     (async () => {
-      const track = album.title || "";
-      const artist = album.artist || "";
+      const { track, artist } = subject;
       let durationSec: number | undefined;
       let odesliSourceUrl: string | null = null;
-      // 1. Preview: Deezer MP3 first (iTunes previews stall in-browser as m4p) +
-      //    duration + a source URL Odesli can turn into a SoundCloud link.
-      try {
-        const q = new URLSearchParams({ track, artist });
-        const r = await fetch(`/api/preview?${q}`);
-        if (r.ok) {
-          const { preview } = await r.json();
-          if (preview) {
-            setPreviewUrl(preview.previewUrl);
-            if (preview.durationSec) durationSec = preview.durationSec;
-            odesliSourceUrl = preview.sourceUrl || null;
+
+      if (!subject.presetPreviewUrl) {
+        try {
+          const q = new URLSearchParams({ track, artist });
+          const r = await fetch(`/api/preview?${q}`);
+          if (r.ok) {
+            const { preview } = await r.json();
+            if (preview && !cancelled) {
+              setPreviewUrl(preview.previewUrl);
+              if (preview.durationSec) durationSec = preview.durationSec;
+              odesliSourceUrl = preview.sourceUrl || null;
+            }
           }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
       }
       if (cancelled) return;
 
-      // 2. Lyrics.
       setLyricsLoading(true);
       try {
         const q = new URLSearchParams({ track, artist });
@@ -159,13 +303,11 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
       }
       if (!cancelled) setLyricsLoading(false);
 
-      // 3. SoundCloud full track (best-effort) — prefer over the preview. Try a
-      //    resolved source URL (Deezer/iTunes) first, then the stored id.
       try {
         const q = new URLSearchParams();
         if (odesliSourceUrl) q.set("url", odesliSourceUrl);
-        else if (album.extId) {
-          q.set("id", album.extId);
+        else if (subject.extId) {
+          q.set("id", subject.extId);
           q.set("platform", "itunes");
         }
         if ([...q].length) {
@@ -180,9 +322,10 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     return () => {
       cancelled = true;
     };
-  }, [isSingleTrack, album.title, album.artist, album.extId, album.previewUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject.track, subject.artist, subject.presetPreviewUrl, subject.extId]);
 
-  // ---- SoundCloud widget ----
+  // SoundCloud widget
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const widgetRef = useRef<any>(null);
   useEffect(() => {
@@ -198,7 +341,7 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
       w.bind(E.PLAY, () => setPlaying(true));
       w.bind(E.PAUSE, () => setPlaying(false));
       w.bind(E.FINISH, () => setPlaying(false));
-      w.bind(E.ERROR, () => setScTrackId(null)); // fall back to preview
+      w.bind(E.ERROR, () => setScTrackId(null));
     });
     return () => {
       disposed = true;
@@ -206,7 +349,7 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     };
   }, [source, scTrackId]);
 
-  // ---- Preview audio (fallback) ----
+  // Preview audio (fallback)
   const audioRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
     if (source !== "preview" || !previewUrl) return;
@@ -249,17 +392,15 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     [source],
   );
 
-  // Auto-scroll the active lyric into the upper third.
   const activeRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     activeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [activeIdx]);
 
-  // Which moment-note (if any) attaches to each lyric line.
   const notesByLine = useMemo(() => {
-    const map: Record<number, typeof review.notes> = {};
-    if (!syncedLines.length || !review.notes?.length) return map;
-    for (const n of review.notes) {
+    const map: Record<number, MomentVM[]> = {};
+    if (!syncedLines.length || !subject.notes.length) return map;
+    for (const n of subject.notes) {
       const nMs = n.sec * 1000;
       let idx = 0;
       for (let i = 0; i < syncedLines.length; i++) {
@@ -269,10 +410,10 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
       (map[idx] ||= []).push(n);
     }
     return map;
-  }, [syncedLines, review.notes]);
+  }, [syncedLines, subject.notes]);
 
   const openSpotify = () => {
-    const url = `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`.trim())}`;
+    const url = `https://open.spotify.com/search/${encodeURIComponent(`${subject.track} ${subject.artist}`.trim())}`;
     window.open(url, "_blank");
   };
 
@@ -286,16 +427,7 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
   };
 
   return (
-    <div style={S.overlay}>
-      <style>{BREATHE_KEYFRAMES}</style>
-
-      {/* Breathing album-colour flood */}
-      <div style={{ ...S.flood, background: `linear-gradient(155deg, ${p.mid} 0%, ${p.deep} 60%, ${p.lo} 100%)` }} />
-      <div style={{ ...S.floodGlow, background: `radial-gradient(circle at 78% 78%, ${p.glow}cc, transparent 60%)` }} />
-      <div style={{ ...S.floodGlow, background: `radial-gradient(circle at 14% 88%, ${p.accent}55, transparent 55%)` }} />
-      <div style={S.darken} />
-
-      {/* Hidden SoundCloud widget */}
+    <>
       {source === "soundcloud" && scTrackId && (
         <iframe
           ref={iframeRef}
@@ -308,36 +440,20 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
         />
       )}
 
-      {/* Top bar */}
-      <div style={S.topBar}>
-        <button onClick={onClose} style={S.closeBtn} aria-label="Close">
-          ✕
-        </button>
-        <span style={S.expLabel}>the experience</span>
-        <span style={{ width: 34 }} />
-      </div>
-
       <div style={S.scroll}>
         <div style={S.content}>
-          {/* Cover */}
           <div onClick={openSpotify} style={S.cover}>
-            {album.artworkUrl ? (
-              <img src={album.artworkUrl} alt={album.title} style={S.coverImg} />
+            {subject.artworkUrl ? (
+              <img src={subject.artworkUrl} alt={subject.track} style={S.coverImg} />
             ) : (
-              <div style={{ ...S.coverImg, ...S.coverPlaceholder }}>{album.title?.toLowerCase()}</div>
+              <div style={{ ...S.coverImg, ...S.coverPlaceholder }}>{subject.track?.toLowerCase()}</div>
             )}
           </div>
 
-          <h1 style={S.title}>{album.title}</h1>
-          <div style={S.artist}>
-            {album.artist}
-            {album.year ? ` · ${album.year}` : ""}
-          </div>
+          <h1 style={S.title}>{subject.track}</h1>
+          <div style={S.artist}>{subject.artist}</div>
 
-          {rating > 0 && <div style={S.rating}>{"★".repeat(Math.round(rating))}{"☆".repeat(5 - Math.round(rating))}</div>}
-
-          {/* Playback bar */}
-          {isSingleTrack && (previewUrl || scTrackId) ? (
+          {previewUrl || scTrackId ? (
             <div style={S.playbackBar}>
               <div style={S.playbackRow}>
                 <button onClick={toggle} style={S.playBtn} aria-label={playing ? "Pause" : "Play"}>
@@ -347,7 +463,7 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
                   <div ref={scrubRef} onClick={onScrub} style={S.scrubTrack}>
                     <div style={{ ...S.scrubFill, width: `${pct * 100}%` }} />
                     {durationMs > 0 &&
-                      (review.notes || []).map((n, i) => {
+                      subject.notes.map((n, i) => {
                         const on = activeMoment === n;
                         return (
                           <span
@@ -389,42 +505,35 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
             </button>
           )}
 
-          {/* Live moment callout */}
-          {isSingleTrack && (
-            <div style={S.calloutSlot}>
-              {activeMoment && (
-                <div style={S.callout}>
-                  <span style={S.calloutTime}>{fmt(activeMoment.sec * 1000)}</span>
-                  <span style={S.calloutDivider} />
-                  <span style={S.calloutText}>
-                    {activeMoment.label ? `${activeMoment.label} — ` : ""}
-                    {activeMoment.note}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+          <div style={S.calloutSlot}>
+            {activeMoment && (
+              <div style={S.callout}>
+                <span style={S.calloutTime}>{fmt(activeMoment.sec * 1000)}</span>
+                <span style={S.calloutDivider} />
+                <span style={S.calloutText}>
+                  {activeMoment.label ? `${activeMoment.label} — ` : ""}
+                  {activeMoment.note}
+                </span>
+              </div>
+            )}
+          </div>
 
-          {/* Take */}
-          {review.take && <div style={S.quote}>&ldquo;{review.take.split("\n")[0]}&rdquo;</div>}
-          {review.body && <div style={S.body}>{review.body}</div>}
+          {subject.quote && <div style={S.quote}>&ldquo;{subject.quote}&rdquo;</div>}
+          {subject.body && <div style={S.body}>{subject.body}</div>}
 
-          {/* Karaoke lyrics */}
-          {isSingleTrack && (
-            <LyricsBlock
-              loading={lyricsLoading}
-              lyrics={lyrics}
-              lines={syncedLines}
-              activeIdx={activeIdx}
-              activeRef={activeRef}
-              notesByLine={notesByLine}
-              onSeek={seekTo}
-              hasAudio={!!(previewUrl || scTrackId)}
-            />
-          )}
+          <LyricsBlock
+            loading={lyricsLoading}
+            lyrics={lyrics}
+            lines={syncedLines}
+            activeIdx={activeIdx}
+            activeRef={activeRef}
+            notesByLine={notesByLine}
+            onSeek={seekTo}
+            hasAudio={!!(previewUrl || scTrackId)}
+          />
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -443,7 +552,7 @@ function LyricsBlock({
   lines: LyricLine[];
   activeIdx: number;
   activeRef: React.RefObject<HTMLDivElement | null>;
-  notesByLine: Record<number, ReviewVM["notes"]>;
+  notesByLine: Record<number, MomentVM[]>;
   onSeek: (ms: number) => void;
   hasAudio: boolean;
 }) {
@@ -522,13 +631,7 @@ function LyricsBlock({
 const BREATHE_KEYFRAMES = `@keyframes ln-breathe { 0%,100% { transform: scale(1.06); } 50% { transform: scale(1.15); } }`;
 
 const S: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 1000,
-    background: "var(--ln-bg, #0a0908)",
-    overflow: "hidden",
-  },
+  overlay: { position: "fixed", inset: 0, zIndex: 1000, background: "var(--ln-bg, #0a0908)", overflow: "hidden" },
   flood: { position: "absolute", inset: -80, animation: "ln-breathe 10.4s ease-in-out infinite" },
   floodGlow: { position: "absolute", inset: -80, opacity: 0.55 },
   darken: {
@@ -555,24 +658,13 @@ const S: Record<string, React.CSSProperties> = {
     border: "1px solid rgba(241,235,224,0.14)",
     color: "#f1ebe0",
     cursor: "pointer",
-    fontSize: 15,
+    fontSize: 18,
+    lineHeight: 1,
   },
-  expLabel: {
-    fontFamily: "var(--ln-mono)",
-    fontSize: 11,
-    letterSpacing: "0.08em",
-    color: "rgba(241,235,224,0.65)",
-  },
+  expLabel: { fontFamily: "var(--ln-mono)", fontSize: 11, letterSpacing: "0.08em", color: "rgba(241,235,224,0.65)" },
   scroll: { position: "absolute", inset: 0, overflowY: "auto", padding: "84px 0 80px" },
   content: { maxWidth: 560, margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", alignItems: "center" },
-  cover: {
-    width: 200,
-    height: 200,
-    borderRadius: 14,
-    overflow: "hidden",
-    cursor: "pointer",
-    boxShadow: "0 32px 70px -28px rgba(0,0,0,0.9)",
-  },
+  cover: { width: 200, height: 200, borderRadius: 14, overflow: "hidden", cursor: "pointer", boxShadow: "0 32px 70px -28px rgba(0,0,0,0.9)" },
   coverImg: { width: "100%", height: "100%", objectFit: "cover" },
   coverPlaceholder: {
     display: "flex",
@@ -594,7 +686,34 @@ const S: Record<string, React.CSSProperties> = {
     letterSpacing: "-0.01em",
   },
   artist: { marginTop: 5, fontFamily: "var(--ln-body)", fontSize: 16, color: "rgba(241,235,224,0.72)" },
-  rating: { marginTop: 10, color: "var(--ln-accent)", fontSize: 16, letterSpacing: 2 },
+  // Tracklist
+  trackRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    width: "100%",
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(241,235,224,0.08)",
+    background: "rgba(241,235,224,0.03)",
+    color: "#f1ebe0",
+    cursor: "pointer",
+    textAlign: "left",
+  },
+  trackNum: { fontFamily: "var(--ln-mono)", fontSize: 11, color: "rgba(241,235,224,0.4)", width: 20 },
+  trackName: {
+    flex: 1,
+    fontFamily: "var(--ln-album, var(--ln-body))",
+    fontSize: 15,
+    fontWeight: 600,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  trackTag: { fontFamily: "var(--ln-mono)", fontSize: 9, color: "var(--ln-accent)", textTransform: "uppercase" },
+  trackMoments: { fontFamily: "var(--ln-mono)", fontSize: 10, color: "var(--ln-accent)" },
+  trackPlay: { color: "var(--ln-accent)", fontSize: 12 },
+  // Playback
   playbackBar: { width: "100%", marginTop: 20 },
   playbackRow: { display: "flex", alignItems: "center", gap: 14 },
   playBtn: {
@@ -610,33 +729,9 @@ const S: Record<string, React.CSSProperties> = {
   },
   scrubTrack: { position: "relative", height: 5, borderRadius: 3, background: "rgba(241,235,224,0.18)", cursor: "pointer" },
   scrubFill: { position: "absolute", left: 0, top: 0, height: 5, borderRadius: 3, background: "var(--ln-accent)" },
-  scrubKnob: {
-    position: "absolute",
-    top: "50%",
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginLeft: -6,
-    marginTop: -6,
-    background: "var(--ln-accent)",
-  },
-  scrubMarker: {
-    position: "absolute",
-    top: "50%",
-    marginTop: -5,
-    marginLeft: -5,
-    borderRadius: "50%",
-    border: "2px solid #0a0908",
-    cursor: "pointer",
-  },
-  scrubTimes: {
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: 6,
-    fontFamily: "var(--ln-mono)",
-    fontSize: 10,
-    color: "rgba(241,235,224,0.55)",
-  },
+  scrubKnob: { position: "absolute", top: "50%", width: 12, height: 12, borderRadius: 6, marginLeft: -6, marginTop: -6, background: "var(--ln-accent)" },
+  scrubMarker: { position: "absolute", top: "50%", marginTop: -5, marginLeft: -5, borderRadius: "50%", border: "2px solid #0a0908", cursor: "pointer" },
+  scrubTimes: { display: "flex", justifyContent: "space-between", marginTop: 6, fontFamily: "var(--ln-mono)", fontSize: 10, color: "rgba(241,235,224,0.55)" },
   playbackMeta: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 },
   sourceBadge: {
     fontFamily: "var(--ln-mono)",
@@ -648,14 +743,7 @@ const S: Record<string, React.CSSProperties> = {
     borderRadius: 999,
     padding: "3px 8px",
   },
-  openSpotify: {
-    background: "none",
-    border: "none",
-    fontFamily: "var(--ln-mono)",
-    fontSize: 10,
-    color: "rgba(241,235,224,0.6)",
-    cursor: "pointer",
-  },
+  openSpotify: { background: "none", border: "none", fontFamily: "var(--ln-mono)", fontSize: 10, color: "rgba(241,235,224,0.6)", cursor: "pointer" },
   spotifyBtn: {
     marginTop: 16,
     padding: "10px 18px",
@@ -668,16 +756,7 @@ const S: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   calloutSlot: { width: "100%", minHeight: 46, marginTop: 12, display: "flex", alignItems: "center" },
-  callout: {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "10px 12px",
-    borderRadius: 12,
-    background: "var(--ln-accent)",
-    animation: "ln-breathe 0s",
-  },
+  callout: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, background: "var(--ln-accent)" },
   calloutTime: { fontFamily: "var(--ln-mono)", fontWeight: 700, fontSize: 12, color: "#0a0908" },
   calloutDivider: { width: 1, height: 16, background: "rgba(10,9,8,0.25)" },
   calloutText: { flex: 1, fontFamily: "var(--ln-body)", fontWeight: 600, fontSize: 13, color: "#0a0908" },
@@ -691,15 +770,9 @@ const S: Record<string, React.CSSProperties> = {
     textAlign: "center",
     maxWidth: 380,
   },
-  body: { marginTop: 16, fontFamily: "var(--ln-body)", fontSize: 15.5, lineHeight: 1.6, color: "rgba(241,235,224,0.78)", maxWidth: 420 },
+  body: { marginTop: 16, fontFamily: "var(--ln-body)", fontSize: 15.5, lineHeight: 1.6, color: "rgba(241,235,224,0.78)", maxWidth: 420, whiteSpace: "pre-wrap" },
   section: { width: "100%", marginTop: 28 },
-  sectionLabel: {
-    fontFamily: "var(--ln-mono)",
-    fontSize: 10,
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
-    color: "var(--ln-accent)",
-  },
+  sectionLabel: { fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ln-accent)" },
   lyricsHint: { fontFamily: "var(--ln-body)", fontSize: 12, color: "rgba(241,235,224,0.5)", marginTop: 8, marginBottom: 10 },
   lyricsStatus: { fontFamily: "var(--ln-body)", fontStyle: "italic", fontSize: 13, color: "rgba(241,235,224,0.5)", marginTop: 10 },
   lyricsPane: { maxHeight: "52vh", overflowY: "auto", marginTop: 4 },
@@ -725,14 +798,6 @@ const S: Record<string, React.CSSProperties> = {
     background: "rgba(217,178,90,0.1)",
     cursor: "pointer",
   },
-  inlineNoteTime: {
-    fontFamily: "var(--ln-mono)",
-    fontWeight: 700,
-    fontSize: 11,
-    color: "#0a0908",
-    background: "var(--ln-accent)",
-    borderRadius: 6,
-    padding: "2px 6px",
-  },
+  inlineNoteTime: { fontFamily: "var(--ln-mono)", fontWeight: 700, fontSize: 11, color: "#0a0908", background: "var(--ln-accent)", borderRadius: 6, padding: "2px 6px" },
   inlineNoteText: { flex: 1, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "#f1ebe0" },
 };
