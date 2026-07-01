@@ -8,6 +8,7 @@
     "@expo-google-fonts/space-mono": "^0.4.2",
     "@linernotes/core": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-cookies/cookies": "^6.2.1",
     "axios": "^1.17.0",
     "expo": "~56.0.0",
     "expo-application": "~56.0.3",

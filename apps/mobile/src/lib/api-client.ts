@@ -465,6 +465,15 @@ class APIClient {
     return this.request('/connect/lastfm');
   }
 
+  /** Save the Spotify web-session cookie captured via the in-app login (experimental). */
+  async connectSpotifySpDc(spDc: string): Promise<{ connected: boolean }> {
+    return this.request('/connect/spotify-spdc', { method: 'POST', body: { spDc } });
+  }
+
+  async disconnectSpotifySpDc(): Promise<{ connected: boolean }> {
+    return this.request('/connect/spotify-spdc', { method: 'DELETE' });
+  }
+
   // ==========================================================================
   // MUSIC SEARCH
   // ==========================================================================

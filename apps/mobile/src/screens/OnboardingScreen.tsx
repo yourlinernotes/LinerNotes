@@ -25,6 +25,8 @@ import { lastfm } from '../services/lastfm';
 import { api } from '../lib/api-client';
 import { useAuth } from '../contexts/AuthContext';
 import { tokens } from '../lib/tokens';
+import { Icon } from '../components/atoms/Icon';
+import { SpotifyConnectModal } from '../components/SpotifyConnectModal';
 
 // Warm gradient colors for auth screens
 const AUTH_COLORS = {
@@ -53,6 +55,8 @@ interface OnboardingScreenProps {
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const { refreshUser } = useAuth();
   const [step, setStep] = useState<OnboardingStep>(1);
+  const [spotifyModalOpen, setSpotifyModalOpen] = useState(false);
+  const [spotifyLinked, setSpotifyLinked] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [handle, setHandle] = useState('');
   const [bio, setBio] = useState('');
@@ -240,6 +244,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   return (
     <View style={styles.container}>
+      <SpotifyConnectModal
+        visible={spotifyModalOpen}
+        onClose={() => setSpotifyModalOpen(false)}
+        onConnected={() => setSpotifyLinked(true)}
+      />
       {/* Warm flood background */}
       <View style={StyleSheet.absoluteFill}>
         <LinearGradient
@@ -571,8 +580,22 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 </View>
               </View>
 
+              {/* Or connect Spotify (experimental) — no Last.fm account needed */}
+              <TouchableOpacity
+                onPress={() => setSpotifyModalOpen(true)}
+                activeOpacity={0.85}
+                style={styles.spotifyConnectBtn}
+              >
+                <View style={styles.spotifyDot}>
+                  <Icon name="play" size={9} color="#fff" />
+                </View>
+                <Text style={styles.spotifyConnectText}>
+                  {spotifyLinked ? 'Spotify connected ✓' : 'Or connect Spotify'}
+                </Text>
+              </TouchableOpacity>
+
               {/* Skip button */}
-              {lastFmStatus !== 'linked' && (
+              {lastFmStatus !== 'linked' && !spotifyLinked && (
                 <View style={styles.skipContainer}>
                   <TouchableOpacity onPress={() => setStep(3)} activeOpacity={0.8}>
                     <Text style={styles.skipButton}>I'll connect later</Text>
@@ -1075,6 +1098,31 @@ const styles = StyleSheet.create({
     fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
+  },
+  spotifyConnectBtn: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    paddingVertical: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(241,235,224,0.18)',
+    backgroundColor: 'rgba(241,235,224,0.05)',
+  },
+  spotifyDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#1db954',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spotifyConnectText: {
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
+    fontSize: 14,
+    color: tokens.colors.fg,
   },
   skipContainer: {
     marginTop: 'auto',

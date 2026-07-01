@@ -168,6 +168,9 @@ importers:
       '@react-native-async-storage/async-storage':
         specifier: 2.2.0
         version: 2.2.0(react-native@0.85.3)
+      '@react-native-cookies/cookies':
+        specifier: ^6.2.1
+        version: 6.2.1(react-native@0.85.3)
       axios:
         specifier: ^1.17.0
         version: 1.18.0
@@ -3850,6 +3853,16 @@ packages:
       react-native: ^0.0.0-0 || >=0.65 <1.0
     dependencies:
       merge-options: 3.0.4
+      react-native: 0.85.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.3)
+    dev: false
+
+  /@react-native-cookies/cookies@6.2.1(react-native@0.85.3):
+    resolution: {integrity: sha512-D17wCA0DXJkGJIxkL74Qs9sZ3sA+c+kCoGmXVknW7bVw/W+Vv1m/7mWTNi9DLBZSRddhzYw8SU0aJapIaM/g5w==}
+    deprecated: This package is deprecated. Use @preeternal/react-native-cookie-manager or react-native-nitro-cookies instead.
+    peerDependencies:
+      react-native: '>= 0.60.2'
+    dependencies:
+      invariant: 2.2.4
       react-native: 0.85.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.3)
     dev: false
 
