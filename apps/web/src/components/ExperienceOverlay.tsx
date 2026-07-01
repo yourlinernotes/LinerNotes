@@ -91,7 +91,9 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
   const gold = "var(--ln-accent)";
   const isSingleTrack = album.kind !== "album" && album.kind !== "playlist";
 
-  const [previewUrl, setPreviewUrl] = useState<string | null>(album.previewUrl ?? null);
+  // Resolve the preview fresh via /api/preview (Deezer MP3) — the stored iTunes
+  // previewUrl is often an unplayable `m4p`, so don't seed with it.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scTrackId, setScTrackId] = useState<string | null>(null);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(isSingleTrack);
@@ -125,18 +127,18 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
       const track = album.title || "";
       const artist = album.artist || "";
       let durationSec: number | undefined;
-      // 1. iTunes search (server route, avoids CORS) → preview + duration.
+      let odesliSourceUrl: string | null = null;
+      // 1. Preview: Deezer MP3 first (iTunes previews stall in-browser as m4p) +
+      //    duration + a source URL Odesli can turn into a SoundCloud link.
       try {
-        const q = encodeURIComponent(`${track} ${artist}`.trim());
-        const r = await fetch(`/api/music/search/tracks?q=${q}&limit=8`, { cache: "force-cache" });
+        const q = new URLSearchParams({ track, artist });
+        const r = await fetch(`/api/preview?${q}`);
         if (r.ok) {
-          const d = await r.json();
-          const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-          const hit =
-            (d.results || []).find((x: any) => norm(x.name) === norm(track)) || (d.results || [])[0];
-          if (hit) {
-            if (!album.previewUrl && hit.previewUrl) setPreviewUrl(hit.previewUrl);
-            if (hit.duration) durationSec = Math.round(hit.duration / 1000);
+          const { preview } = await r.json();
+          if (preview) {
+            setPreviewUrl(preview.previewUrl);
+            if (preview.durationSec) durationSec = preview.durationSec;
+            odesliSourceUrl = preview.sourceUrl || null;
           }
         }
       } catch {
@@ -157,10 +159,16 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
       }
       if (!cancelled) setLyricsLoading(false);
 
-      // 3. SoundCloud full track (best-effort) — prefer over the preview.
+      // 3. SoundCloud full track (best-effort) — prefer over the preview. Try a
+      //    resolved source URL (Deezer/iTunes) first, then the stored id.
       try {
-        if (album.extId) {
-          const q = new URLSearchParams({ id: album.extId, platform: "itunes" });
+        const q = new URLSearchParams();
+        if (odesliSourceUrl) q.set("url", odesliSourceUrl);
+        else if (album.extId) {
+          q.set("id", album.extId);
+          q.set("platform", "itunes");
+        }
+        if ([...q].length) {
           const r = await fetch(`/api/soundcloud-link?${q}`);
           const d = r.ok ? await r.json() : null;
           if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);

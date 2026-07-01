@@ -6,25 +6,16 @@ import { useEffect, useRef, useState } from "react";
 // whatever was playing before.
 let stopActive: (() => void) | null = null;
 
-// Loose title compare so "Chun-Li" matches "Chun-Li (feat. …)" etc.
-const norm = (s: string) =>
-  (s || "")
-    .toLowerCase()
-    .replace(/\s*[([][^)\]]*[)\]]/g, "")
-    .replace(/\s+(feat|ft|featuring|with)\.?\s.*$/i, "")
-    .replace(/[^a-z0-9]+/g, "");
-
 type Status = "idle" | "loading" | "playing" | "unavailable";
 
 /**
- * A small round play/pause button for a 30s iTunes preview snippet.
+ * A small round play/pause button for a 30s preview snippet.
  *
- * Pass `previewUrl` if you already have it (stored on the review). If it's
- * missing or dead, the player lazily resolves one from /api/music/search/tracks
- * by `track` + `artist` on first play — so migrated/older reviews still get audio.
+ * Resolves a browser-playable preview from /api/preview (Deezer MP3 first) by
+ * `track` + `artist` on first play. We ignore any stored `previewUrl` prop
+ * because it's usually an iTunes `m4p` that stalls in-browser.
  */
 export function PreviewPlayer({
-  previewUrl,
   track,
   artist,
   accent = "var(--ln-accent)",
@@ -40,7 +31,7 @@ export function PreviewPlayer({
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const resolvedRef = useRef<string | null>(previewUrl ?? null);
+  const resolvedRef = useRef<string | null>(null);
 
   // Tear down on unmount so a snippet doesn't keep playing after navigation.
   useEffect(() => {
@@ -54,28 +45,14 @@ export function PreviewPlayer({
     if (resolvedRef.current) return resolvedRef.current;
     if (!track) return null;
     try {
-      const q = encodeURIComponent(`${track} ${artist || ""}`.trim());
-      // Pull a few candidates and pick the best name match that actually has a
-      // preview — iTunes' top hit for "<track> <artist>" can be the wrong song.
-      const r = await fetch(`/api/music/search/tracks?q=${q}&limit=8`, { cache: "force-cache" });
+      // Resolve a browser-playable preview via /api/preview (Deezer MP3 first —
+      // iTunes previews are `m4p` and frequently stall in-browser). The route
+      // already name-matches track+artist, so no wrong-song fallback here.
+      const q = new URLSearchParams({ track, artist: artist || "" });
+      const r = await fetch(`/api/preview?${q}`, { cache: "force-cache" });
       if (!r.ok) return null;
-      const d = await r.json();
-      const results: Array<{ name?: string; artist?: string; artistName?: string; previewUrl?: string | null }> =
-        d.results || [];
-      const withPreview = results.filter((x) => x.previewUrl);
-
-      // Only accept a preview whose TRACK NAME actually matches — never fall back
-      // to an arbitrary result (that's how obscure tracks got a totally wrong
-      // song, e.g. "turmeric – the twins"). Among name matches, prefer one whose
-      // artist also matches; if nothing matches, report unavailable, not a lie.
-      const nT = norm(track);
-      const nA = norm(artist || "");
-      const nameMatches = withPreview.filter((x) => norm(x.name || "") === nT);
-      const best =
-        (nA ? nameMatches.find((x) => norm(x.artist || x.artistName || "") === nA) : undefined) ||
-        nameMatches[0] ||
-        null;
-      const url = best?.previewUrl || null;
+      const { preview } = await r.json();
+      const url = preview?.previewUrl || null;
       resolvedRef.current = url;
       return url;
     } catch {
