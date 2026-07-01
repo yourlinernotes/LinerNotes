@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PreviewPlayer } from "@/components/PreviewPlayer";
 
 interface Prompt {
   id: string;
@@ -273,6 +274,23 @@ function PromptCard({
               {prompt.album && <> · {prompt.album}</>}
             </>
           )}
+        </div>
+
+        {/* Memory-refresher: hear a snippet / jump to the song while you decide */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }} onClick={(e) => e.stopPropagation()}>
+          {prompt.type !== "album" && (
+            <PreviewPlayer track={prompt.track} artist={prompt.artist} accent={accent} size={28} title="Hear a snippet" />
+          )}
+          <a
+            href={`https://open.spotify.com/search/${encodeURIComponent(
+              (prompt.type === "album" ? `${prompt.album} ${prompt.artist}` : `${prompt.track} ${prompt.artist}`).trim(),
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: "rgba(var(--ln-fg-rgb),0.55)", textDecoration: "none", letterSpacing: "0.3px" }}
+          >
+            listen ↗
+          </a>
         </div>
 
         {/* Quick-rate + Note button */}
