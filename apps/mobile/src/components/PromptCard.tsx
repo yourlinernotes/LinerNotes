@@ -3,7 +3,7 @@
  * Based on prompts.jsx from Claude Design handoff
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from './atoms/Icon';
@@ -11,6 +11,7 @@ import { Stars } from './atoms/Stars';
 import { AlbumArt } from './atoms/AlbumArt';
 import { PreviewButton } from './atoms/PreviewButton';
 import { tokens } from '../lib/tokens';
+import { API_BASE_URL } from '../lib/api-client';
 import type { PromptTrigger } from '../services/askingEngine';
 
 interface PromptCardProps {
@@ -23,6 +24,27 @@ interface PromptCardProps {
 export function PromptCard({ prompt, accent, onOpen, onDismiss }: PromptCardProps) {
   const [dismissed, setDismissed] = useState(false);
   const [rating, setRating] = useState(0);
+
+  // Last.fm art is often the wrong cover — resolve the correct one via
+  // /api/artwork (iTunes/Deezer, strict match) and prefer it. Track prompts only.
+  const [resolvedArt, setResolvedArt] = useState<string | null>(null);
+  useEffect(() => {
+    if (!prompt.track) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = new URLSearchParams({ track: prompt.track!, artist: prompt.artist });
+        const res = await fetch(`${API_BASE_URL}/artwork?${q}`);
+        const d = res.ok ? await res.json() : null;
+        if (!cancelled && d?.artworkUrl) setResolvedArt(d.artworkUrl);
+      } catch {
+        /* keep Last.fm art */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [prompt.track, prompt.artist]);
 
   if (dismissed) return null;
 
@@ -59,7 +81,7 @@ export function PromptCard({ prompt, accent, onOpen, onDismiss }: PromptCardProp
             <View style={styles.artContainer}>
               <AlbumArt
                 palette={prompt.palette}
-                artworkUrl={prompt.palette.art}
+                artworkUrl={resolvedArt || prompt.palette.art}
                 size={42}
                 label={prompt.album || prompt.track || ''}
                 noTag
