@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   title: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 19,
     color: tokens.colors.fg,
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     marginTop: 20,
     marginBottom: 10,
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     letterSpacing: 1.68,
     textTransform: 'uppercase',
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   formatLabel: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 13.5,
     fontWeight: '600',
   },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   },
   noteText: {
     flex: 1,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 12.5,
     lineHeight: 17.5,
     color: tokens.colors.fg + 'D1',
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   exportButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15.5,
     fontWeight: '600',
     color: tokens.colors.nearBlack,

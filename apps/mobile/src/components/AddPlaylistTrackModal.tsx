@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(241,235,224,0.08)',
   },
   headerTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 20,
     color: tokens.colors.fg,
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9.5,
     letterSpacing: 0.6,
     color: tokens.colors.gold,
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(241,235,224,0.14)',
     borderRadius: 12,
     padding: 11,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 14.5,
     color: tokens.colors.fg,
   },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   loadingText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13,
     color: 'rgba(241,235,224,0.5)',
   },
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     color: 'rgba(241,235,224,0.6)',
   },
   noResults: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 14,
     color: 'rgba(241,235,224,0.4)',
     textAlign: 'center',

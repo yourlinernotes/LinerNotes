@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.colors.fg + '1A',
   },
   badgeText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9.5,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 20,
     lineHeight: 22.4,
@@ -284,12 +284,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   artist: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 15,
     color: tokens.colors.muted,
   },
   previewLine: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyMedium,
     fontStyle: 'italic',
     fontWeight: '500',
     fontSize: 16,
@@ -303,12 +303,12 @@ const styles = StyleSheet.create({
     paddingTop: 1,
   },
   ratingNum: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 15,
     letterSpacing: -0.3,
   },
   ratedLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
     letterSpacing: 0.8,
     color: tokens.colors.fg + '61',
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   momentTime: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 12.5,
     fontWeight: '600',
     color: tokens.colors.nearBlack,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   },
   momentNote: {
     flex: 1,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13.5,
     lineHeight: 18.225,
     color: tokens.colors.fg + 'DC',
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     borderBottomColor: tokens.colors.fg + '12',
   },
   stripLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   momentCountText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
   },
   trackRow: {
@@ -383,14 +383,14 @@ const styles = StyleSheet.create({
     borderBottomColor: tokens.colors.fg + '0D',
   },
   trackNum: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     color: tokens.colors.fg + '61',
     width: 16,
   },
   trackName: {
     flex: 1,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13.5,
   },
   trackMomentBadge: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   trackMomentCount: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
   },
   emptyReaction: {
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     marginTop: 2,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 12.5,
     fontWeight: '600',
     letterSpacing: 0.1,
@@ -432,13 +432,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   linkSlotTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 12.5,
     fontWeight: '600',
     letterSpacing: 0.1,
   },
   linkSlotHint: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9,
     letterSpacing: 0.3,
     textAlign: 'center',
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   footerText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     letterSpacing: 0.4,
     color: tokens.colors.fg + '73',

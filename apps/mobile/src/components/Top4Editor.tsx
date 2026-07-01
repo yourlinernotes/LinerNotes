@@ -384,14 +384,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   title: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 24,
     fontWeight: '600',
     color: tokens.colors.fg,
     letterSpacing: -0.4,
   },
   subtitle: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 12,
     color: tokens.colors.gold,
     marginTop: 4,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     letterSpacing: 1.2,
     color: 'rgba(241,235,224,0.45)',
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedBadgeText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyBold,
     fontSize: 11,
     fontWeight: '700',
     color: tokens.colors.nearBlack,
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modeButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 13,
     fontWeight: '600',
     color: 'rgba(241,235,224,0.65)',
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     color: tokens.colors.nearBlack,
   },
   emptyReviews: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13.5,
     color: 'rgba(241,235,224,0.5)',
     lineHeight: 20,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(241,235,224,0.14)',
     borderRadius: 12,
     padding: 12,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 14.5,
     color: tokens.colors.fg,
   },
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   searchButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -558,14 +558,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   resultAlbum: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 14.5,
     fontWeight: '600',
     color: tokens.colors.fg,
     marginBottom: 2,
   },
   resultArtist: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13,
     color: 'rgba(241,235,224,0.6)',
   },
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
   },

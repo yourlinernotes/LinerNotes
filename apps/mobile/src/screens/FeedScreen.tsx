@@ -478,14 +478,14 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(241,235,224,0.08)',
   },
   logo: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 17,
     fontWeight: '600',
     color: tokens.colors.fg,
     letterSpacing: -0.4,
   },
   headerTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 17,
     fontWeight: '600',
     color: tokens.colors.fg,
@@ -512,13 +512,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   userName: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 13.5,
     fontWeight: '600',
     color: tokens.colors.fg,
   },
   userHandle: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     color: 'rgba(241,235,224,0.45)',
     letterSpacing: 0.21,
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   viaText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9.5,
     letterSpacing: 0.29,
     color: 'rgba(241,235,224,0.5)',
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   followText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 11.5,
     fontWeight: '600',
     letterSpacing: 0.12,
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   tapRatedText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9.5,
     letterSpacing: 0.48,
     color: 'rgba(241,235,224,0.4)',
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   actionCount: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 12,
     minWidth: 12,
   },
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   endText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     letterSpacing: 0.6,
     color: 'rgba(241,235,224,0.3)',

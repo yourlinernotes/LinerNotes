@@ -766,7 +766,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandName: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 19,
     color: COLORS.fg,
@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
     gap: 22,
   },
   stepLabel: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 10,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   },
   heading: {
     marginTop: 10,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyMedium,
     fontWeight: '500',
     fontSize: 30,
     lineHeight: 33.6,
@@ -815,7 +815,7 @@ const styles = StyleSheet.create({
   description: {
     marginTop: 10,
     maxWidth: 300,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 14,
     lineHeight: 20.3,
     color: 'rgba(241,235,224,0.6)',
@@ -840,7 +840,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarMonogram: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 38,
     color: COLORS.gold,
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addPhotoButton: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 13,
     fontWeight: '600',
     color: COLORS.gold,
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   fieldLabel: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 10,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     paddingVertical: 14,
     paddingHorizontal: 15,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 15,
   },
   top4Selected: {
@@ -931,7 +931,7 @@ const styles = StyleSheet.create({
   },
   top4ChipName: {
     marginTop: 4,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 10.5,
     color: 'rgba(241,235,224,0.7)',
   },
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchHint: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 11,
     color: 'rgba(241,235,224,0.4)',
     paddingHorizontal: 2,
@@ -961,13 +961,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   resultName: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyMedium,
     fontSize: 14,
     fontWeight: '500',
     color: COLORS.fg,
   },
   resultArtist: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 12,
     color: 'rgba(241,235,224,0.55)',
     marginTop: 1,
@@ -1019,7 +1019,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   continueButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1047,7 +1047,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   lastFmTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyBold,
     fontSize: 17,
     fontWeight: '700',
     color: COLORS.fg,
@@ -1059,7 +1059,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   lastFmDescription: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 12.5,
     lineHeight: 18.125,
     color: 'rgba(241,235,224,0.55)',
@@ -1072,7 +1072,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lastFmButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   skipButton: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 14,
     fontWeight: '600',
     color: 'rgba(241,235,224,0.7)',

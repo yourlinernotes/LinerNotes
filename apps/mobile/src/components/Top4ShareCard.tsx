@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -158,14 +158,14 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   headerTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 16,
     fontWeight: '600',
     color: tokens.colors.fg,
     lineHeight: 18.4,
   },
   headerLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9.5,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.colors.fg + '1A',
   },
   positionText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.monoBold,
     fontSize: 9,
     fontWeight: '700',
     color: tokens.colors.nearBlack,
@@ -223,14 +223,14 @@ const styles = StyleSheet.create({
     paddingLeft: 1,
   },
   albumName: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 12.5,
     fontWeight: '600',
     color: tokens.colors.fg,
     lineHeight: 13.75,
   },
   artistName: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 10.5,
     color: tokens.colors.muted,
   },
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   footerText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     letterSpacing: 0.4,
     color: tokens.colors.fg + '73',

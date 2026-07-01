@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   avatarText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 22,
     fontWeight: '600',
   },
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   displayName: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 19,
     fontWeight: '600',
     color: tokens.colors.fg,
@@ -187,13 +187,13 @@ const styles = StyleSheet.create({
     lineHeight: 22.42,
   },
   handle: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 11,
     color: tokens.colors.fg + '8C',
   },
   bio: {
     marginTop: 12,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 12.5,
     lineHeight: 18.125,
     color: tokens.colors.fg + 'BD',
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   favouritesLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
@@ -240,13 +240,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   linkSlotTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 12.5,
     fontWeight: '600',
     letterSpacing: 0.1,
   },
   linkSlotHint: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9,
     letterSpacing: 0.3,
     textAlign: 'center',
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   footerText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     letterSpacing: 0.4,
     color: tokens.colors.fg + '73',

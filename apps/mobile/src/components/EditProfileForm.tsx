@@ -294,7 +294,7 @@ export function EditProfileForm({
 const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 60 },
   fieldLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     letterSpacing: 1.2,
     color: 'rgba(241,235,224,0.45)',
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(241,235,224,0.14)',
     borderRadius: 12,
     padding: 12,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 14.5,
     color: tokens.colors.fg,
   },
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   lastFmTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
     color: tokens.colors.fg,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   lastFmDescription: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 12,
     lineHeight: 17,
     color: 'rgba(241,235,224,0.55)',
@@ -361,10 +361,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lastFmButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 14,
     fontWeight: '600',
   },
   saveBtn: { marginTop: 24, padding: 14, borderRadius: 13, alignItems: 'center' },
-  saveBtnText: { fontFamily: 'System', fontSize: 15, fontWeight: '600' },
+  saveBtnText: { fontFamily: tokens.typography.rnFonts.bodySemibold, fontSize: 15, fontWeight: '600' },
 });

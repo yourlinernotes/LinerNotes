@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   headerTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 20,
     color: tokens.colors.fg,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9.5,
     letterSpacing: 0.6,
     color: tokens.colors.gold,
@@ -305,14 +305,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   momentTimeText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 11.5,
     fontWeight: '600',
     color: tokens.colors.nearBlack,
   },
   momentNote: {
     flex: 1,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13,
     color: 'rgba(241,235,224,0.85)',
   },
@@ -332,12 +332,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 9,
     textAlign: 'center',
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 15,
     color: tokens.colors.fg,
   },
   momentColon: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 16,
   },
   momentInputNote: {
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 9,
     paddingHorizontal: 11,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13,
     color: tokens.colors.fg,
   },
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(241,235,224,0.14)',
   },
   cancelButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
     color: 'rgba(241,235,224,0.7)',
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
     color: tokens.colors.nearBlack,

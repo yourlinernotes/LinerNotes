@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   appTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 20,
     color: tokens.colors.fg,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     top: -4,
   },
   betaText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyBold,
     fontSize: 10,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   tabLabel: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 11.5,
     letterSpacing: 1.6,
     textTransform: 'uppercase',

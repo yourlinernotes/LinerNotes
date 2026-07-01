@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(241,235,224,0.08)',
   },
-  title: { fontFamily: 'System', fontSize: 18, fontWeight: '600', color: tokens.colors.fg },
+  title: { fontFamily: tokens.typography.rnFonts.bodySemibold, fontSize: 18, fontWeight: '600', color: tokens.colors.fg },
   close: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

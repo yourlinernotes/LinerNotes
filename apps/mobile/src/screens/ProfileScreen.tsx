@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(241,235,224,0.08)',
   },
   editModalTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 18,
     fontWeight: '600',
     color: tokens.colors.fg,
@@ -818,7 +818,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 14,
     color: tokens.colors.fg,
   },
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 32,
   },
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   name: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 23,
     color: tokens.colors.fg,
@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.23,
   },
   handle: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 12,
     color: 'rgba(241,235,224,0.5)',
   },
@@ -880,14 +880,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statNumber: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 16,
     color: tokens.colors.fg,
     lineHeight: 18,
   },
   statLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 9.5,
     letterSpacing: 0.95,
     textTransform: 'uppercase',
@@ -896,7 +896,7 @@ const styles = StyleSheet.create({
   },
   bio: {
     marginTop: 15,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 14,
     lineHeight: 21,
     color: 'rgba(241,235,224,0.78)',
@@ -916,13 +916,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyMedium,
     fontSize: 13.5,
     fontWeight: '500',
     color: tokens.colors.fg,
   },
   shareButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 13.5,
     fontWeight: '600',
   },
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   sectionLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 11,
     letterSpacing: 1.98,
     textTransform: 'uppercase',
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   shareText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 11.5,
     fontWeight: '600',
   },
@@ -991,7 +991,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   top4AttrText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
     letterSpacing: 0.5,
     color: 'rgba(241,235,224,0.4)',
@@ -1008,14 +1008,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyTop4Text: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
     color: tokens.colors.fg,
     marginBottom: 6,
   },
   emptyTop4Subtitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13,
     color: 'rgba(241,235,224,0.5)',
   },
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   albumArtLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
     color: 'rgba(241,235,224,0.4)',
     textAlign: 'center',
@@ -1076,13 +1076,13 @@ const styles = StyleSheet.create({
     paddingLeft: 1,
   },
   albumTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     color: tokens.colors.fg,
     lineHeight: 16,
   },
   albumArtist: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 11.5,
     color: 'rgba(241,235,224,0.6)',
     marginTop: 2,
@@ -1099,7 +1099,7 @@ const styles = StyleSheet.create({
     marginBottom: -1,
   },
   tabText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 12,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
@@ -1123,7 +1123,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   noteHeaderText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10.5,
     letterSpacing: 0.42,
     color: 'rgba(241,235,224,0.5)',
@@ -1132,13 +1132,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   noteUserName: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 13,
     fontWeight: '600',
     color: tokens.colors.fg,
   },
   noteUserHandle: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
     color: 'rgba(241,235,224,0.45)',
   },
@@ -1157,7 +1157,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   actionCount: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 12,
   },
   shareNoteButton: {
@@ -1170,7 +1170,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   shareNoteText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 12.5,
     fontWeight: '600',
   },
@@ -1179,7 +1179,7 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   emptyText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 11,
     color: 'rgba(241,235,224,0.4)',
   },

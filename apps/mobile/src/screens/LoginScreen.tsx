@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   brandTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontWeight: '600',
     fontSize: 34,
     color: tokens.colors.fg,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     marginBottom: 4, // Raised up to match design
   },
   betaText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyBold,
     fontSize: 11,
     letterSpacing: 1.54,
     color: AUTH_COLORS.accent,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   promise: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontStyle: 'italic',
     fontSize: 21,
     lineHeight: 29.4,
@@ -348,13 +348,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   googleLogoText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodyBold,
     fontSize: 14,
     fontWeight: '700',
     color: '#4285F4',
   },
   googleButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
     color: '#1a1714',
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(241,235,224,0.14)',
   },
   dividerText: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
     color: 'rgba(241,235,224,0.4)',
     letterSpacing: 0.5,
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(241,235,224,0.16)',
     borderRadius: 13,
     padding: 14,
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 15,
   },
   submitButton: {
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 15,
     fontWeight: '600',
     color: tokens.colors.nearBlack,
@@ -412,18 +412,18 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   togglePrompt: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 13,
     color: 'rgba(241,235,224,0.6)',
   },
   toggleLink: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 13,
     fontWeight: '600',
     color: AUTH_COLORS.accent,
   },
   disclaimer: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
     lineHeight: 15,
     color: 'rgba(241,235,224,0.38)',

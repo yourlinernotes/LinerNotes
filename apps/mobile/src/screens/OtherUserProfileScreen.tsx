@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 16,
     fontWeight: '600',
     color: tokens.colors.fg,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   errorText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 16,
     color: tokens.colors.muted,
     marginBottom: 16,
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.gold,
   },
   errorButtonText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 14,
     fontWeight: '600',
     color: tokens.colors.nearBlack,
@@ -263,18 +263,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   displayName: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 22,
     fontWeight: '600',
     color: tokens.colors.fg,
   },
   handle: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 13,
     color: tokens.colors.muted,
   },
   bio: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 14,
     lineHeight: 20,
     color: 'rgba(241,235,224,0.7)',
@@ -291,13 +291,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.bodySemibold,
     fontSize: 20,
     fontWeight: '600',
     color: tokens.colors.fg,
   },
   statLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 10,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   sectionLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: tokens.typography.rnFonts.mono,
     fontSize: 11,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   emptyText: {
-    fontFamily: 'System',
+    fontFamily: tokens.typography.rnFonts.body,
     fontSize: 14,
     fontStyle: 'italic',
     color: tokens.colors.muted,
