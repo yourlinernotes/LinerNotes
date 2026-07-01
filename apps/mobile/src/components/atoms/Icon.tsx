@@ -94,6 +94,14 @@ export function Icon({ name, size = 22, color = 'currentColor', filled = false }
     );
   }
 
+  if (name === 'pause') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+        <Path d="M6 4h4v16H6zM14 4h4v16h-4z" />
+      </Svg>
+    );
+  }
+
   if (name === 'share') {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

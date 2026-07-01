@@ -22,6 +22,23 @@ import type {
 /** API base URL - hardcoded for now to avoid React Native env issues */
 export const API_BASE_URL = 'https://beta-linernotes.vercel.app/api';
 
+/** Synced-lyrics result from /api/lyrics (LRCLIB). */
+export interface LyricsResult {
+  id: number | null;
+  trackName: string;
+  artistName: string;
+  syncedLyrics: string | null;
+  plainLyrics: string | null;
+  instrumental: boolean;
+  source: 'lrclib';
+}
+
+/** SoundCloud playback target from /api/soundcloud-link. */
+export interface SoundCloudResult {
+  url: string;
+  trackId: string;
+}
+
 /** AsyncStorage keys for persisted auth state */
 const TOKEN_STORAGE_KEY = '@linernotes:auth_token';
 const USER_STORAGE_KEY = '@linernotes:user_data';
@@ -469,6 +486,91 @@ class APIClient {
     const data = await this.request<{ album: any }>(`/albums/${albumId}`);
     // Web API returns { album: { albumId, name, artist, artworkUrl, tracks: [...] } }
     return { album: data.album, tracks: data.album?.tracks || [] };
+  }
+
+  // ==========================================================================
+  // EXPERIENCE: LYRICS + PLAYBACK RESOLUTION (all fail soft to null)
+  // ==========================================================================
+
+  /**
+   * Time-synced lyrics via our /api/lyrics (LRCLIB). Falls back to calling LRCLIB
+   * directly if our route isn't reachable (RN has no CORS on native), so lyrics
+   * keep working even before the backend redeploy. Returns null when none found.
+   */
+  async getLyrics(args: {
+    track: string;
+    artist: string;
+    album?: string;
+    durationSec?: number;
+  }): Promise<LyricsResult | null> {
+    const q = new URLSearchParams({ track: args.track, artist: args.artist });
+    if (args.album) q.set('album', args.album);
+    if (args.durationSec) q.set('duration', String(Math.round(args.durationSec)));
+    try {
+      const res = await fetch(`${this.baseURL}/lyrics?${q}`);
+      if (res.ok) {
+        const { lyrics } = await res.json();
+        if (lyrics) return lyrics as LyricsResult;
+      }
+    } catch {
+      /* fall through to direct LRCLIB */
+    }
+    return getLrclibDirect(args);
+  }
+
+  /**
+   * Resolve a SoundCloud `{ url, trackId }` for full-track playback via
+   * /api/soundcloud-link (Odesli + public page scrape). Null when not on
+   * SoundCloud → caller falls back to the 30s preview.
+   */
+  async resolveSoundCloud(args: {
+    sourceUrl?: string;
+    id?: string;
+    platform?: string;
+    type?: 'song' | 'album';
+  }): Promise<SoundCloudResult | null> {
+    const q = new URLSearchParams();
+    if (args.sourceUrl) q.set('url', args.sourceUrl);
+    if (args.id) q.set('id', args.id);
+    if (args.platform) q.set('platform', args.platform);
+    if (args.type) q.set('type', args.type);
+    try {
+      const res = await fetch(`${this.baseURL}/soundcloud-link?${q}`);
+      if (!res.ok) return null;
+      const { soundcloud } = await res.json();
+      return (soundcloud as SoundCloudResult) ?? null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/** Direct LRCLIB read (keyless, no CORS on native) — the pre-deploy fallback. */
+async function getLrclibDirect(args: {
+  track: string;
+  artist: string;
+  album?: string;
+  durationSec?: number;
+}): Promise<LyricsResult | null> {
+  const ua = 'LinerNotes (https://github.com/yourlinernotes/LinerNotes)';
+  try {
+    const q = new URLSearchParams({ artist_name: args.artist, track_name: args.track });
+    if (args.album) q.set('album_name', args.album);
+    if (args.durationSec) q.set('duration', String(Math.round(args.durationSec)));
+    const r = await fetch(`https://lrclib.net/api/get?${q}`, { headers: { 'User-Agent': ua } });
+    if (!r.ok) return null;
+    const row = await r.json();
+    return {
+      id: row.id ?? null,
+      trackName: row.trackName,
+      artistName: row.artistName,
+      syncedLyrics: row.syncedLyrics || null,
+      plainLyrics: row.plainLyrics || null,
+      instrumental: !!row.instrumental,
+      source: 'lrclib',
+    };
+  } catch {
+    return null;
   }
 }
 

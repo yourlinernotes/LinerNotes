@@ -61,6 +61,24 @@ export const typography = {
     preview: 'EB Garamond',
   },
 
+  /**
+   * Exact React Native family names, post expo-font load (see App.tsx useFonts).
+   * RN needs the weighted family by name — `fontWeight` alone won't pick the
+   * right face for custom fonts. Use these in mobile StyleSheets instead of
+   * 'System' / 'Menlo'. (Kept in sync with packages/core/src/tokens.ts.)
+   */
+  rnFonts: {
+    display: 'Newsreader_500Medium',
+    displaySemibold: 'Newsreader_600SemiBold',
+    displayItalic: 'Newsreader_500Medium_Italic',
+    body: 'HankenGrotesk_400Regular',
+    bodyMedium: 'HankenGrotesk_500Medium',
+    bodySemibold: 'HankenGrotesk_600SemiBold',
+    bodyBold: 'HankenGrotesk_700Bold',
+    mono: 'SpaceMono_400Regular',
+    monoBold: 'SpaceMono_700Bold',
+  },
+
   /** Font sizes (from design) */
   sizes: {
     // App chrome

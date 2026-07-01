@@ -12,6 +12,10 @@ import { api } from './src/lib/api-client';
 import { askingEngine } from './src/services/askingEngine';
 import { tokens } from './src/lib/tokens';
 import type { FeedReview } from './src/lib/feed-types';
+import { useFonts } from 'expo-font';
+import { Newsreader_500Medium, Newsreader_600SemiBold, Newsreader_500Medium_Italic } from '@expo-google-fonts/newsreader';
+import { HankenGrotesk_400Regular, HankenGrotesk_500Medium, HankenGrotesk_600SemiBold, HankenGrotesk_700Bold } from '@expo-google-fonts/hanken-grotesk';
+import { SpaceMono_400Regular, SpaceMono_700Bold } from '@expo-google-fonts/space-mono';
 // Push notifications are temporarily disabled on BOTH platforms pending an
 // iOS provisioning-profile update (see TODO below + commented plugin in
 // app.config.ts). The implementation is parked at ./src/services/notifications.ts
@@ -416,6 +420,22 @@ const styles = StyleSheet.create({
 });
 
 export default function App() {
+  // Bundle the brand fonts (the #1 "looks off" fix — without this RN falls back
+  // to system fonts). Gate render until they're ready so text doesn't reflow.
+  const [fontsLoaded] = useFonts({
+    Newsreader_500Medium, Newsreader_600SemiBold, Newsreader_500Medium_Italic,
+    HankenGrotesk_400Regular, HankenGrotesk_500Medium, HankenGrotesk_600SemiBold, HankenGrotesk_700Bold,
+    SpaceMono_400Regular, SpaceMono_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, backgroundColor: tokens.colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={tokens.colors.fg} />
+      </View>
+    );
+  }
+
   return (
     <AuthProvider>
       <AppContent />

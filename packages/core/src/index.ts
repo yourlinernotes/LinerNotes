@@ -8,3 +8,4 @@
 export * from './types';
 export * from './tokens';
 export * from './api-client';
+export * from './sync-engine';

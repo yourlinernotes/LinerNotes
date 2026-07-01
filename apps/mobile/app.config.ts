@@ -62,6 +62,8 @@ const config: ExpoConfig = {
     //     color: '#d9b25a',
     //   },
     // ],
+    // In-app 30s preview playback for the Experience screen (expo-audio).
+    'expo-audio',
   ],
   extra: {
     eas: {

@@ -1,23 +1,50 @@
 import { tokens } from '../lib/tokens';
 /**
  * LinerNotes Experience Screen
- * Immersive read-along with album-color background
- * Based on Claude Design handoff: experience.jsx
+ * Immersive read-along with album-colour background, in-app playback, and
+ * karaoke-style synced lyrics with the author's moment-notes interleaved.
+ *
+ * Playback engine: SoundCloud (full track) when resolvable, else a 30s iTunes
+ * preview (expo-audio). Lyrics: LRCLIB synced .lrc → line highlight, plain →
+ * static block. The sync engine (packages/core) is player-agnostic, so the
+ * highlight is driven purely by the reported position in ms.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Linking, Alert, Image, Animated, PanResponder } from 'react-native';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+  Linking,
+  Alert,
+  Image,
+  Animated,
+  PanResponder,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { parseLrc, activeLineIndex, type LyricLine } from '@linernotes/core';
 import { Icon } from '../components/atoms/Icon';
 import { Stars } from '../components/atoms/Stars';
 import { ReactionIcon } from '../components/atoms/Reactions';
+import {
+  ExperiencePlayer,
+  type ExperiencePlayerHandle,
+  type PlaybackStatus,
+  type PlaybackSource,
+} from '../components/player/ExperiencePlayer';
 import { formatTimestamp } from '../lib/time-utils';
 import { useAuth } from '../contexts/AuthContext';
-import { api, API_BASE_URL } from '../lib/api-client';
+import { api, API_BASE_URL, type LyricsResult } from '../lib/api-client';
 import type { FeedReview } from '../lib/feed-types';
 import { lastfm } from '../services/lastfm';
+import { lookupTrack } from '../services/itunes';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const F = tokens.typography.rnFonts;
+const C = tokens.colors;
 
 interface ExperienceScreenProps {
   review: FeedReview;
@@ -37,7 +64,7 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
   const { user } = useAuth();
   const { album, rating } = review;
   const p: Palette = album.palette;
-  const gold = tokens.colors.gold;
+  const gold = C.gold;
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [spotifyOpening, setSpotifyOpening] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -47,11 +74,100 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
   // Album *reviews* are flagged by the adapter (kind === 'album'); use this to
   // route deletes to the album endpoint, never the track one.
   const isAlbumReview = album.kind === 'album';
-  const npTrack = album.tracks?.find((t) => t.moments && t.moments.length > 0);
+
+  // ---- Playback + lyrics (single-track experience only) --------------------
+  // For a track review the adapter puts the *track* name/artist in album.title/
+  // artist. Album reviews keep the existing track strip (per-track playback is a
+  // follow-on).
+  const playbackEnabled = !isAlbum;
+  const playerRef = useRef<ExperiencePlayerHandle>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [soundcloudId, setSoundcloudId] = useState<string | null>(null);
+  const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState(playbackEnabled);
+  const [status, setStatus] = useState<PlaybackStatus>({
+    positionMs: 0,
+    durationMs: 0,
+    playing: false,
+    source: 'none',
+    ready: false,
+  });
+
+  const syncedLines: LyricLine[] = useMemo(
+    () => (lyrics?.syncedLyrics ? parseLrc(lyrics.syncedLyrics) : []),
+    [lyrics?.syncedLyrics],
+  );
+  const activeIdx = useMemo(
+    () => (syncedLines.length ? activeLineIndex(syncedLines, status.positionMs) : -1),
+    [syncedLines, status.positionMs],
+  );
+
+  // Live moment callout — active for 5s once the playhead reaches a moment.
+  const activeMoment = useMemo(() => {
+    const notes = review.notes || [];
+    return (
+      notes.find(
+        (n) => status.positionMs >= n.sec * 1000 && status.positionMs < (n.sec + 5) * 1000,
+      ) || null
+    );
+  }, [review.notes, status.positionMs]);
+
+  // Breathing album-colour flood — subtle looping scale so the bg feels alive.
+  const breathe = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, { toValue: 1, duration: 5200, useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 0, duration: 5200, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [breathe]);
+  const breatheScale = breathe.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1.15] });
+
+  // Resolve media (preview + duration), lyrics, and a SoundCloud id on open.
+  useEffect(() => {
+    if (!playbackEnabled) return;
+    let cancelled = false;
+    (async () => {
+      const track = album.title || '';
+      const artist = album.artist || '';
+      // 1. iTunes: 30s preview + duration (LRCLIB tiebreaker) + a source URL.
+      const it = await lookupTrack(track, artist);
+      if (cancelled) return;
+      if (it?.previewUrl) setPreviewUrl(it.previewUrl);
+
+      // 2. Lyrics (duration improves the match).
+      setLyricsLoading(true);
+      const ly = await api.getLyrics({
+        track,
+        artist,
+        durationSec: it?.durationSec ?? undefined,
+      });
+      if (cancelled) return;
+      setLyrics(ly);
+      setLyricsLoading(false);
+
+      // 3. SoundCloud full-track (best-effort) — prefer it over the preview.
+      const scArgs = it?.itunesUrl
+        ? { sourceUrl: it.itunesUrl }
+        : album.extId
+          ? { id: album.extId, platform: 'itunes' as const }
+          : null;
+      if (scArgs) {
+        const sc = await api.resolveSoundCloud(scArgs);
+        if (!cancelled && sc?.trackId) setSoundcloudId(sc.trackId);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [playbackEnabled, album.title, album.artist, album.extId]);
 
   // Check Last.fm for currently playing track that matches this album/artist
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
 
     const checkNowPlaying = async () => {
       try {
@@ -69,19 +185,16 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
           return;
         }
 
-        // Check if the playing track matches this review's album/artist
         const trackArtist = (track.artist as any)?.name || track.artist;
         const trackAlbum = typeof track.album === 'string' ? track.album : track.album?.['#text'];
 
-        const matchesArtist = trackArtist?.toLowerCase().includes(album.artist?.toLowerCase() || '') ||
-                             album.artist?.toLowerCase().includes(trackArtist?.toLowerCase() || '');
+        const matchesArtist =
+          trackArtist?.toLowerCase().includes(album.artist?.toLowerCase() || '') ||
+          album.artist?.toLowerCase().includes(trackArtist?.toLowerCase() || '');
         const matchesAlbum = trackAlbum?.toLowerCase() === album.title?.toLowerCase();
 
         if (matchesArtist && (matchesAlbum || !isAlbum)) {
-          setNowPlayingTrack({
-            name: track.name,
-            artist: trackArtist,
-          });
+          setNowPlayingTrack({ name: track.name, artist: trackArtist });
         } else {
           setNowPlayingTrack(null);
         }
@@ -91,7 +204,7 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
     };
 
     checkNowPlaying();
-    interval = setInterval(checkNowPlaying, 3000); // Check every 3 seconds for responsive updates
+    interval = setInterval(checkNowPlaying, 3000);
 
     return () => clearInterval(interval);
   }, [album.artist, album.title, isAlbum]);
@@ -118,7 +231,7 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
           Animated.spring(translateY, { toValue: 0, bounciness: 2, useNativeDriver: false }).start();
         }
       },
-    })
+    }),
   ).current;
 
   const confirmDelete = () => {
@@ -136,7 +249,6 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
             if (deleting) return;
             setDeleting(true);
             try {
-              // Route by type so an album review never hits the track endpoint.
               if (isAlbumReview) {
                 await api.deleteAlbumReview(review.id);
               } else {
@@ -149,7 +261,7 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -165,12 +277,14 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
         return;
       }
 
-      // Resolve a real deeplink via the beta API (Spotify Search, server-side).
-      // Passing the stored id lets Spotify-id reviews resolve instantly (no search).
-      // Falls back to search if it can't resolve.
       let dest = searchUrl;
       try {
-        const params = new URLSearchParams({ id: album.extId ?? '', kind: isAlbumReview ? 'album' : 'track', title, artist });
+        const params = new URLSearchParams({
+          id: album.extId ?? '',
+          kind: isAlbumReview ? 'album' : 'track',
+          title,
+          artist,
+        });
         const res = await fetch(`${API_BASE_URL}/spotify-link?${params.toString()}`);
         if (res.ok) {
           const { url } = await res.json();
@@ -180,8 +294,6 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
         /* keep search fallback */
       }
 
-      // Prefer the native app via the spotify: URI when we resolved a concrete
-      // track/album; otherwise open the web URL (which opens the app if installed).
       const m = dest.match(/open\.spotify\.com\/(track|album)\/([A-Za-z0-9]+)/);
       if (m) {
         const appUri = `spotify:${m[1]}:${m[2]}`;
@@ -192,10 +304,9 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
       }
     } catch (error) {
       console.error('Failed to open Spotify:', error);
-      // Last resort: the universal web URL.
       try {
         await Linking.openURL(
-          `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`
+          `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`,
         );
       } catch {
         Alert.alert('Error', 'Could not open Spotify');
@@ -210,10 +321,12 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
     setTimeout(() => setActiveNote(null), 2600);
   };
 
+  const seekTo = useCallback((ms: number) => playerRef.current?.seekTo(ms), []);
+
   return (
     <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
-      {/* Immersive blurred flood */}
-      <View style={styles.blurContainer}>
+      {/* Immersive blurred flood — breathes subtly while open */}
+      <Animated.View style={[styles.blurContainer, { transform: [{ scale: breatheScale }] }]}>
         <LinearGradient
           colors={[p.mid, p.deep, p.lo]}
           locations={[0, 0.6, 1]}
@@ -233,7 +346,7 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
           end={{ x: 0.5, y: 0.5 }}
           style={[StyleSheet.absoluteFill, { opacity: 0.5 }]}
         />
-      </View>
+      </Animated.View>
 
       {/* Dark overlay */}
       <LinearGradient
@@ -241,6 +354,17 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
         locations={[0, 0.32, 1]}
         style={StyleSheet.absoluteFill}
       />
+
+      {/* Hidden audio engine (SoundCloud WebView / expo-audio preview). */}
+      {playbackEnabled && (previewUrl || soundcloudId) && (
+        <ExperiencePlayer
+          ref={playerRef}
+          soundcloudTrackId={soundcloudId}
+          previewUrl={previewUrl}
+          onStatus={setStatus}
+          onError={() => setSoundcloudId(null)}
+        />
+      )}
 
       <ScrollView
         style={StyleSheet.absoluteFill}
@@ -262,7 +386,8 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
           {/* Title + artist */}
           <Text style={styles.title}>{album.title}</Text>
           <Text style={styles.artist}>
-            {album.artist}{album.year ? ` · ${album.year}` : ''}
+            {album.artist}
+            {album.year ? ` · ${album.year}` : ''}
           </Text>
 
           {/* Rating */}
@@ -270,15 +395,33 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
             <Stars rating={rating} size={16} color={gold} />
           </View>
 
-          {/* Open in Spotify */}
-          <TouchableOpacity onPress={openSpotify} style={styles.spotifyButton}>
-            <View style={styles.spotifyIcon}>
-              <Icon name="play" size={8} color="#fff" />
-            </View>
-            <Text style={styles.spotifyText}>Open in Spotify</Text>
-          </TouchableOpacity>
+          {/* In-app playback bar (track experience) */}
+          {playbackEnabled && (previewUrl || soundcloudId) ? (
+            <PlaybackBar
+              status={status}
+              gold={gold}
+              notes={review.notes || []}
+              activeMoment={activeMoment}
+              onToggle={() => playerRef.current?.toggle()}
+              onSeek={seekTo}
+              onOpenSpotify={openSpotify}
+            />
+          ) : (
+            /* Fallback: deep-link out when we can't play in-app */
+            <TouchableOpacity onPress={openSpotify} style={styles.spotifyButton}>
+              <View style={styles.spotifyIcon}>
+                <Icon name="play" size={8} color="#fff" />
+              </View>
+              <Text style={styles.spotifyText}>Open in Spotify</Text>
+            </TouchableOpacity>
+          )}
 
-          {/* Now playing companion (if Last.fm detects user is listening to this album/track) */}
+          {/* Live moment callout — fires when the playhead reaches a moment */}
+          {playbackEnabled && (
+            <MomentCallout moment={activeMoment} gold={gold} />
+          )}
+
+          {/* Now playing companion (Last.fm) */}
           {nowPlayingTrack && (
             <View style={[styles.nowPlaying, { backgroundColor: `${gold}12`, borderColor: `${gold}3a` }]}>
               <View style={styles.equalizer}>
@@ -296,60 +439,68 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
             </View>
           )}
 
-          {/* The caption (first line) reads as an italic pull-quote; the rest
-              of the take sits below it in plain, non-italic text. */}
-          {review.take && (
-            <Text style={styles.quote}>"{review.take.split('\n')[0]}"</Text>
-          )}
+          {/* The caption (first line) reads as an italic pull-quote. */}
+          {review.take && <Text style={styles.quote}>"{review.take.split('\n')[0]}"</Text>}
           {review.take && review.take.split('\n').slice(1).join('\n').trim() ? (
-            <Text style={styles.body}>
-              {review.take.split('\n').slice(1).join('\n').trim()}
-            </Text>
+            <Text style={styles.body}>{review.take.split('\n').slice(1).join('\n').trim()}</Text>
           ) : null}
-          {review.body && (
-            <Text style={styles.body}>{review.body}</Text>
+          {review.body && <Text style={styles.body}>{review.body}</Text>}
+
+          {/* Karaoke lyrics + interleaved moment notes (track experience) */}
+          {playbackEnabled && (
+            <LyricsPanel
+              loading={lyricsLoading}
+              lyrics={lyrics}
+              lines={syncedLines}
+              activeIdx={activeIdx}
+              notes={review.notes || []}
+              gold={gold}
+              onSeekMs={seekTo}
+              onTapNoteWithoutAudio={tapNote}
+              hasAudio={!!(previewUrl || soundcloudId)}
+              activeNote={activeNote}
+            />
           )}
 
-          {/* Single-track moments */}
-          {!isAlbum && review.notes && review.notes.length > 0 && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: gold }]}>
-                the moment{review.notes.length > 1 ? 's' : ''}
-              </Text>
-              <Text style={styles.momentInstructions}>
-                tap to read ahead — it follows the song, it won't skip it.
-              </Text>
-              <View style={styles.moments}>
-                {review.notes.map((m, idx) => {
-                  const key = `solo-${idx}`;
-                  const isActive = activeNote === key;
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() => tapNote(key)}
-                      style={[
-                        styles.momentButton,
-                        {
-                          borderColor: isActive ? `${gold}99` : 'rgba(241,235,224,0.1)',
-                          backgroundColor: isActive ? `${gold}14` : 'rgba(241,235,224,0.04)',
-                        },
-                      ]}
-                    >
-                      <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
-                        <Text style={styles.momentTimeText}>{formatTimestamp(m.sec)}</Text>
-                      </View>
-                      <Text style={styles.momentNoteText} numberOfLines={2}>
-                        {m.note}
-                      </Text>
-                      {isActive && (
-                        <Text style={[styles.readAhead, { color: gold }]}>read{'\n'}ahead</Text>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+          {/* Single-track moments — only when there are no synced lyrics to host
+              them (otherwise they render inline with the lyric lines). */}
+          {playbackEnabled &&
+            !syncedLines.length &&
+            review.notes &&
+            review.notes.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionLabel, { color: gold }]}>
+                  the moment{review.notes.length > 1 ? 's' : ''}
+                </Text>
+                <Text style={styles.momentInstructions}>tap a moment to jump there.</Text>
+                <View style={styles.moments}>
+                  {review.notes.map((m, idx) => {
+                    const key = `solo-${idx}`;
+                    const isActive = activeNote === key;
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => seekTo(m.sec * 1000)}
+                        style={[
+                          styles.momentButton,
+                          {
+                            borderColor: isActive ? `${gold}99` : 'rgba(241,235,224,0.1)',
+                            backgroundColor: isActive ? `${gold}14` : 'rgba(241,235,224,0.04)',
+                          },
+                        ]}
+                      >
+                        <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
+                          <Text style={styles.momentTimeText}>{formatTimestamp(m.sec)}</Text>
+                        </View>
+                        <Text style={styles.momentNoteText} numberOfLines={2}>
+                          {m.note}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
           {/* Album: expandable track strip */}
           {isAlbum && album.tracks && (
@@ -361,8 +512,7 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
         </View>
       </ScrollView>
 
-      {/* Delete — pinned to the very bottom (only for your own note; the
-          backend also enforces ownership). */}
+      {/* Delete — pinned to the very bottom (own note only). */}
       {isOwn && (
         <View style={styles.deleteBar}>
           <TouchableOpacity
@@ -381,13 +531,323 @@ export function ExperienceScreen({ review, onClose, onDeleted }: ExperienceScree
       {/* Fixed top bar — swipe down here to dismiss */}
       <View style={styles.topBar} {...panResponder.panHandlers}>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Icon name="chevdown" size={20} color="#f1ebe0" />
+          <Icon name="chevdown" size={20} color={C.fg} />
         </TouchableOpacity>
         <Text style={styles.experienceLabel}>the experience</Text>
         <View style={{ width: 38 }} />
       </View>
     </Animated.View>
   );
+}
+
+// ===========================================================================
+// Playback bar — play/pause + scrubber + source badge
+// ===========================================================================
+
+function fmt(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function PlaybackBar({
+  status,
+  gold,
+  notes,
+  activeMoment,
+  onToggle,
+  onSeek,
+  onOpenSpotify,
+}: {
+  status: PlaybackStatus;
+  gold: string;
+  notes: MomentNote[];
+  activeMoment: MomentNote | null;
+  onToggle: () => void;
+  onSeek: (ms: number) => void;
+  onOpenSpotify: () => void;
+}) {
+  const [barW, setBarW] = useState(0);
+  const dur = status.durationMs;
+  const pct = dur > 0 ? Math.min(1, status.positionMs / dur) : 0;
+
+  const badge: Record<PlaybackSource, string> = {
+    soundcloud: 'soundcloud',
+    preview: 'preview · 0:30',
+    none: '',
+  };
+
+  return (
+    <View style={styles.playbackBar}>
+      <View style={styles.playbackRow}>
+        <TouchableOpacity onPress={onToggle} style={[styles.playBtn, { backgroundColor: gold }]}>
+          <Icon name={status.playing ? 'pause' : 'play'} size={13} color={C.nearBlack} />
+        </TouchableOpacity>
+
+        <View style={styles.scrubWrap}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onLayout={(e) => setBarW(e.nativeEvent.layout.width)}
+            onPress={(e) => {
+              if (barW > 0 && dur > 0) {
+                const x = e.nativeEvent.locationX;
+                onSeek((x / barW) * dur);
+              }
+            }}
+            style={styles.scrubTrack}
+          >
+            <View style={[styles.scrubFill, { width: `${pct * 100}%`, backgroundColor: gold }]} />
+            {/* Moment markers on the timeline */}
+            {dur > 0 &&
+              notes.map((n, i) => {
+                const mPct = Math.min(1, (n.sec * 1000) / dur);
+                const on = activeMoment === n;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.scrubMarker,
+                      {
+                        left: `${mPct * 100}%`,
+                        width: on ? 12 : 8,
+                        height: on ? 12 : 8,
+                        backgroundColor: on ? gold : 'rgba(240,226,204,0.55)',
+                        shadowColor: gold,
+                        shadowOpacity: on ? 0.6 : 0,
+                        shadowRadius: 4,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            <View style={[styles.scrubKnob, { left: `${pct * 100}%`, backgroundColor: gold }]} />
+          </TouchableOpacity>
+          <View style={styles.scrubTimes}>
+            <Text style={styles.scrubTime}>{fmt(status.positionMs)}</Text>
+            <Text style={styles.scrubTime}>{dur ? fmt(dur) : '--:--'}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.playbackMeta}>
+        <Text style={[styles.sourceBadge, { color: gold, borderColor: `${gold}44` }]}>
+          {badge[status.source] || (status.ready ? '' : 'loading…')}
+        </Text>
+        <TouchableOpacity onPress={onOpenSpotify}>
+          <Text style={styles.openSpotifyLink}>open in spotify ↗</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ===========================================================================
+// Live moment callout — pulses in when the playhead reaches a moment
+// ===========================================================================
+
+type MomentNote = { sec: number; label?: string; note: string };
+
+function MomentCallout({ moment, gold }: { moment: MomentNote | null; gold: string }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: moment ? 1 : 0,
+      useNativeDriver: true,
+      bounciness: moment ? 8 : 0,
+      speed: 14,
+    }).start();
+  }, [moment, anim]);
+
+  // Reserve the row height so the layout doesn't jump as callouts come and go.
+  return (
+    <View style={styles.calloutSlot}>
+      {moment && (
+        <Animated.View
+          style={[
+            styles.callout,
+            {
+              backgroundColor: gold,
+              opacity: anim,
+              transform: [
+                { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.calloutTime}>{formatTimestamp(moment.sec)}</Text>
+          <View style={styles.calloutDivider} />
+          <Text style={styles.calloutText} numberOfLines={1}>
+            {moment.label ? `${moment.label} — ` : ''}
+            {moment.note}
+          </Text>
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+// ===========================================================================
+// Lyrics panel — synced karaoke highlight + interleaved moment notes
+// ===========================================================================
+
+function LyricsPanel({
+  loading,
+  lyrics,
+  lines,
+  activeIdx,
+  notes,
+  gold,
+  onSeekMs,
+  hasAudio,
+}: {
+  loading: boolean;
+  lyrics: LyricsResult | null;
+  lines: LyricLine[];
+  activeIdx: number;
+  notes: MomentNote[];
+  gold: string;
+  onSeekMs: (ms: number) => void;
+  onTapNoteWithoutAudio: (key: string) => void;
+  hasAudio: boolean;
+  activeNote: string | null;
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const offsets = useRef<Record<number, number>>({});
+  const PANE_H = Math.round(SCREEN_HEIGHT * 0.52);
+
+  // Auto-scroll the active line into the upper third (karaoke feel).
+  useEffect(() => {
+    if (activeIdx < 0) return;
+    const y = offsets.current[activeIdx];
+    if (y != null) {
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - PANE_H * 0.36), animated: true });
+    }
+  }, [activeIdx, PANE_H]);
+
+  // Which moment-note (if any) belongs just before/at a given line time.
+  const notesByLine = useMemo(() => {
+    const map: Record<number, MomentNote[]> = {};
+    if (!lines.length || !notes.length) return map;
+    for (const n of notes) {
+      const nMs = n.sec * 1000;
+      // Attach to the last line at/just before the note's timestamp.
+      let idx = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].timeMs <= nMs) idx = i;
+        else break;
+      }
+      (map[idx] ||= []).push(n);
+    }
+    return map;
+  }, [lines, notes]);
+
+  if (loading) {
+    return (
+      <View style={styles.section}>
+        <Text style={[styles.sectionLabel, { color: gold }]}>lyrics</Text>
+        <Text style={styles.lyricsStatus}>finding the words…</Text>
+      </View>
+    );
+  }
+
+  // Nothing at all.
+  if (!lyrics || (lyrics.instrumental && !lyrics.plainLyrics)) {
+    if (lyrics?.instrumental) {
+      return (
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: gold }]}>lyrics</Text>
+          <Text style={styles.lyricsStatus}>instrumental — no words to follow.</Text>
+        </View>
+      );
+    }
+    return null;
+  }
+
+  // Synced → karaoke highlight + interleaved notes.
+  if (lines.length) {
+    return (
+      <View style={styles.section}>
+        <Text style={[styles.sectionLabel, { color: gold }]}>lyrics</Text>
+        <Text style={styles.momentInstructions}>
+          {hasAudio ? 'it follows the song — tap any line to jump there.' : 'tap a line to jump when playing.'}
+        </Text>
+        <ScrollView
+          ref={scrollRef}
+          style={[styles.lyricsPane, { maxHeight: PANE_H }]}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
+        >
+          {lines.map((ln, idx) => {
+            const isActive = idx === activeIdx;
+            const isPast = idx < activeIdx;
+            const lineNotes = notesByLine[idx];
+            // Distance-based fade: lines far from the active one recede (depth).
+            // Before playback starts (activeIdx < 0), keep everything readable.
+            const distance = Math.abs(idx - activeIdx);
+            const lineOpacity =
+              activeIdx < 0 ? 0.8 : isActive ? 1 : Math.max(0.3, 1 - distance * 0.12);
+            return (
+              <View
+                key={idx}
+                style={{ opacity: lineOpacity }}
+                onLayout={(e) => {
+                  offsets.current[idx] = e.nativeEvent.layout.y;
+                }}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.6}
+                  onPress={() => onSeekMs(ln.timeMs)}
+                  style={styles.lyricRow}
+                >
+                  <Text
+                    style={[
+                      styles.lyricLine,
+                      isActive && [styles.lyricLineActive, { color: C.fg }],
+                      isPast && styles.lyricLinePast,
+                    ]}
+                  >
+                    {ln.text || '♪'}
+                  </Text>
+                  {/* Annotation badge — this line carries a moment note */}
+                  {lineNotes && !isActive && (
+                    <View style={[styles.lyricBadge, { backgroundColor: `${gold}1c`, borderColor: `${gold}44` }]}>
+                      <Icon name="bookmark" size={8} color={gold} filled />
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {lineNotes?.map((n, j) => (
+                  <TouchableOpacity
+                    key={j}
+                    onPress={() => onSeekMs(n.sec * 1000)}
+                    style={[styles.inlineNote, { borderColor: `${gold}55`, backgroundColor: `${gold}10` }]}
+                  >
+                    <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
+                      <Text style={styles.momentTimeText}>{formatTimestamp(n.sec)}</Text>
+                    </View>
+                    <Text style={styles.inlineNoteText}>{n.note}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // Plain (unsynced) → static block.
+  if (lyrics.plainLyrics) {
+    return (
+      <View style={styles.section}>
+        <Text style={[styles.sectionLabel, { color: gold }]}>lyrics</Text>
+        <ScrollView style={[styles.lyricsPane, { maxHeight: Math.round(SCREEN_HEIGHT * 0.4) }]} nestedScrollEnabled>
+          <Text style={styles.plainLyrics}>{lyrics.plainLyrics}</Text>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 function AlbumTrackStrip({
@@ -409,7 +869,6 @@ function AlbumTrackStrip({
     <View style={styles.trackStrip}>
       {tracks.map((t) => {
         const hasMoments = t.moments && t.moments.length > 0;
-        // A track can also carry a plain text note (album take / playlist note).
         const trackNote: string = (t.review || '').trim();
         const hasNote = !!trackNote;
         const hasContent = hasMoments || hasNote;
@@ -417,57 +876,53 @@ function AlbumTrackStrip({
 
         return (
           <View key={t.n}>
-            <TouchableOpacity
-              onPress={() => toggle(t.n)}
-              style={styles.trackStripRow}
-              disabled={!hasContent}
-            >
+            <TouchableOpacity onPress={() => toggle(t.n)} style={styles.trackStripRow} disabled={!hasContent}>
               <Text style={styles.trackStripNum}>{String(t.n).padStart(2, '0')}</Text>
               <Text style={styles.trackStripName} numberOfLines={1}>
                 {t.name}
               </Text>
-              {/* Optional per-track reaction */}
               {t.reaction && <ReactionIcon kind={t.reaction} size={15} />}
               {hasNote && <Icon name="bookmark" size={13} color={gold} filled />}
-              {hasMoments && (
-                <Text style={[styles.trackStripMomentCount, { color: gold }]}>
-                  {t.moments.length}
-                </Text>
-              )}
+              {hasMoments && <Text style={[styles.trackStripMomentCount, { color: gold }]}>{t.moments.length}</Text>}
             </TouchableOpacity>
 
             {isExpanded && hasContent && (
               <View style={styles.trackMoments}>
-                {/* Plain text note for this track */}
                 {hasNote && (
-                  <View style={[styles.trackMomentRow, { borderColor: 'rgba(241,235,224,0.08)', backgroundColor: 'rgba(241,235,224,0.02)' }]}>
+                  <View
+                    style={[
+                      styles.trackMomentRow,
+                      { borderColor: 'rgba(241,235,224,0.08)', backgroundColor: 'rgba(241,235,224,0.02)' },
+                    ]}
+                  >
                     <Text style={styles.trackMomentText}>{trackNote}</Text>
                   </View>
                 )}
-                {hasMoments && t.moments.map((m: any, idx: number) => {
-                  const key = `track-${t.n}-${idx}`;
-                  const isActive = activeNote === key;
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() => onTapMoment(key)}
-                      style={[
-                        styles.trackMomentRow,
-                        {
-                          borderColor: isActive ? `${gold}99` : 'rgba(241,235,224,0.08)',
-                          backgroundColor: isActive ? `${gold}0f` : 'rgba(241,235,224,0.02)',
-                        },
-                      ]}
-                    >
-                      <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
-                        <Text style={styles.momentTimeText}>{formatTimestamp(m.sec)}</Text>
-                      </View>
-                      <Text style={styles.trackMomentText} numberOfLines={2}>
-                        {m.note}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {hasMoments &&
+                  t.moments.map((m: any, idx: number) => {
+                    const key = `track-${t.n}-${idx}`;
+                    const isActive = activeNote === key;
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => onTapMoment(key)}
+                        style={[
+                          styles.trackMomentRow,
+                          {
+                            borderColor: isActive ? `${gold}99` : 'rgba(241,235,224,0.08)',
+                            backgroundColor: isActive ? `${gold}0f` : 'rgba(241,235,224,0.02)',
+                          },
+                        ]}
+                      >
+                        <View style={[styles.momentTimeBox, { backgroundColor: gold }]}>
+                          <Text style={styles.momentTimeText}>{formatTimestamp(m.sec)}</Text>
+                        </View>
+                        <Text style={styles.trackMomentText} numberOfLines={2}>
+                          {m.note}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
               </View>
             )}
           </View>
@@ -480,7 +935,7 @@ function AlbumTrackStrip({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.nearBlack,
+    backgroundColor: C.nearBlack,
   },
   blurContainer: {
     position: 'absolute',
@@ -488,7 +943,6 @@ const styles = StyleSheet.create({
     left: -80,
     right: -80,
     bottom: -80,
-    transform: [{ scale: 1.1 }],
   },
   scrollContent: {
     paddingTop: 96,
@@ -527,10 +981,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(224,118,47,0.10)',
   },
   deleteButtonText: {
-    fontFamily: 'System',
+    fontFamily: F.bodySemibold,
     fontSize: 14,
-    fontWeight: '600',
-    color: '#e0762f',
+    color: C.flame,
   },
   closeButton: {
     width: 38,
@@ -543,7 +996,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   experienceLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: F.mono,
     fontSize: 10.5,
     letterSpacing: 0.8,
     color: 'rgba(241,235,224,0.65)',
@@ -573,7 +1026,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   coverLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: F.mono,
     fontSize: 10,
     color: 'rgba(241,235,224,0.4)',
     textAlign: 'center',
@@ -581,18 +1034,17 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 18,
-    fontFamily: 'System',
-    fontWeight: '600',
-    fontSize: 26,
-    lineHeight: 28.6,
-    color: '#f1ebe0',
+    fontFamily: F.displaySemibold,
+    fontSize: 27,
+    lineHeight: 30,
+    color: C.fg,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   artist: {
-    marginTop: 3,
-    fontFamily: 'System',
-    fontSize: 18,
+    marginTop: 4,
+    fontFamily: F.body,
+    fontSize: 16,
     color: 'rgba(241,235,224,0.72)',
   },
   rating: {
@@ -619,14 +1071,125 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   spotifyText: {
-    fontFamily: 'System',
+    fontFamily: F.bodySemibold,
     fontSize: 13,
-    fontWeight: '600',
-    color: '#f1ebe0',
+    color: C.fg,
+  },
+  // ---- Playback bar ----
+  playbackBar: {
+    width: '100%',
+    marginTop: 18,
+  },
+  playbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  playBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrubWrap: {
+    flex: 1,
+  },
+  scrubTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(241,235,224,0.18)',
+    justifyContent: 'center',
+  },
+  scrubFill: {
+    height: 4,
+    borderRadius: 2,
+  },
+  scrubKnob: {
+    position: 'absolute',
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    marginLeft: -5,
+    top: -3.5,
+  },
+  scrubMarker: {
+    position: 'absolute',
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#0a0908',
+    top: '50%',
+    marginTop: -6,
+    marginLeft: -5,
+  },
+  scrubTimes: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  scrubTime: {
+    fontFamily: F.mono,
+    fontSize: 10,
+    color: 'rgba(241,235,224,0.55)',
+  },
+  playbackMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  sourceBadge: {
+    fontFamily: F.mono,
+    fontSize: 9,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    overflow: 'hidden',
+  },
+  openSpotifyLink: {
+    fontFamily: F.mono,
+    fontSize: 10,
+    color: 'rgba(241,235,224,0.6)',
+    letterSpacing: 0.4,
+  },
+  // ---- Live moment callout ----
+  calloutSlot: {
+    width: '100%',
+    minHeight: 46,
+    marginTop: 12,
+    justifyContent: 'center',
+  },
+  callout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  calloutTime: {
+    fontFamily: F.monoBold,
+    fontSize: 12,
+    color: C.nearBlack,
+    letterSpacing: -0.2,
+  },
+  calloutDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: 'rgba(10,9,8,0.25)',
+  },
+  calloutText: {
+    flex: 1,
+    fontFamily: F.bodySemibold,
+    fontSize: 13,
+    color: C.nearBlack,
   },
   nowPlaying: {
     width: '100%',
-    marginTop: 22,
+    marginTop: 18,
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
@@ -650,18 +1213,18 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   nowPlayingLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: F.mono,
     fontSize: 9.5,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   nowPlayingTrack: {
-    fontFamily: 'System',
+    fontFamily: F.body,
     fontSize: 14,
-    color: '#f1ebe0',
+    color: C.fg,
   },
   nowPlayingSource: {
-    fontFamily: 'Menlo',
+    fontFamily: F.mono,
     fontSize: 9.5,
     color: 'rgba(241,235,224,0.5)',
     letterSpacing: 0.3,
@@ -669,19 +1232,18 @@ const styles = StyleSheet.create({
   },
   quote: {
     marginTop: 24,
-    fontFamily: 'System',
-    fontStyle: 'italic',
-    fontSize: 18,
-    lineHeight: 25.2,
-    color: '#f1ebe0',
+    fontFamily: F.displayItalic,
+    fontSize: 20,
+    lineHeight: 27,
+    color: C.fg,
     textAlign: 'center',
     maxWidth: 320,
   },
   body: {
-    marginTop: 18,
-    fontFamily: 'System',
-    fontSize: 16,
-    lineHeight: 25.92,
+    marginTop: 16,
+    fontFamily: F.body,
+    fontSize: 15.5,
+    lineHeight: 25,
     color: 'rgba(241,235,224,0.78)',
     maxWidth: 340,
   },
@@ -690,19 +1252,80 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   sectionLabel: {
-    fontFamily: 'Menlo',
+    fontFamily: F.mono,
     fontSize: 10,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    fontWeight: '600',
   },
   momentInstructions: {
-    fontFamily: 'System',
+    fontFamily: F.body,
     fontSize: 11.5,
     color: 'rgba(241,235,224,0.5)',
     marginTop: 9,
     marginBottom: 12,
     lineHeight: 16,
+  },
+  // ---- Lyrics ----
+  lyricsStatus: {
+    fontFamily: F.body,
+    fontSize: 13,
+    color: 'rgba(241,235,224,0.5)',
+    marginTop: 10,
+    fontStyle: 'italic',
+  },
+  lyricsPane: {
+    marginTop: 4,
+  },
+  lyricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lyricLine: {
+    flexShrink: 1,
+    fontFamily: F.body,
+    fontSize: 18,
+    lineHeight: 30,
+    color: 'rgba(241,235,224,0.34)',
+    paddingVertical: 3,
+  },
+  lyricBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  lyricLineActive: {
+    fontFamily: F.displaySemibold,
+    fontSize: 20,
+  },
+  lyricLinePast: {
+    color: 'rgba(241,235,224,0.5)',
+  },
+  plainLyrics: {
+    fontFamily: F.body,
+    fontSize: 16,
+    lineHeight: 26,
+    color: 'rgba(241,235,224,0.8)',
+  },
+  inlineNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    marginVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  inlineNoteText: {
+    flex: 1,
+    fontFamily: F.body,
+    fontSize: 13.5,
+    lineHeight: 18,
+    color: C.fg,
   },
   moments: {
     gap: 8,
@@ -721,25 +1344,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   momentTimeText: {
-    fontFamily: 'Menlo',
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: tokens.colors.nearBlack,
+    fontFamily: F.monoBold,
+    fontSize: 12,
+    color: C.nearBlack,
     letterSpacing: -0.25,
   },
   momentNoteText: {
     flex: 1,
-    fontFamily: 'System',
+    fontFamily: F.body,
     fontSize: 13.5,
     lineHeight: 18,
     color: 'rgba(241,235,224,0.86)',
-  },
-  readAhead: {
-    fontFamily: 'Menlo',
-    fontSize: 9,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'right',
   },
   trackStrip: {
     marginTop: 12,
@@ -759,19 +1374,19 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(241,235,224,0.06)',
   },
   trackStripNum: {
-    fontFamily: 'Menlo',
+    fontFamily: F.mono,
     fontSize: 11,
     color: 'rgba(241,235,224,0.4)',
     width: 20,
   },
   trackStripName: {
     flex: 1,
-    fontFamily: 'System',
+    fontFamily: F.body,
     fontSize: 14,
-    color: '#f1ebe0',
+    color: C.fg,
   },
   trackStripMomentCount: {
-    fontFamily: 'Menlo',
+    fontFamily: F.mono,
     fontSize: 10.5,
   },
   trackMoments: {
@@ -789,7 +1404,7 @@ const styles = StyleSheet.create({
   },
   trackMomentText: {
     flex: 1,
-    fontFamily: 'System',
+    fontFamily: F.body,
     fontSize: 13,
     lineHeight: 17,
     color: 'rgba(241,235,224,0.8)',

@@ -3,12 +3,16 @@
   "version": "0.2.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo-google-fonts/hanken-grotesk": "^0.4.3",
+    "@expo-google-fonts/newsreader": "^0.4.1",
+    "@expo-google-fonts/space-mono": "^0.4.2",
     "@linernotes/core": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "axios": "^1.17.0",
     "expo": "~56.0.0",
     "expo-application": "~56.0.3",
     "expo-asset": "^56.0.17",
+    "expo-audio": "~56.0.12",
     "expo-auth-session": "~56.0.14",
     "expo-clipboard": "~56.0.4",
     "expo-constants": "~56.0.18",
@@ -30,7 +34,8 @@
     "react-native": "0.85.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4",
-    "react-native-view-shot": "5.1.0"
+    "react-native-view-shot": "5.1.0",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.14",
