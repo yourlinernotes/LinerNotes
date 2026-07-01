@@ -5,7 +5,7 @@
  * Web version matching mobile PromptCard design
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { PreviewPlayer } from "@/components/PreviewPlayer";
 
@@ -172,6 +172,31 @@ function PromptCard({
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [imgError, setImgError] = useState(false);
+
+  // Last.fm art is often the wrong cover — resolve the correct one from
+  // iTunes/Deezer and prefer it. (Track prompts only; albums use their own art.)
+  const [resolvedArt, setResolvedArt] = useState<string | null>(null);
+  useEffect(() => {
+    if (prompt.type === "album" || !prompt.track) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = new URLSearchParams({ track: prompt.track!, artist: prompt.artist });
+        const r = await fetch(`/api/artwork?${q}`);
+        const d = r.ok ? await r.json() : null;
+        if (!cancelled && d?.artworkUrl) {
+          setResolvedArt(d.artworkUrl);
+          setImgError(false);
+        }
+      } catch {
+        /* keep Last.fm art */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [prompt.type, prompt.track, prompt.artist]);
+  const artUrl = resolvedArt || prompt.artworkUrl;
   const p = prompt.palette;
 
   const handleRatingClick = (newRating: number, e: React.MouseEvent) => {
@@ -210,10 +235,10 @@ function PromptCard({
             <div style={{ width: 42, height: 42, borderRadius: 9, overflow: "hidden", flexShrink: 0, background: `radial-gradient(120% 120% at 22% 18%, ${p.mid} 0%, ${p.deep} 55%, ${p.lo} 100%)` }}>
               {/* Last.fm serves a literal grey-star placeholder image (this hash) that
                   loads fine (so onError won't catch it) — treat it as no artwork. */}
-              {prompt.artworkUrl && !prompt.artworkUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") && !imgError ? (
+              {artUrl && !artUrl.includes("2a96cbd8b46e442fc41c2b86b821562f") && !imgError ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={prompt.artworkUrl}
+                  src={artUrl}
                   alt={prompt.album}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   onError={() => setImgError(true)}

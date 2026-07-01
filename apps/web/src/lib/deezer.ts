@@ -20,6 +20,8 @@ export interface PreviewResult {
   source: "deezer" | "itunes";
   /** A canonical track URL Odesli can resolve to SoundCloud, when known. */
   sourceUrl?: string | null;
+  /** The matched track's album cover (high-res), when available. */
+  artworkUrl?: string | null;
 }
 
 /** A provider result normalised for matching. */
@@ -29,6 +31,7 @@ interface Candidate {
   previewUrl: string | null;
   durationSec: number | null;
   sourceUrl: string | null;
+  artworkUrl: string | null;
 }
 
 const VARIANT =
@@ -57,7 +60,12 @@ function artistOk(candidateArtist: string, wantArtist: string): boolean {
  * fewer *extra* words wins (so an exact title beats a longer variant); a
  * remix/live/etc. candidate is rejected unless the wanted title is itself one.
  */
-function pickBest(cands: Candidate[], wantTitle: string, wantArtist: string): Candidate | null {
+function pickBest(
+  cands: Candidate[],
+  wantTitle: string,
+  wantArtist: string,
+  requirePreview = true,
+): Candidate | null {
   const wt = tokens(wantTitle);
   const wtSet = new Set(wt);
   const wantVariant = VARIANT.test(wantTitle);
@@ -65,7 +73,7 @@ function pickBest(cands: Candidate[], wantTitle: string, wantArtist: string): Ca
   let bestScore = -1;
 
   for (const c of cands) {
-    if (!c.previewUrl) continue;
+    if (requirePreview && !c.previewUrl) continue;
     if (!artistOk(c.artist, wantArtist)) continue;
 
     const ct = tokens(c.title);
@@ -96,6 +104,7 @@ async function deezerCandidates(track: string, artist: string): Promise<Candidat
     previewUrl: x.preview || null,
     durationSec: x.duration ?? null,
     sourceUrl: x.link ?? null,
+    artworkUrl: x.album?.cover_xl || x.album?.cover_big || x.album?.cover_medium || null,
   }));
 }
 
@@ -110,6 +119,8 @@ async function itunesCandidates(track: string, artist: string): Promise<Candidat
     previewUrl: x.previewUrl || null,
     durationSec: x.trackTimeMillis ? Math.round(x.trackTimeMillis / 1000) : null,
     sourceUrl: x.trackViewUrl ?? null,
+    // Upscale iTunes' 100px thumb to a crisp 600px cover.
+    artworkUrl: x.artworkUrl100 ? x.artworkUrl100.replace(/\/\d+x\d+bb\./, "/600x600bb.") : null,
   }));
 }
 
@@ -122,7 +133,13 @@ async function resolveFrom(
   try {
     const best = pickBest(await fetcher(track, artist), track, artist);
     if (!best || !best.previewUrl) return null;
-    return { previewUrl: best.previewUrl, durationSec: best.durationSec, source, sourceUrl: best.sourceUrl };
+    return {
+      previewUrl: best.previewUrl,
+      durationSec: best.durationSec,
+      source,
+      sourceUrl: best.sourceUrl,
+      artworkUrl: best.artworkUrl,
+    };
   } catch {
     return null;
   }
@@ -135,6 +152,24 @@ export async function resolvePreview(track: string, artist: string): Promise<Pre
     (await resolveFrom(deezerCandidates, "deezer", track, artist)) ||
     (await resolveFrom(itunesCandidates, "itunes", track, artist))
   );
+}
+
+/**
+ * Resolve the correct album cover for a track/album, via strict matching.
+ * Asking-prompt art comes from Last.fm, which is often wrong/mismatched — prefer
+ * this accurate iTunes/Deezer cover. Returns a high-res URL or null.
+ */
+export async function resolveArtwork(track: string, artist: string): Promise<string | null> {
+  if (!track) return null;
+  for (const fetcher of [deezerCandidates, itunesCandidates]) {
+    try {
+      const best = pickBest(await fetcher(track, artist), track, artist, false);
+      if (best?.artworkUrl) return best.artworkUrl;
+    } catch {
+      /* try next provider */
+    }
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
