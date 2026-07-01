@@ -7,6 +7,7 @@ import { TrackSearch } from "./TrackSearch";
 import { StarsInput, MomentsEditor, CaptionPicker, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type DraftMoment, type Depth } from "./composer-ui";
 import { LNArt, LNIcon } from "@/components/ln/atoms";
 import { PreviewPlayer } from "@/components/PreviewPlayer";
+import { MomentCaptureBar } from "./MomentCaptureBar";
 import { LNWCard } from "@/components/ln/cards";
 import { paletteFromString } from "@/lib/palette";
 import type { ReviewVM } from "@/lib/view-adapter";
@@ -178,6 +179,16 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
                   <LNIcon name="save" size={16} color={gold} />
                   <span style={{ fontFamily: "var(--ln-mono)", fontSize: 11, letterSpacing: "0.06em", color: gold, textTransform: "uppercase" }}>the moments that got you</span>
                 </div>
+                {/* Listen + scrub / tap a lyric to capture the moment's time */}
+                <MomentCaptureBar
+                  track={track.name}
+                  artist={track.artist}
+                  onMark={(seconds, lyric) =>
+                    setMoments((a) =>
+                      [...a, { seconds, label: "moment", note: lyric || "" }].sort((x, y) => x.seconds - y.seconds),
+                    )
+                  }
+                />
                 <MomentsEditor
                   moments={moments}
                   onAdd={(m) => setMoments((a) => [...a, m].sort((x, y) => x.seconds - y.seconds))}
