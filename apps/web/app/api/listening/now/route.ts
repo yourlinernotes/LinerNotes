@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { listenBrainzNowPlaying } from "@/lib/listening/listenbrainz";
 import { lastfmNowPlaying } from "@/lib/listening/lastfm";
-// import { spotifySpDcNowPlaying } from "@/lib/listening/spotify-spdc"; // experimental
+import { spotifySpDcNowPlaying } from "@/lib/listening/spotify-spdc"; // experimental
 import type { NowPlaying } from "@/lib/listening/types";
 
 /**
@@ -24,9 +24,12 @@ export async function GET() {
 
     let np: NowPlaying | null = null;
 
-    // TODO (experimental, opt-in): Spotify via sp_dc cookie — highest priority when present.
-    //   const sp = byService("spotify");
-    //   if (!np && sp?.<spDcField>) np = await spotifySpDcNowPlaying(sp.<spDcField>);
+    // Experimental, opt-in: Spotify via the user's sp_dc cookie — highest
+    // priority when present (real-time, no 5-user cap). The cookie is stored in
+    // the spotify connection's accessToken field. Fails soft to null (the TOTP
+    // secret may be unconfigured/stale — never let it gate the rating floor).
+    const sp = byService("spotify");
+    if (!np && sp?.accessToken) np = await spotifySpDcNowPlaying(sp.accessToken);
 
     const lb = byService("listenbrainz");
     if (!np && lb?.serviceUsername) np = await listenBrainzNowPlaying(lb.serviceUsername);
