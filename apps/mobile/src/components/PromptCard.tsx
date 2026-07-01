@@ -4,11 +4,12 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Icon } from './atoms/Icon';
 import { Stars } from './atoms/Stars';
 import { AlbumArt } from './atoms/AlbumArt';
+import { PreviewButton } from './atoms/PreviewButton';
 import { tokens } from '../lib/tokens';
 import type { PromptTrigger } from '../services/askingEngine';
 
@@ -83,6 +84,24 @@ export function PromptCard({ prompt, accent, onOpen, onDismiss }: PromptCardProp
         <Text style={styles.metadata} numberOfLines={1}>
           {prompt.track || prompt.album} · {prompt.artist}
         </Text>
+
+        {/* Memory-refresher: hear a snippet / jump to the song */}
+        <View style={styles.previewRow} onTouchEnd={(e) => e.stopPropagation()}>
+          {prompt.track ? (
+            <PreviewButton track={prompt.track} artist={prompt.artist} color={gold} size={30} />
+          ) : null}
+          <TouchableOpacity
+            onPress={() =>
+              Linking.openURL(
+                `https://open.spotify.com/search/${encodeURIComponent(
+                  `${prompt.track || prompt.album} ${prompt.artist}`.trim(),
+                )}`,
+              )
+            }
+          >
+            <Text style={[styles.listenLink, { color: `${tokens.colors.fg}8c` }]}>listen ↗</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Quick-rate + Note button */}
         <View style={styles.actions}>
@@ -183,6 +202,17 @@ const styles = StyleSheet.create({
     fontFamily: tokens.typography.fonts.body,
     fontSize: 12,
     color: tokens.colors.muted,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+  },
+  listenLink: {
+    fontFamily: tokens.typography.rnFonts.mono,
+    fontSize: 10.5,
+    letterSpacing: 0.3,
   },
   actions: {
     flexDirection: 'row',
