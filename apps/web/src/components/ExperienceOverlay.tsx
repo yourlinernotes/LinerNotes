@@ -252,6 +252,11 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
   const [playing, setPlaying] = useState(false);
   const source: Source = scTrackId ? "soundcloud" : previewUrl ? "preview" : "none";
 
+  // Lyric translation (keyless, on-demand) — a second text track at the same times.
+  const [translations, setTranslations] = useState<string[] | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translating, setTranslating] = useState(false);
+
   const syncedLines = useMemo(
     () => (lyrics?.syncedLyrics ? parseLrc(lyrics.syncedLyrics) : []),
     [lyrics?.syncedLyrics],
@@ -417,6 +422,29 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     window.open(url, "_blank");
   };
 
+  const toggleTranslation = async () => {
+    if (translations) {
+      setShowTranslation((v) => !v);
+      return;
+    }
+    if (!syncedLines.length) return;
+    setTranslating(true);
+    setShowTranslation(true);
+    try {
+      const r = await fetch("/api/lyric-translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lines: syncedLines.map((l) => l.text), target: "en" }),
+      });
+      const d = r.ok ? await r.json() : null;
+      setTranslations(d?.translations?.length ? d.translations : null);
+    } catch {
+      setTranslations(null);
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const pct = durationMs > 0 ? Math.min(1, positionMs / durationMs) : 0;
   const scrubRef = useRef<HTMLDivElement | null>(null);
   const onScrub = (e: React.MouseEvent) => {
@@ -530,6 +558,10 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
             notesByLine={notesByLine}
             onSeek={seekTo}
             hasAudio={!!(previewUrl || scTrackId)}
+            translations={showTranslation ? translations : null}
+            translating={translating}
+            onToggleTranslation={toggleTranslation}
+            showTranslation={showTranslation}
           />
         </div>
       </div>
@@ -546,6 +578,10 @@ function LyricsBlock({
   notesByLine,
   onSeek,
   hasAudio,
+  translations,
+  translating,
+  onToggleTranslation,
+  showTranslation,
 }: {
   loading: boolean;
   lyrics: LyricsResult | null;
@@ -555,6 +591,10 @@ function LyricsBlock({
   notesByLine: Record<number, MomentVM[]>;
   onSeek: (ms: number) => void;
   hasAudio: boolean;
+  translations: string[] | null;
+  translating: boolean;
+  onToggleTranslation: () => void;
+  showTranslation: boolean;
 }) {
   if (loading)
     return (
@@ -577,7 +617,12 @@ function LyricsBlock({
   if (lines.length) {
     return (
       <div style={S.section}>
-        <div style={S.sectionLabel}>lyrics</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={S.sectionLabel}>lyrics</div>
+          <button onClick={onToggleTranslation} style={S.translateBtn}>
+            {translating ? "translating…" : showTranslation ? "show original" : "translate ⇄"}
+          </button>
+        </div>
         <div style={S.lyricsHint}>
           {hasAudio ? "it follows the song — click any line to jump there." : "click a line to jump when playing."}
         </div>
@@ -587,6 +632,7 @@ function LyricsBlock({
             const distance = Math.abs(idx - activeIdx);
             const opacity = activeIdx < 0 ? 0.8 : isActive ? 1 : Math.max(0.3, 1 - distance * 0.12);
             const lineNotes = notesByLine[idx];
+            const translated = translations?.[idx];
             return (
               <div key={idx} ref={isActive ? activeRef : undefined} style={{ opacity }}>
                 <div
@@ -602,6 +648,11 @@ function LyricsBlock({
                   {ln.text || "♪"}
                   {lineNotes && !isActive && <span style={S.lyricBadge}>❝ note</span>}
                 </div>
+                {translated && ln.text ? (
+                  <div style={S.translationLine}>
+                    <span style={{ opacity: 0.5 }}>↳</span> {translated}
+                  </div>
+                ) : null}
                 {lineNotes?.map((n, j) => (
                   <div key={j} onClick={() => onSeek(n.sec * 1000)} style={S.inlineNote}>
                     <span style={S.inlineNoteTime}>{fmt(n.sec * 1000)}</span>
@@ -773,6 +824,26 @@ const S: Record<string, React.CSSProperties> = {
   body: { marginTop: 16, fontFamily: "var(--ln-body)", fontSize: 15.5, lineHeight: 1.6, color: "rgba(241,235,224,0.78)", maxWidth: 420, whiteSpace: "pre-wrap" },
   section: { width: "100%", marginTop: 28 },
   sectionLabel: { fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ln-accent)" },
+  translateBtn: {
+    background: "none",
+    border: "1px solid var(--ln-accent)",
+    borderRadius: 999,
+    color: "var(--ln-accent)",
+    fontFamily: "var(--ln-mono)",
+    fontSize: 9.5,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    padding: "3px 9px",
+    cursor: "pointer",
+  },
+  translationLine: {
+    fontFamily: "var(--ln-body)",
+    fontStyle: "italic",
+    fontSize: 14,
+    lineHeight: 1.4,
+    color: "rgba(241,235,224,0.6)",
+    padding: "0 0 6px 4px",
+  },
   lyricsHint: { fontFamily: "var(--ln-body)", fontSize: 12, color: "rgba(241,235,224,0.5)", marginTop: 8, marginBottom: 10 },
   lyricsStatus: { fontFamily: "var(--ln-body)", fontStyle: "italic", fontSize: 13, color: "rgba(241,235,224,0.5)", marginTop: 10 },
   lyricsPane: { maxHeight: "52vh", overflowY: "auto", marginTop: 4 },
