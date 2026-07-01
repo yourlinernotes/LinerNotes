@@ -3,12 +3,15 @@
  *
  * Why Deezer: iTunes 30s previews are served as `audio/x-m4p`, which browsers
  * frequently can't decode in a plain <audio> (they stall at readyState 0 → the
- * play button appears active but no sound). Deezer previews are plain **MP3
+ * play button looks active but no sound). Deezer previews are plain **MP3
  * (audio/mpeg)**, which every browser plays. So for the web player we resolve
  * Deezer first and only fall back to iTunes when Deezer has no match.
  *
- * Deezer's API has no CORS headers, so this must run server-side; the preview
- * MP3 URLs themselves (cdnt-preview.dzcdn.net) are cross-origin playable.
+ * Matching is STRICT — for an obscure artist a fuzzy search returns other
+ * artists' songs and remixes. We require the artist to match and the wanted
+ * title's words to be present, and we reject remix/live/edit variants unless the
+ * review itself asked for one. If nothing is confident we return null (the
+ * caller shows "unavailable") rather than play the wrong song.
  */
 
 export interface PreviewResult {
@@ -19,65 +22,107 @@ export interface PreviewResult {
   sourceUrl?: string | null;
 }
 
-const norm = (s: string) =>
-  (s || "")
-    .toLowerCase()
-    .replace(/\s*[([][^)\]]*[)\]]/g, "")
-    .replace(/\s+(feat|ft|featuring|with)\.?\s.*$/i, "")
-    .replace(/[^a-z0-9]+/g, "");
-
-/** Deezer search → best browser-playable MP3 preview for track+artist. */
-export async function deezerPreview(track: string, artist: string): Promise<PreviewResult | null> {
-  if (!track) return null;
-  try {
-    const q = encodeURIComponent(`track:"${track}" artist:"${artist}"`);
-    let r = await fetch(`https://api.deezer.com/search?q=${q}&limit=8`);
-    let data = r.ok ? await r.json() : null;
-    // Deezer's strict field search can miss; retry with a loose query.
-    if (!data?.data?.length) {
-      r = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(`${track} ${artist}`)}&limit=8`);
-      data = r.ok ? await r.json() : null;
-    }
-    const rows: any[] = data?.data || [];
-    const withPreview = rows.filter((x) => x.preview);
-    if (!withPreview.length) return null;
-
-    const nT = norm(track);
-    const nA = norm(artist);
-    const best =
-      withPreview.find((x) => norm(x.title) === nT && norm(x.artist?.name) === nA) ||
-      withPreview.find((x) => norm(x.title) === nT) ||
-      withPreview[0];
-
-    return {
-      previewUrl: best.preview,
-      durationSec: best.duration ?? null,
-      source: "deezer",
-      sourceUrl: best.link ?? null,
-    };
-  } catch {
-    return null;
-  }
+/** A provider result normalised for matching. */
+interface Candidate {
+  title: string;
+  artist: string;
+  previewUrl: string | null;
+  durationSec: number | null;
+  sourceUrl: string | null;
 }
 
-/** iTunes search → 30s preview (m4p) + duration. Fallback only. */
-export async function itunesPreview(track: string, artist: string): Promise<PreviewResult | null> {
-  if (!track) return null;
+const VARIANT =
+  /\b(remix|live|edit|version|instrumental|acoustic|demo|cover|karaoke|remaster(ed)?|reprise|extended|radio|sped|slowed|mix)\b/i;
+
+/** Word tokens of a string (lowercased, punctuation → spaces). */
+function tokens(s: string): string[] {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/** Artist match: every word of the wanted artist appears in the candidate's. */
+function artistOk(candidateArtist: string, wantArtist: string): boolean {
+  const w = tokens(wantArtist);
+  if (!w.length) return true; // no artist to check against
+  const c = new Set(tokens(candidateArtist));
+  return w.every((t) => c.has(t));
+}
+
+/**
+ * Pick the best candidate for `wantTitle`/`wantArtist`, or null.
+ * Scoring: artist must match; the wanted title's words must all be present;
+ * fewer *extra* words wins (so an exact title beats a longer variant); a
+ * remix/live/etc. candidate is rejected unless the wanted title is itself one.
+ */
+function pickBest(cands: Candidate[], wantTitle: string, wantArtist: string): Candidate | null {
+  const wt = tokens(wantTitle);
+  const wtSet = new Set(wt);
+  const wantVariant = VARIANT.test(wantTitle);
+  let best: Candidate | null = null;
+  let bestScore = -1;
+
+  for (const c of cands) {
+    if (!c.previewUrl) continue;
+    if (!artistOk(c.artist, wantArtist)) continue;
+
+    const ct = tokens(c.title);
+    const ctSet = new Set(ct);
+    // The wanted title's words must all be present.
+    if (!wt.every((t) => ctSet.has(t))) continue;
+    // Reject remixes/live/etc. unless the review asked for that variant.
+    if (VARIANT.test(c.title) && !wantVariant) continue;
+
+    const extra = ct.filter((t) => !wtSet.has(t)).length;
+    const score = 100 - extra * 10; // exact title (no extra words) scores highest
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return best;
+}
+
+async function deezerCandidates(track: string, artist: string): Promise<Candidate[]> {
+  const url = `https://api.deezer.com/search?q=${encodeURIComponent(`${track} ${artist}`.trim())}&limit=25`;
+  const r = await fetch(url);
+  if (!r.ok) return [];
+  const rows: any[] = (await r.json())?.data || [];
+  return rows.map((x) => ({
+    title: x.title,
+    artist: x.artist?.name || "",
+    previewUrl: x.preview || null,
+    durationSec: x.duration ?? null,
+    sourceUrl: x.link ?? null,
+  }));
+}
+
+async function itunesCandidates(track: string, artist: string): Promise<Candidate[]> {
+  const term = encodeURIComponent(`${artist} ${track}`.trim());
+  const r = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=25`);
+  if (!r.ok) return [];
+  const rows: any[] = (await r.json())?.results || [];
+  return rows.map((x) => ({
+    title: x.trackName,
+    artist: x.artistName || "",
+    previewUrl: x.previewUrl || null,
+    durationSec: x.trackTimeMillis ? Math.round(x.trackTimeMillis / 1000) : null,
+    sourceUrl: x.trackViewUrl ?? null,
+  }));
+}
+
+async function resolveFrom(
+  fetcher: (t: string, a: string) => Promise<Candidate[]>,
+  source: "deezer" | "itunes",
+  track: string,
+  artist: string,
+): Promise<PreviewResult | null> {
   try {
-    const term = encodeURIComponent(`${artist} ${track}`.trim());
-    const r = await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=8`);
-    if (!r.ok) return null;
-    const { results } = await r.json();
-    const withPreview = (results || []).filter((x: any) => x.previewUrl);
-    if (!withPreview.length) return null;
-    const nT = norm(track);
-    const best = withPreview.find((x: any) => norm(x.trackName) === nT) || withPreview[0];
-    return {
-      previewUrl: best.previewUrl,
-      durationSec: best.trackTimeMillis ? Math.round(best.trackTimeMillis / 1000) : null,
-      source: "itunes",
-      sourceUrl: best.trackViewUrl ?? null,
-    };
+    const best = pickBest(await fetcher(track, artist), track, artist);
+    if (!best || !best.previewUrl) return null;
+    return { previewUrl: best.previewUrl, durationSec: best.durationSec, source, sourceUrl: best.sourceUrl };
   } catch {
     return null;
   }
@@ -85,5 +130,9 @@ export async function itunesPreview(track: string, artist: string): Promise<Prev
 
 /** Resolve a browser-playable preview: Deezer (MP3) first, iTunes fallback. */
 export async function resolvePreview(track: string, artist: string): Promise<PreviewResult | null> {
-  return (await deezerPreview(track, artist)) || (await itunesPreview(track, artist));
+  if (!track) return null;
+  return (
+    (await resolveFrom(deezerCandidates, "deezer", track, artist)) ||
+    (await resolveFrom(itunesCandidates, "itunes", track, artist))
+  );
 }
