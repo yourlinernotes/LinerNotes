@@ -108,14 +108,14 @@ function MomentLine({ m, gold, compact }: { m: MomentVM; gold: string; compact?:
   );
 }
 
-function TrackCard({ t, gold, np, artist }: { t: TrackVM; gold: string; np: boolean; artist?: string }) {
+function TrackCard({ t, gold, np, artist, resolvedUrl }: { t: TrackVM; gold: string; np: boolean; artist?: string; resolvedUrl?: string }) {
   const mc = t.moments?.length || 0;
   return (
     <div style={{ borderRadius: 14, border: `1px solid ${np ? gold + "55" : "rgba(241,235,224,0.1)"}`, background: np ? `${gold}0d` : "rgba(241,235,224,0.03)", padding: "15px 16px", display: "flex", flexDirection: "column", gap: 11 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
         {np ? <Eq color={gold} small /> : <span style={{ fontFamily: "var(--ln-mono)", fontSize: 11, color: muted(0.4), width: 18, textAlign: "center" }}>{String(t.n).padStart(2, "0")}</span>}
         <span style={{ flex: 1, fontFamily: "var(--ln-album)", fontWeight: 600, fontSize: 17, color: np ? gold : INK, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
-        <PreviewPlayer previewUrl={t.previewUrl} track={t.name} artist={artist} accent={gold} size={30} />
+        <PreviewPlayer resolvedUrl={resolvedUrl} track={t.name} artist={artist} accent={gold} size={30} />
         {mc > 0 && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontFamily: "var(--ln-mono)", fontSize: 10, color: gold, background: `${gold}16`, borderRadius: 999, padding: "2px 7px" }}>
             <LNIcon name="save" size={10} color={gold} />
@@ -194,6 +194,34 @@ export function ImmersiveReview({
   const gold = "var(--ln-accent)";
   const isAlbum = album.kind === "album" && album.tracks.length > 0;
   const [expOpen, setExpOpen] = useState(false);
+
+  // Album-scoped preview finder: resolve the real album once and map each track
+  // to its (browser-playable) preview by name — far more reliable than a global
+  // per-track search for obscure records. Keyed by normalised track name.
+  const [trackPreviews, setTrackPreviews] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!isAlbum) return;
+    let cancelled = false;
+    const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+    (async () => {
+      try {
+        const q = new URLSearchParams({ album: album.title, artist: album.artist });
+        const r = await fetch(`/api/album-previews?${q}`);
+        const d = r.ok ? await r.json() : null;
+        const tracks: Array<{ name: string; previewUrl: string }> = d?.album?.tracks || [];
+        if (cancelled || !tracks.length) return;
+        const map: Record<string, string> = {};
+        for (const t of tracks) map[norm(t.name)] = t.previewUrl;
+        setTrackPreviews(map);
+      } catch {
+        /* per-track /api/preview fallback still applies */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAlbum, album.title, album.artist]);
+  const previewFor = (name: string) => trackPreviews[name.toLowerCase().replace(/[^a-z0-9]+/g, "")];
 
   // "following along" = the viewer is *currently* scrobbling a track from this
   // review on Last.fm. Poll the now-playing endpoint and match it against this
@@ -445,7 +473,7 @@ export function ImmersiveReview({
             <SectionLabel gold={gold}>tracks &amp; moments</SectionLabel>
             <div className="lnw-track-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, marginTop: 20 }}>
               {album.tracks.map((tr) => (
-                <TrackCard key={tr.n} t={tr} gold={gold} np={!!npTrack && tr.n === npTrack.n} artist={album.artist} />
+                <TrackCard key={tr.n} t={tr} gold={gold} np={!!npTrack && tr.n === npTrack.n} artist={album.artist} resolvedUrl={previewFor(tr.name)} />
               ))}
             </div>
           </section>

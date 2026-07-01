@@ -136,3 +136,104 @@ export async function resolvePreview(track: string, artist: string): Promise<Pre
     (await resolveFrom(itunesCandidates, "itunes", track, artist))
   );
 }
+
+// ---------------------------------------------------------------------------
+// Album-scoped resolution — the robust "finder".
+//
+// Instead of a global per-track search (which grabs wrong artists / remixes for
+// obscure records), resolve the *specific album* once and read its real
+// tracklist. Matching a track to a row within the correct album is reliable.
+// ---------------------------------------------------------------------------
+
+export interface AlbumTrackPreview {
+  name: string;
+  previewUrl: string;
+  durationSec: number | null;
+}
+
+const ALBUM_VARIANT = /\b(remix(ed)?|live|deluxe|instrumental|acoustic|karaoke|remaster(ed)?|reissue|edit|version|sessions?)\b/i;
+
+/** Pick the album whose title+artist match exactly, rejecting remix/deluxe editions. */
+function pickAlbum<T extends { title: string; artist: string; id: unknown }>(
+  albums: T[],
+  wantAlbum: string,
+  wantArtist: string,
+): T | null {
+  const wt = tokens(wantAlbum);
+  const wantVariant = ALBUM_VARIANT.test(wantAlbum);
+  const matches = albums.filter((a) => {
+    if (!artistOk(a.artist, wantArtist)) return false;
+    const at = new Set(tokens(a.title));
+    if (!wt.every((t) => at.has(t))) return false;
+    if (ALBUM_VARIANT.test(a.title) && !wantVariant) return false;
+    return true;
+  });
+  // Fewest extra words in the title wins (exact edition over "... (Deluxe)").
+  matches.sort((a, b) => tokens(a.title).length - tokens(b.title).length);
+  return matches[0] || null;
+}
+
+async function deezerAlbumTracks(album: string, artist: string): Promise<AlbumTrackPreview[] | null> {
+  const s = await fetch(
+    `https://api.deezer.com/search/album?q=${encodeURIComponent(`${album} ${artist}`.trim())}&limit=10`,
+  );
+  if (!s.ok) return null;
+  const albums = ((await s.json())?.data || []).map((a: any) => ({
+    id: a.id,
+    title: a.title,
+    artist: a.artist?.name || "",
+  }));
+  const picked = pickAlbum(albums, album, artist);
+  if (!picked) return null;
+  const t = await fetch(`https://api.deezer.com/album/${picked.id}/tracks?limit=100`);
+  if (!t.ok) return null;
+  const rows: any[] = (await t.json())?.data || [];
+  return rows
+    .filter((x) => x.preview)
+    .map((x) => ({ name: x.title, previewUrl: x.preview, durationSec: x.duration ?? null }));
+}
+
+async function itunesAlbumTracks(album: string, artist: string): Promise<AlbumTrackPreview[] | null> {
+  const s = await fetch(
+    `https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${album}`.trim())}&entity=album&limit=10`,
+  );
+  if (!s.ok) return null;
+  const albums = ((await s.json())?.results || []).map((a: any) => ({
+    id: a.collectionId,
+    title: a.collectionName || "",
+    artist: a.artistName || "",
+  }));
+  const picked = pickAlbum(albums, album, artist);
+  if (!picked) return null;
+  const l = await fetch(`https://itunes.apple.com/lookup?id=${picked.id}&entity=song&limit=100`);
+  if (!l.ok) return null;
+  const rows: any[] = (await l.json())?.results || [];
+  return rows
+    .filter((x) => x.wrapperType === "track" && x.previewUrl)
+    .map((x) => ({
+      name: x.trackName,
+      previewUrl: x.previewUrl,
+      durationSec: x.trackTimeMillis ? Math.round(x.trackTimeMillis / 1000) : null,
+    }));
+}
+
+/** The album's real tracklist with browser-playable previews (Deezer, then iTunes). */
+export async function albumPreviews(
+  album: string,
+  artist: string,
+): Promise<{ tracks: AlbumTrackPreview[]; source: "deezer" | "itunes" } | null> {
+  if (!album) return null;
+  try {
+    const dz = await deezerAlbumTracks(album, artist);
+    if (dz && dz.length) return { tracks: dz, source: "deezer" };
+  } catch {
+    /* fall through */
+  }
+  try {
+    const it = await itunesAlbumTracks(album, artist);
+    if (it && it.length) return { tracks: it, source: "itunes" };
+  } catch {
+    /* none */
+  }
+  return null;
+}

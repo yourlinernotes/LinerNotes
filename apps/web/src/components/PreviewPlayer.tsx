@@ -18,11 +18,14 @@ type Status = "idle" | "loading" | "playing" | "unavailable";
 export function PreviewPlayer({
   track,
   artist,
+  resolvedUrl,
   accent = "var(--ln-accent)",
   size = 38,
   title = "Preview",
 }: {
   previewUrl?: string | null;
+  /** A pre-resolved, browser-playable preview (e.g. from the album finder). */
+  resolvedUrl?: string | null;
   track?: string;
   artist?: string;
   accent?: string;
@@ -31,7 +34,12 @@ export function PreviewPlayer({
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const resolvedRef = useRef<string | null>(null);
+  const resolvedRef = useRef<string | null>(resolvedUrl ?? null);
+
+  // The album finder resolves previews after mount — adopt the URL when it arrives.
+  useEffect(() => {
+    if (resolvedUrl) resolvedRef.current = resolvedUrl;
+  }, [resolvedUrl]);
 
   // Tear down on unmount so a snippet doesn't keep playing after navigation.
   useEffect(() => {
