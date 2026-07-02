@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TopBar, Footer } from "@/components/ln/nav";
 import { tintFromString } from "@/lib/palette";
+import { ListeningConnect } from "@/components/ListeningConnect";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -229,39 +230,11 @@ function EditProfileContent() {
 
             {/* Last.fm Connection Section */}
             <div style={{ borderTop: "1px solid rgba(var(--ln-line-rgb),0.12)", paddingTop: 22, marginTop: 8 }}>
-              <label style={labelStyle}>Last.fm Connection</label>
-              {lastfmConnected ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(127,207,155,0.08)", border: "1px solid rgba(127,207,155,0.2)" }}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                      <circle cx="9" cy="9" r="9" fill="#7fcf9b" />
-                      <path d="M5 9l2.5 2.5 5-5" stroke="#0a0908" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 600, color: "var(--ln-fg)" }}>Connected as {lastfmUsername}</div>
-                      <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: "rgba(var(--ln-fg-rgb),0.5)", marginTop: 2 }}>Getting personalized prompts from your listening history</div>
-                    </div>
-                  </div>
-                  <button type="button" onClick={handleDisconnectLastfm} disabled={lastfmLoading} className="ln-press" style={{ padding: "11px", borderRadius: 12, cursor: lastfmLoading ? "default" : "pointer", background: "rgba(var(--ln-fg-rgb),0.06)", color: "rgba(var(--ln-fg-rgb),0.7)", border: "1px solid rgba(var(--ln-fg-rgb),0.12)", fontFamily: "var(--ln-body)", fontSize: 13.5, fontWeight: 600, opacity: lastfmLoading ? 0.5 : 1 }}>
-                    {lastfmLoading ? "Disconnecting..." : "Disconnect Last.fm"}
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {lastfmError && (
-                    <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)" }}>
-                      <div style={{ fontFamily: "var(--ln-body)", fontSize: 13.5, color: "#ff8f8f" }}>{lastfmError}</div>
-                      <div style={{ fontFamily: "var(--ln-mono)", fontSize: 11, color: "rgba(255,143,143,0.7)", marginTop: 4 }}>Check console for details (F12)</div>
-                    </div>
-                  )}
-                  <p style={{ margin: 0, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "rgba(var(--ln-fg-rgb),0.65)", lineHeight: 1.5 }}>
-                    Connect your Last.fm account to get personalized song prompts based on what you're actually listening to.
-                  </p>
-                  <button type="button" onClick={handleConnectLastfm} className="ln-press" style={{ padding: "12px", borderRadius: 12, cursor: "pointer", background: gold, color: "#1a0a04", border: "none", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 700 }}>
-                    Connect Last.fm
-                  </button>
-                </div>
-              )}
+              <label style={labelStyle}>Connected listening</label>
+              <p style={{ margin: "0 0 12px", fontFamily: "var(--ln-body)", fontSize: 13, color: "rgba(var(--ln-fg-rgb),0.6)", lineHeight: 1.5 }}>
+                Connect a service so LinerNotes suggests what to write about — from what you actually play.
+              </p>
+              <ListeningConnect lastfmCallbackUrl="/profile/edit" />
             </div>
 
             <div style={{ display: "flex", gap: 11 }}>
