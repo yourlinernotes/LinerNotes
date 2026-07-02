@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { TopBar, Footer } from "@/components/ln/nav";
 import { FeedItem } from "@/components/ln/cards";
-import { getReviews, toggleLike, toggleRepost } from "@/lib/api";
+import { toggleLike, toggleRepost } from "@/lib/api";
 import { toReviewVM, toAlbumReviewVM, type ReviewVM } from "@/lib/view-adapter";
 import type { AlbumReview } from "@/lib/types";
 
@@ -13,24 +13,29 @@ export default function FeedPage() {
   const { data: session, status } = useSession();
   const [items, setItems] = useState<ReviewVM[]>([]);
   const [loading, setLoading] = useState(true);
+  // Home = people you follow + you (backfilled). Discover = the community.
+  const [view, setView] = useState<"home" | "discover">("home");
 
   useEffect(() => {
     if (status === "loading") return;
 
     const loadFeed = async () => {
+      setLoading(true);
       try {
         if (!session) {
           setLoading(false);
           return;
         }
 
-        const reviews = await getReviews({ feed: "friends" });
-        const albumReviewsRes = await fetch("/api/album-reviews?feed=friends");
-        const albumReviewsData = await albumReviewsRes.json();
-        const albumReviews: AlbumReview[] = albumReviewsData.albumReviews || [];
+        const [reviewsRes, albumReviewsRes] = await Promise.all([
+          fetch(`/api/reviews?feed=${view}`),
+          fetch(`/api/album-reviews?feed=${view}`),
+        ]);
+        const reviews = reviewsRes.ok ? (await reviewsRes.json()).reviews || [] : [];
+        const albumReviews: AlbumReview[] = albumReviewsRes.ok ? (await albumReviewsRes.json()).albumReviews || [] : [];
 
         const vms: ReviewVM[] = [
-          ...reviews.map((r) => toReviewVM(r)),
+          ...reviews.map((r: any) => toReviewVM(r)),
           ...albumReviews.map((a) => toAlbumReviewVM(a)),
         ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
@@ -43,7 +48,7 @@ export default function FeedPage() {
     };
 
     loadFeed();
-  }, [session, status]);
+  }, [session, status, view]);
 
   const onLike = (vm: ReviewVM) => {
     if (vm.kind === "track") toggleLike(vm.id).catch(() => {});
@@ -60,11 +65,39 @@ export default function FeedPage() {
 
       <main style={{ position: "relative", zIndex: 1, flex: 1 }}>
         <section style={{ maxWidth: 900, margin: "0 auto", padding: "112px 20px 90px" }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 26 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 18 }}>
             <h1 style={{ margin: 0, fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 30, letterSpacing: "-0.01em", color: "var(--ln-fg)" }}>Your feed</h1>
-            <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: "rgba(var(--ln-fg-rgb),0.42)", letterSpacing: "0.03em" }}>from listeners you&apos;d trust</span>
+            <span style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: "rgba(var(--ln-fg-rgb),0.42)", letterSpacing: "0.03em" }}>
+              {view === "home" ? "people you follow" : "from the community"}
+            </span>
             <span style={{ flex: 1, height: 1, background: "rgba(var(--ln-fg-rgb),0.1)", alignSelf: "center" }} />
           </div>
+
+          {session && (
+            <div style={{ display: "inline-flex", gap: 4, padding: 4, marginBottom: 26, borderRadius: 999, background: "rgba(var(--ln-fg-rgb),0.05)", border: "1px solid rgba(var(--ln-line-rgb),0.1)" }}>
+              {(["home", "discover"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className="ln-press"
+                  style={{
+                    padding: "7px 18px",
+                    borderRadius: 999,
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: "var(--ln-body)",
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    textTransform: "capitalize",
+                    background: view === v ? "var(--ln-accent)" : "transparent",
+                    color: view === v ? "#1a0a04" : "rgba(var(--ln-fg-rgb),0.6)",
+                  }}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
 
           {!loading && !session && (
             <div style={{ textAlign: "center", padding: "60px 24px", borderRadius: 18, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.08)" }}>
@@ -81,7 +114,11 @@ export default function FeedPage() {
 
           {!loading && session && items.length === 0 && (
             <div style={{ textAlign: "center", padding: "60px 24px", fontFamily: "var(--ln-preview)", fontStyle: "italic", fontSize: 19, color: "var(--ln-muted)" }}>
-              Nothing here yet. <Link href="/log" style={{ color: "var(--ln-accent)" }}>Log the first note</Link>, or add a few friends.
+              {view === "home" ? (
+                <>Quiet here. <button onClick={() => setView("discover")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit", color: "var(--ln-accent)" }}>Explore Discover</button> to find people to follow, or <Link href="/log" style={{ color: "var(--ln-accent)" }}>log the first note</Link>.</>
+              ) : (
+                <>Nothing in the community yet. <Link href="/log" style={{ color: "var(--ln-accent)" }}>Log the first note</Link>.</>
+              )}
             </div>
           )}
 

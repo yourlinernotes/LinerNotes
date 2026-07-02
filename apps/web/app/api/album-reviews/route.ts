@@ -14,53 +14,64 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId");
     const feed = searchParams.get("feed");
 
-    // Get friends' album reviews (feed)
-    if (feed === "friends") {
-      if (!currentUserId) {
+    // Feed: friends (legacy) | home (followed + own, backfilled) | discover (community)
+    if (feed === "friends" || feed === "home" || feed === "discover") {
+      if (!currentUserId && feed !== "discover") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
-      // Get accepted friendships
-      const friendships = await prisma.friendship.findMany({
-        where: {
-          OR: [
-            { requesterId: currentUserId, status: "ACCEPTED" },
-            { addresseeId: currentUserId, status: "ACCEPTED" },
-          ],
+      const albumInclude = {
+        user: true,
+        trackReviews: {
+          include: { notes: { orderBy: { createdAt: "asc" as const } } },
+          orderBy: { trackNumber: "asc" as const },
         },
-      });
+        likes: { where: { userId: currentUserId } },
+        reposts: { include: { user: true } },
+        _count: { select: { likes: true, reposts: true } },
+      };
 
-      const friendIds = friendships.map((f) =>
-        f.requesterId === currentUserId ? f.addresseeId : f.requesterId
-      );
+      let where: any;
+      if (feed === "discover") {
+        where = currentUserId ? { userId: { not: currentUserId } } : {};
+      } else if (feed === "friends") {
+        const friendships = await prisma.friendship.findMany({
+          where: {
+            OR: [
+              { requesterId: currentUserId, status: "ACCEPTED" },
+              { addresseeId: currentUserId, status: "ACCEPTED" },
+            ],
+          },
+        });
+        const friendIds = friendships.map((f) =>
+          f.requesterId === currentUserId ? f.addresseeId : f.requesterId,
+        );
+        where = { userId: { in: [currentUserId, ...friendIds] } };
+      } else {
+        const follows = await prisma.follow.findMany({
+          where: { followerId: currentUserId },
+          select: { followingId: true },
+        });
+        where = { userId: { in: [currentUserId!, ...follows.map((f) => f.followingId)] } };
+      }
 
-      // Include own album reviews too
-      const allUserIds = [currentUserId, ...friendIds];
-
-      const albumReviews = await prisma.albumReview.findMany({
-        where: { userId: { in: allUserIds } },
-        include: {
-          user: true,
-          trackReviews: {
-            include: {
-              notes: {
-                orderBy: { createdAt: 'asc' },
-              },
-            },
-            orderBy: { trackNumber: 'asc' },
-          },
-          likes: {
-            where: { userId: currentUserId },
-          },
-          reposts: {
-            include: { user: true },
-          },
-          _count: {
-            select: { likes: true, reposts: true },
-          },
-        },
+      let albumReviews = await prisma.albumReview.findMany({
+        where,
+        include: albumInclude,
         orderBy: { createdAt: "desc" },
       });
+
+      // Home backfill: top up a sparse home feed with recent community albums.
+      if (feed === "home" && albumReviews.length < 6) {
+        const have = new Set(albumReviews.map((a) => a.id));
+        const extra = await prisma.albumReview.findMany({
+          where: { id: { notIn: [...have] } },
+          include: albumInclude,
+          orderBy: { createdAt: "desc" },
+          take: 12,
+        });
+        albumReviews = [...albumReviews, ...extra];
+      }
 
       const transformedAlbumReviews = albumReviews.map((albumReview) => ({
         id: albumReview.id,

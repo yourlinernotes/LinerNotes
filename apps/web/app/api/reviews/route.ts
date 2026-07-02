@@ -2,8 +2,54 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
+const FEED_INCLUDE = {
+  user: true,
+  likes: true,
+  reposts: { include: { user: true } },
+  notes: { orderBy: { createdAt: "asc" as const } },
+  _count: { select: { likes: true, reposts: true } },
+} as const;
+
+/** Serialize a review row (with FEED_INCLUDE) into the client Review shape. */
+function transformReview(review: any) {
+  return {
+    id: review.id,
+    userId: review.userId,
+    user: review.user,
+    track: {
+      trackId: review.trackId,
+      name: review.trackName,
+      artist: review.trackArtist,
+      album: review.trackAlbum,
+      artworkUrl: review.artworkUrl,
+      previewUrl: review.previewUrl || undefined,
+    },
+    rating: review.rating,
+    take: review.take || undefined,
+    moment:
+      review.momentSeconds !== null && review.momentSeconds !== undefined
+        ? { seconds: review.momentSeconds, label: review.momentLabel || undefined }
+        : undefined,
+    notes: review.notes.map((note: any) => ({
+      id: note.id,
+      seconds: note.seconds,
+      label: note.label,
+      note: note.note || undefined,
+      createdAt: note.createdAt.toISOString(),
+    })),
+    featuredNoteId: review.featuredNoteId || undefined,
+    createdAt: review.createdAt.toISOString(),
+    likeCount: review._count.likes,
+    repostCount: review._count.reposts,
+  };
+}
+
 /**
- * GET /api/reviews - Get user's reviews or friends' feed
+ * GET /api/reviews - Get a user's reviews or a feed.
+ *
+ * feed=discover  → community: everyone's recent (excludes your own) — never empty.
+ * feed=home      → people you follow + your own, backfilled with community when sparse.
+ * feed=friends   → legacy mutual-friends feed (kept for back-compat).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -12,83 +58,64 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
-    const feedType = searchParams.get("feed"); // "friends" or null
+    const feedType = searchParams.get("feed"); // friends | home | discover
     const reviewType = searchParams.get("type"); // "reposts" or "saved" or null
 
-    // Friends feed requires authentication
-    if (feedType === "friends") {
-      if (!currentUserId) {
+    if (feedType === "friends" || feedType === "home" || feedType === "discover") {
+      // Discover is public; friends/home need a logged-in user.
+      if (!currentUserId && feedType !== "discover") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      // Get reviews from accepted friends
-      const friendships = await prisma.friendship.findMany({
-        where: {
-          OR: [
-            { requesterId: currentUserId, status: "ACCEPTED" },
-            { addresseeId: currentUserId, status: "ACCEPTED" },
-          ],
-        },
-      });
 
-      const friendIds = friendships.map((f) =>
-        f.requesterId === currentUserId ? f.addresseeId : f.requesterId
-      );
+      const base = { albumReviewId: null as null }; // exclude per-track album rows
+      let where: any;
 
-      const reviews = await prisma.review.findMany({
-        where: {
-          userId: { in: friendIds },
-          albumReviewId: null, // exclude per-track reviews that belong to an album
-        },
-        include: {
-          user: true,
-          likes: true,
-          reposts: {
-            include: { user: true },
+      if (feedType === "discover") {
+        where = { ...base, ...(currentUserId ? { userId: { not: currentUserId } } : {}) };
+      } else if (feedType === "friends") {
+        const friendships = await prisma.friendship.findMany({
+          where: {
+            OR: [
+              { requesterId: currentUserId, status: "ACCEPTED" },
+              { addresseeId: currentUserId, status: "ACCEPTED" },
+            ],
           },
-          notes: {
-            orderBy: { createdAt: 'asc' },
-          },
-          _count: {
-            select: { likes: true, reposts: true },
-          },
-        },
+        });
+        const friendIds = friendships.map((f) =>
+          f.requesterId === currentUserId ? f.addresseeId : f.requesterId,
+        );
+        where = { ...base, userId: { in: friendIds } };
+      } else {
+        // home: people you follow + your own
+        const follows = await prisma.follow.findMany({
+          where: { followerId: currentUserId },
+          select: { followingId: true },
+        });
+        const authorIds = [...follows.map((f) => f.followingId), currentUserId!];
+        where = { ...base, userId: { in: authorIds } };
+      }
+
+      let reviews = await prisma.review.findMany({
+        where,
+        include: FEED_INCLUDE,
         orderBy: { createdAt: "desc" },
         take: 50,
       });
 
-      // Transform to match expected types
-      const transformedReviews = reviews.map((review) => ({
-        id: review.id,
-        userId: review.userId,
-        user: review.user,
-        track: {
-          trackId: review.trackId,
-          name: review.trackName,
-          artist: review.trackArtist,
-          album: review.trackAlbum,
-          artworkUrl: review.artworkUrl,
-          previewUrl: review.previewUrl || undefined,
-        },
-        rating: review.rating,
-        take: review.take || undefined,
-        moment: review.momentSeconds !== null && review.momentSeconds !== undefined ? {
-          seconds: review.momentSeconds,
-          label: review.momentLabel || undefined,
-        } : undefined,
-        notes: review.notes.map(note => ({
-          id: note.id,
-          seconds: note.seconds,
-          label: note.label,
-          note: note.note || undefined,
-          createdAt: note.createdAt.toISOString(),
-        })),
-        featuredNoteId: review.featuredNoteId || undefined,
-        createdAt: review.createdAt.toISOString(),
-        likeCount: review._count.likes,
-        repostCount: review._count.reposts,
-      }));
+      // Home backfill: a new user follows few people, so top up a sparse home
+      // feed with recent community posts (deduped) — never an empty feed.
+      if (feedType === "home" && reviews.length < 12) {
+        const have = new Set(reviews.map((r) => r.id));
+        const extra = await prisma.review.findMany({
+          where: { albumReviewId: null, id: { notIn: [...have] } },
+          include: FEED_INCLUDE,
+          orderBy: { createdAt: "desc" },
+          take: 24,
+        });
+        reviews = [...reviews, ...extra];
+      }
 
-      return NextResponse.json({ reviews: transformedReviews });
+      return NextResponse.json({ reviews: reviews.map(transformReview) });
     }
 
     // Reposts - reviews the current user has reposted
