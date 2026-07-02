@@ -225,6 +225,9 @@ export async function searchSoundCloudTrack(
     const isVariant = VARIANT.test(t.title || "");
     if (isVariant && !wantVariant) continue;
 
+    // Snippet-only (Go+ preview) tracks never give full playback in the widget.
+    if (t.policy === "SNIP" || t.snipped) continue;
+
     const artistExact = !wantArtist || artistFields.some((a) => a === wantArtist);
     const artistLoose = !!wantArtist && artistFields.some((a) => contains(a, wantArtist));
 
@@ -251,6 +254,9 @@ export async function searchSoundCloudTrack(
     if (artistExact) score += 3;
     else if (artistLoose) score += 1;
     if (durOk) score += 3;
+    // Prefer freely-streamable uploads — MONETIZE (Go+/label) tracks often use
+    // encrypted HLS the anonymous widget can't play. Tie-break toward ALLOW.
+    if (t.policy === "ALLOW") score += 1;
     if (score > bestScore) {
       bestScore = score;
       best = t;

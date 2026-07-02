@@ -424,23 +424,46 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
   // SoundCloud widget
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const widgetRef = useRef<any>(null);
+  // True once the track itself is actually advancing. Until then, an ad-supported
+  // track may be playing SoundCloud's ad first — we show a heads-up, not silence.
+  const [scStarted, setScStarted] = useState(false);
   useEffect(() => {
     if (source !== "soundcloud" || !scTrackId) return;
     let disposed = false;
+    setScStarted(false);
+    // Long safety net: an ad-supported track plays SoundCloud's ad first (~15-30s)
+    // then the song, so we wait it out. Only if nothing has advanced after a
+    // generous grace (Go+/encrypted or geo-locked tracks that never stream) do we
+    // drop to the preview. Ads finishing set `progressed`, so this won't fire.
+    let progressed = false;
+    let stuckTimer: ReturnType<typeof setTimeout> | null = null;
     loadScApi().then(() => {
       if (disposed || !iframeRef.current || !window.SC) return;
       const w = window.SC.Widget(iframeRef.current);
       widgetRef.current = w;
       const E = window.SC.Widget.Events;
       w.bind(E.READY, () => w.getDuration((d: number) => setDurationMs(d || 0)));
-      w.bind(E.PLAY_PROGRESS, (e: any) => setPositionMs(e.currentPosition || 0));
-      w.bind(E.PLAY, () => setPlaying(true));
+      w.bind(E.PLAY_PROGRESS, (e: any) => {
+        if ((e.currentPosition || 0) > 0) {
+          progressed = true;
+          setScStarted(true);
+        }
+        setPositionMs(e.currentPosition || 0);
+      });
+      w.bind(E.PLAY, () => {
+        setPlaying(true);
+        if (stuckTimer) clearTimeout(stuckTimer);
+        stuckTimer = setTimeout(() => {
+          if (!disposed && !progressed) setScTrackId(null); // never streamed → preview
+        }, 45000);
+      });
       w.bind(E.PAUSE, () => setPlaying(false));
       w.bind(E.FINISH, () => setPlaying(false));
       w.bind(E.ERROR, () => setScTrackId(null));
     });
     return () => {
       disposed = true;
+      if (stuckTimer) clearTimeout(stuckTimer);
       widgetRef.current = null;
     };
   }, [source, scTrackId]);
@@ -669,6 +692,11 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
                   open in spotify ↗
                 </button>
               </div>
+              {source === "soundcloud" && playing && !scStarted && (
+                <div style={S.adNote}>
+                  ♪ soundcloud is playing a short ad — your track starts right after.
+                </div>
+              )}
               {!synced && (syncedLines.length > 0 || subject.notes.length > 0) && (
                 <div style={S.previewNote}>
                   playing a 30s preview — the full song wasn’t found on SoundCloud, so lyrics &amp; moments
@@ -933,6 +961,14 @@ const S: Record<string, React.CSSProperties> = {
     color: "rgba(241,235,224,0.5)",
     marginTop: 10,
     lineHeight: 1.4,
+  },
+  adNote: {
+    fontFamily: "var(--ln-mono)",
+    fontSize: 11,
+    color: "var(--ln-accent)",
+    marginTop: 10,
+    lineHeight: 1.4,
+    animation: "ln-note-in 0.3s ease",
   },
   staticNote: {
     display: "flex",

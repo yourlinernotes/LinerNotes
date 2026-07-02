@@ -49,6 +49,7 @@ export function MomentCaptureBar({
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [scStarted, setScStarted] = useState(false);
 
   const source = scTrackId ? "soundcloud" : previewUrl ? "preview" : "none";
   // Lyric timestamps are full-song times — only sync to the full song.
@@ -108,19 +109,34 @@ export function MomentCaptureBar({
   useEffect(() => {
     if (!scTrackId) return;
     let disposed = false;
+    setScStarted(false);
+    // An ad-supported track plays SoundCloud's ad first, then the song, so we
+    // wait it out (progress sets `progressed`). Only if nothing streams after a
+    // generous grace (Go+/encrypted or geo-locked) do we fall back to preview.
+    let progressed = false;
+    let stuckTimer: ReturnType<typeof setTimeout> | null = null;
     loadScApi().then(() => {
       if (disposed || !iframeRef.current || !window.SC) return;
       const w = window.SC.Widget(iframeRef.current);
       widgetRef.current = w;
       const E = window.SC.Widget.Events;
       w.bind(E.READY, () => w.getDuration((d: number) => setDurationMs(d || 0)));
-      w.bind(E.PLAY_PROGRESS, (e: any) => setPositionMs(e.currentPosition || 0));
-      w.bind(E.PLAY, () => setPlaying(true));
+      w.bind(E.PLAY_PROGRESS, (e: any) => {
+        if ((e.currentPosition || 0) > 0) { progressed = true; setScStarted(true); }
+        setPositionMs(e.currentPosition || 0);
+      });
+      w.bind(E.PLAY, () => {
+        setPlaying(true);
+        if (stuckTimer) clearTimeout(stuckTimer);
+        stuckTimer = setTimeout(() => {
+          if (!disposed && !progressed) setScTrackId(null);
+        }, 45000);
+      });
       w.bind(E.PAUSE, () => setPlaying(false));
       w.bind(E.FINISH, () => setPlaying(false));
       w.bind(E.ERROR, () => setScTrackId(null)); // fall back to preview
     });
-    return () => { disposed = true; widgetRef.current = null; };
+    return () => { disposed = true; if (stuckTimer) clearTimeout(stuckTimer); widgetRef.current = null; };
   }, [scTrackId]);
 
   // Preview audio (fallback when no SC).
@@ -225,6 +241,10 @@ export function MomentCaptureBar({
         </button>
       </div>
 
+      {source === "soundcloud" && playing && !scStarted && (
+        <div style={S.adNote}>♪ soundcloud is playing a short ad — your track starts right after.</div>
+      )}
+
       {!synced && lyrics.length > 0 && (
         <div style={S.previewNote}>
           playing a 30s preview — lyric tap will use the lyric's full-song timestamp, but scrubber position won't match the clip.
@@ -287,6 +307,9 @@ const S: Record<string, React.CSSProperties> = {
   previewNote: {
     fontFamily: "var(--ln-body)", fontSize: 11.5, fontStyle: "italic",
     color: "rgba(241,235,224,0.45)", lineHeight: 1.4,
+  },
+  adNote: {
+    fontFamily: "var(--ln-mono)", fontSize: 11, color: "var(--ln-accent)", lineHeight: 1.4,
   },
   lyrics: { position: "relative", maxHeight: 200, overflowY: "auto", borderRadius: 10, border: "1px solid rgba(var(--ln-line-rgb),0.08)", padding: 8 },
   lyricsHint: { fontFamily: "var(--ln-mono)", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--ln-fg-rgb),0.45)", padding: "2px 6px 6px" },
