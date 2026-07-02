@@ -81,7 +81,7 @@ const fmt = (ms: number) => {
 };
 const normName = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 
-type Source = "soundcloud" | "preview" | "none";
+type Source = "soundcloud" | "youtube" | "preview" | "none";
 type Palette = ReviewVM["album"]["palette"];
 
 /** What a single track experience needs, independent of album vs single-track. */
@@ -347,15 +347,42 @@ function TrackExperience({
   const [previewUrl, setPreviewUrl] = useState<string | null>(subject.presetPreviewUrl ?? null);
   const [previewSourceUrl, setPreviewSourceUrl] = useState<string | null>(subject.presetSourceUrl ?? null);
   const [scTrackId, setScTrackId] = useState<string | null>(subject.presetScId ?? null);
+  // Tier 2: a full-song YouTube stream URL (keyless), used when SoundCloud can't
+  // stream. Plays through the same plain <audio> as the preview, but at real length.
+  const [ytStreamUrl, setYtStreamUrl] = useState<string | null>(null);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(true);
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const source: Source = scTrackId ? "soundcloud" : previewUrl ? "preview" : "none";
-  // Lyrics/moment timestamps are FULL-SONG times, so real sync only works on the
-  // full song. A 30s preview is a random clip — never fake-sync against it.
-  const synced = source === "soundcloud";
+  // Playback ladder: soundcloud (if it actually streams) → youtube (full song) → preview (30s).
+  const source: Source = scTrackId
+    ? "soundcloud"
+    : ytStreamUrl
+      ? "youtube"
+      : previewUrl
+        ? "preview"
+        : "none";
+  // Lyrics/moment timestamps are FULL-SONG times, so real sync only works on a
+  // full-song source (SoundCloud or YouTube). A 30s preview is a random clip.
+  const synced = source === "soundcloud" || source === "youtube";
+
+  // Try the keyless YouTube full-song fallback (once) when SoundCloud can't play.
+  const ytTriedRef = useRef(false);
+  const durationSecRef = useRef<number | undefined>(undefined);
+  const tryYouTube = useCallback(async () => {
+    if (ytTriedRef.current) return;
+    ytTriedRef.current = true;
+    try {
+      const q = new URLSearchParams({ track: subject.track, artist: subject.artist });
+      if (durationSecRef.current) q.set("duration", String(durationSecRef.current));
+      const r = await fetch(`/api/youtube-audio?${q}`);
+      const d = r.ok ? await r.json() : null;
+      if (d?.youtube?.streamUrl) setYtStreamUrl(d.youtube.streamUrl);
+    } catch {
+      /* preview fallback still applies */
+    }
+  }, [subject.track, subject.artist]);
 
   // Lyric translation (keyless, on-demand) — a second text track at the same times.
   const [translations, setTranslations] = useState<string[] | null>(null);
@@ -419,7 +446,7 @@ function TrackExperience({
             const { preview } = await r.json();
             if (preview && !cancelled) {
               setPreviewUrl(preview.previewUrl);
-              if (preview.durationSec) durationSec = preview.durationSec;
+              if (preview.durationSec) { durationSec = preview.durationSec; durationSecRef.current = preview.durationSec; }
               if (!odesliSourceUrl) odesliSourceUrl = preview.sourceUrl || null;
               if (preview.sourceUrl && !cancelled) setPreviewSourceUrl(preview.sourceUrl);
             }
@@ -455,8 +482,10 @@ function TrackExperience({
           const r = await fetch(`/api/soundcloud-link?${q}`);
           const d = r.ok ? await r.json() : null;
           if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
+          // SoundCloud had nothing → try the YouTube full-song fallback (tier 2).
+          else if (!cancelled) tryYouTube();
         } catch {
-          /* preview fallback */
+          if (!cancelled) tryYouTube();
         }
       }
     })();
@@ -502,7 +531,7 @@ function TrackExperience({
         setPlaying(true);
         if (stuckTimer) clearTimeout(stuckTimer);
         stuckTimer = setTimeout(() => {
-          if (!disposed && !progressed) setScTrackId(null); // never streamed → preview
+          if (!disposed && !progressed) { setScTrackId(null); tryYouTube(); } // never streamed → youtube → preview
         }, 45000);
       });
       w.bind(E.PAUSE, () => setPlaying(false));
@@ -510,7 +539,7 @@ function TrackExperience({
         setPlaying(false);
         onEnded?.(); // full song done → parent advances to the next track
       });
-      w.bind(E.ERROR, () => setScTrackId(null));
+      w.bind(E.ERROR, () => { setScTrackId(null); tryYouTube(); });
     });
     return () => {
       disposed = true;
@@ -519,21 +548,28 @@ function TrackExperience({
     };
   }, [source, scTrackId]);
 
-  // Preview audio (fallback)
+  // Plain <audio> engine — serves both the YouTube full-song stream (tier 2) and
+  // the 30s preview (tier 3). Same machinery; YouTube just reports the real
+  // duration via loadedmetadata, so it's treated as synced.
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioSrc = source === "youtube" ? ytStreamUrl : source === "preview" ? previewUrl : null;
   useEffect(() => {
-    if (source !== "preview" || !previewUrl) return;
-    const a = new Audio(previewUrl);
+    if (!audioSrc) return;
+    const a = new Audio(audioSrc);
     audioRef.current = a;
     const onTime = () => setPositionMs(a.currentTime * 1000);
     const onMeta = () => setDurationMs((a.duration || 0) * 1000);
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
+    const onEndedEvt = () => {
+      setPlaying(false);
+      if (source === "youtube") onEnded?.(); // full song done → parent advances
+    };
     a.addEventListener("timeupdate", onTime);
     a.addEventListener("loadedmetadata", onMeta);
     a.addEventListener("play", onPlay);
     a.addEventListener("pause", onPause);
-    a.addEventListener("ended", onPause);
+    a.addEventListener("ended", onEndedEvt);
     if (autoPlay) a.play().catch(() => {}); // seamless advance
     return () => {
       a.pause();
@@ -541,10 +577,11 @@ function TrackExperience({
       a.removeEventListener("loadedmetadata", onMeta);
       a.removeEventListener("play", onPlay);
       a.removeEventListener("pause", onPause);
-      a.removeEventListener("ended", onPause);
+      a.removeEventListener("ended", onEndedEvt);
       audioRef.current = null;
     };
-  }, [source, previewUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, audioSrc]);
 
   const toggle = useCallback(() => {
     if (source === "soundcloud") widgetRef.current?.toggle();
@@ -698,7 +735,7 @@ function TrackExperience({
           <h1 style={S.title}>{subject.track}</h1>
           <div style={S.artist}>{subject.artist}</div>
 
-          {previewUrl || scTrackId ? (
+          {previewUrl || scTrackId || ytStreamUrl ? (
             <div style={S.playbackBar}>
               <div style={S.playbackRow}>
                 <button onClick={toggle} style={S.playBtn} aria-label={playing ? "Pause" : "Play"}>
@@ -739,7 +776,13 @@ function TrackExperience({
                 </div>
               </div>
               <div style={S.playbackMeta}>
-                <span style={S.sourceBadge}>{synced ? "full song · soundcloud" : "preview · 0:30"}</span>
+                <span style={S.sourceBadge}>
+                  {source === "soundcloud"
+                    ? "full song · soundcloud"
+                    : source === "youtube"
+                      ? "full song · youtube"
+                      : "preview · 0:30"}
+                </span>
                 <button onClick={openSpotify} style={S.openSpotify}>
                   open in spotify ↗
                 </button>
@@ -810,7 +853,7 @@ function TrackExperience({
             synced={synced}
             notesByLine={notesByLine}
             onSeek={seekTo}
-            hasAudio={!!(previewUrl || scTrackId)}
+            hasAudio={!!(previewUrl || scTrackId || ytStreamUrl)}
             translations={showTranslation ? translations : null}
             translating={translating}
             onToggleTranslation={toggleTranslation}

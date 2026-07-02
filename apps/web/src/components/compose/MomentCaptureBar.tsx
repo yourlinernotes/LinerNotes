@@ -44,6 +44,8 @@ export function MomentCaptureBar({
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scTrackId, setScTrackId] = useState<string | null>(null);
+  // Tier 2: keyless full-song YouTube stream URL, used when SoundCloud can't play.
+  const [ytStreamUrl, setYtStreamUrl] = useState<string | null>(null);
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [loading, setLoading] = useState(true);
   const [positionMs, setPositionMs] = useState(0);
@@ -51,9 +53,25 @@ export function MomentCaptureBar({
   const [playing, setPlaying] = useState(false);
   const [scStarted, setScStarted] = useState(false);
 
-  const source = scTrackId ? "soundcloud" : previewUrl ? "preview" : "none";
-  // Lyric timestamps are full-song times — only sync to the full song.
-  const synced = source === "soundcloud";
+  // Playback ladder: soundcloud (if it streams) → youtube (full song) → preview (30s).
+  const source = scTrackId ? "soundcloud" : ytStreamUrl ? "youtube" : previewUrl ? "preview" : "none";
+  // Lyric timestamps are full-song times — sync to any full-song source.
+  const synced = source === "soundcloud" || source === "youtube";
+
+  // Try the keyless YouTube full-song fallback (once) when SoundCloud can't play.
+  const ytTriedRef = useRef(false);
+  const durationSecRef = useRef<number | undefined>(undefined);
+  const tryYouTube = useCallback(async () => {
+    if (ytTriedRef.current) return;
+    ytTriedRef.current = true;
+    try {
+      const q = new URLSearchParams({ track, artist });
+      if (durationSecRef.current) q.set("duration", String(durationSecRef.current));
+      const r = await fetch(`/api/youtube-audio?${q}`);
+      const d = r.ok ? await r.json() : null;
+      if (d?.youtube?.streamUrl) setYtStreamUrl(d.youtube.streamUrl);
+    } catch { /* preview fallback still applies */ }
+  }, [track, artist]);
 
   // Resolve preview, lyrics, and a SoundCloud id in parallel.
   useEffect(() => {
@@ -61,7 +79,10 @@ export function MomentCaptureBar({
     setLoading(true);
     setScTrackId(null);
     setPreviewUrl(null);
+    setYtStreamUrl(null);
     setLyrics([]);
+    ytTriedRef.current = false;
+    durationSecRef.current = undefined;
     (async () => {
       let sourceUrl: string | null = null;
       let durationSec: number | undefined;
@@ -75,6 +96,7 @@ export function MomentCaptureBar({
             setPreviewUrl(preview.previewUrl);
             sourceUrl = preview.sourceUrl || null;
             durationSec = preview.durationSec || undefined;
+            durationSecRef.current = durationSec;
           }
         }
       } catch { /* ignore */ }
@@ -96,7 +118,8 @@ export function MomentCaptureBar({
         const r = await fetch(`/api/soundcloud-link?${q}`);
         const d = r.ok ? await r.json() : null;
         if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
-      } catch { /* preview fallback */ }
+        else if (!cancelled) tryYouTube(); // SoundCloud had nothing → YouTube (tier 2)
+      } catch { if (!cancelled) tryYouTube(); }
 
       if (!cancelled) setLoading(false);
     })();
@@ -129,21 +152,23 @@ export function MomentCaptureBar({
         setPlaying(true);
         if (stuckTimer) clearTimeout(stuckTimer);
         stuckTimer = setTimeout(() => {
-          if (!disposed && !progressed) setScTrackId(null);
+          if (!disposed && !progressed) { setScTrackId(null); tryYouTube(); }
         }, 45000);
       });
       w.bind(E.PAUSE, () => setPlaying(false));
       w.bind(E.FINISH, () => setPlaying(false));
-      w.bind(E.ERROR, () => setScTrackId(null)); // fall back to preview
+      w.bind(E.ERROR, () => { setScTrackId(null); tryYouTube(); }); // fall back to youtube → preview
     });
     return () => { disposed = true; if (stuckTimer) clearTimeout(stuckTimer); widgetRef.current = null; };
   }, [scTrackId]);
 
-  // Preview audio (fallback when no SC).
+  // Plain <audio> engine — serves the YouTube full-song stream (tier 2) and the
+  // 30s preview (tier 3). YouTube reports its real duration, so it's synced.
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioSrc = source === "youtube" ? ytStreamUrl : source === "preview" ? previewUrl : null;
   useEffect(() => {
-    if (source !== "preview" || !previewUrl) return;
-    const a = new Audio(previewUrl);
+    if (!audioSrc) return;
+    const a = new Audio(audioSrc);
     audioRef.current = a;
     const onTime = () => setPositionMs(a.currentTime * 1000);
     const onMeta = () => setDurationMs((a.duration || 0) * 1000);
@@ -155,7 +180,8 @@ export function MomentCaptureBar({
     a.addEventListener("pause", onPause);
     a.addEventListener("ended", onPause);
     return () => { a.pause(); audioRef.current = null; };
-  }, [source, previewUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, audioSrc]);
 
   const toggle = useCallback(() => {
     if (source === "soundcloud") widgetRef.current?.toggle();
