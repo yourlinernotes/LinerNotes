@@ -63,7 +63,7 @@ export default function Home() {
   const fetchPrompts = useCallback(async () => {
     if (!session) return;
     try {
-      const res = await fetch("/api/lastfm/prompts");
+      const res = await fetch("/api/listening/prompts");
       if (res.ok) {
         const data = await res.json();
         setLastfmPrompts(data.prompts || []);
