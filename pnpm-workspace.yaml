@@ -1,3 +1,10 @@
 packages:
   - 'packages/*'
   - 'apps/*'
+
+# Force html-encoding-sniffer to its last CJS release (4.0.0). v5/v6 depend on
+# the ESM-only @exodus/bytes, which jsdom require()s — that throws ERR_REQUIRE_ESM
+# on Node < 22.12 (Vercel on Node 20) and killed the keyless YouTube tier. Pinning
+# to the CJS version makes it Node-version-independent.
+overrides:
+  html-encoding-sniffer: 4.0.0

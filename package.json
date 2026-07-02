@@ -15,6 +15,11 @@
     "pnpm": ">=8.0.0"
   },
   "packageManager": "pnpm@8.15.0",
+  "pnpm": {
+    "overrides": {
+      "html-encoding-sniffer": "4.0.0"
+    }
+  },
   "dependencies": {
     "expo": "~56.0.12",
     "react": "19.2.3",

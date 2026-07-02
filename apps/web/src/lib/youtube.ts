@@ -77,8 +77,11 @@ async function generatePoToken(visitorData: string): Promise<string | null> {
   try {
     const { BG } = await import("bgutils-js");
     const { JSDOM } = await import("jsdom");
-    // BotGuard needs a DOM. jsdom provides one; wire it onto globalThis for the
-    // duration of generation (BotGuard reads window/document).
+    // BotGuard needs a full DOM (jsdom). NOTE: jsdom's html-encoding-sniffer@6
+    // does require() of an ESM module (@exodus/bytes), which throws
+    // ERR_REQUIRE_ESM on Node < 22.12 (Vercel on Node 20) and killed this tier —
+    // so a pnpm override pins html-encoding-sniffer to its last CJS version (see
+    // package.json > pnpm.overrides). Works on any Node version.
     const dom = new JSDOM();
     const g = globalThis as unknown as { window?: unknown; document?: unknown };
     g.window ??= dom.window;
