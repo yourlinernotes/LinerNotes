@@ -325,24 +325,36 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     () => (syncedLines.length ? activeLineIndex(syncedLines, positionMs) : -1),
     [syncedLines, positionMs],
   );
-  // A moment stays on screen from its timestamp until the next moment begins —
-  // so a note about a passage holds for the whole passage, not a fixed 5s. When
-  // it's the last moment (no successor), hold for a comfortable window.
-  const MOMENT_MIN_MS = 4500;
-  const MOMENT_MAX_MS = 20000;
+  // A moment stays on screen for the duration of the lyric line(s) it sits on
+  // (plus a slight tail so it doesn't vanish the instant the line ends), when
+  // lyrics are synced. It's capped at the next moment so they never overlap, and
+  // has a small floor so a very short line doesn't just flash.
+  const MOMENT_TAIL_MS = 1400; // "or slightly longer"
+  const MOMENT_MIN_MS = 2500;
   const activeMoment = useMemo(() => {
     if (!synced || !subject.notes.length) return null;
     const sorted = [...subject.notes].sort((a, b) => a.sec - b.sec);
     for (let i = 0; i < sorted.length; i++) {
       const start = sorted[i].sec * 1000;
-      const nextStart = i + 1 < sorted.length ? sorted[i + 1].sec * 1000 : Infinity;
-      // Hold until the next moment, but at least MIN and at most MAX.
-      const end = Math.min(nextStart, start + MOMENT_MAX_MS);
-      const held = Math.max(end, start + MOMENT_MIN_MS);
-      if (positionMs >= start && positionMs < held) return sorted[i];
+      const nextMoment = i + 1 < sorted.length ? sorted[i + 1].sec * 1000 : Infinity;
+
+      // End = when the anchored lyric line ends (the next line begins). If we
+      // have no synced lines or this is the last line, fall back to the floor.
+      let end: number;
+      if (syncedLines.length) {
+        const li = Math.max(0, activeLineIndex(syncedLines, start));
+        const lineEnd = syncedLines[li + 1]?.timeMs ?? (durationMs || start + MOMENT_MIN_MS);
+        end = lineEnd + MOMENT_TAIL_MS;
+      } else {
+        end = start + MOMENT_MIN_MS;
+      }
+      end = Math.max(end, start + MOMENT_MIN_MS); // floor
+      end = Math.min(end, nextMoment); // never overlap the next moment
+
+      if (positionMs >= start && positionMs < end) return sorted[i];
     }
     return null;
-  }, [subject.notes, positionMs, synced]);
+  }, [subject.notes, positionMs, synced, syncedLines, durationMs]);
 
   // Resolve preview (unless preset), lyrics, and a SoundCloud id.
   useEffect(() => {
