@@ -492,23 +492,28 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     return map;
   }, [syncedLines, subject.notes]);
 
-  const openSpotify = () => {
+  const [spotifyUrl, setSpotifyUrl] = useState<string | null>(null);
+  useEffect(() => {
     const { track, artist, extId = "" } = subject;
-    const search = `https://open.spotify.com/search/${encodeURIComponent(`${track} ${artist}`.trim())}`;
     if (/^[A-Za-z0-9]{22}$/.test(extId || "")) {
-      window.open(`https://open.spotify.com/track/${extId}`, "_blank", "noopener");
+      setSpotifyUrl(`https://open.spotify.com/track/${extId}`);
       return;
     }
-    const w = window.open("about:blank", "_blank");
-    const params = new URLSearchParams({ id: extId || "", kind: "track", title: track, artist, sourceUrl: previewSourceUrl || "" });
+    // Resolve after the preview loads so we have a sourceUrl for Odesli.
+    if (!previewSourceUrl) return;
+    let cancelled = false;
+    const params = new URLSearchParams({ id: extId || "", kind: "track", title: track, artist, sourceUrl: previewSourceUrl });
     fetch(`/api/spotify-link?${params}`)
-      .then((r) => r.json())
-      .then(({ url }: { url: string | null }) => {
-        const dest = url || search;
-        if (w) w.location.href = dest;
-        else window.open(dest, "_blank", "noopener");
-      })
-      .catch(() => { if (w) w.location.href = search; });
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled && d?.url) setSpotifyUrl(d.url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [subject.track, subject.artist, subject.extId, previewSourceUrl]);
+
+  const openSpotify = () => {
+    const { track, artist } = subject;
+    const dest = spotifyUrl || `https://open.spotify.com/search/${encodeURIComponent(`${track} ${artist}`.trim())}`;
+    window.open(dest, "_blank", "noopener");
   };
 
   // Share a specific annotated moment (its note + the lyric line it sits on).

@@ -301,37 +301,33 @@ export function ImmersiveReview({
   }
 
   const [spotify, setSpotify] = useState(false);
+  const [spotifyUrl, setSpotifyUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const id = album.extId || "";
+    const seg = album.kind === "album" ? "album" : "track";
+    if (/^[A-Za-z0-9]{22}$/.test(id)) {
+      setSpotifyUrl(`https://open.spotify.com/${seg}/${id}`);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const pvQ = new URLSearchParams({ track: album.title, artist: album.artist });
+        const pvD = await fetch(`/api/preview?${pvQ}`).then((r) => r.ok ? r.json() : null);
+        const sourceUrl = pvD?.preview?.sourceUrl || "";
+        const spQ = new URLSearchParams({ id, kind: seg, title: album.title, artist: album.artist, sourceUrl });
+        const spD = await fetch(`/api/spotify-link?${spQ}`).then((r) => r.ok ? r.json() : null);
+        if (!cancelled && spD?.url) setSpotifyUrl(spD.url);
+      } catch { /* leave null */ }
+    })();
+    return () => { cancelled = true; };
+  }, [album.extId, album.kind, album.title, album.artist]);
+
   const openSpotify = () => {
     setSpotify(true);
     window.setTimeout(() => setSpotify(false), 1900);
-    const id = album.extId || "";
-    const seg = album.kind === "album" ? "album" : "track";
     const search = `https://open.spotify.com/search/${encodeURIComponent(`${album.title} ${album.artist}`)}`;
-
-    // Stored Spotify id → deeplink instantly, no lookup.
-    if (/^[A-Za-z0-9]{22}$/.test(id)) {
-      window.open(`https://open.spotify.com/${seg}/${id}`, "_blank", "noopener");
-      return;
-    }
-
-    // Fetch preview to get a Deezer/iTunes sourceUrl for Odesli cross-resolution
-    // (no Spotify creds needed). Open the tab now to avoid popup-blockers.
-    const w = window.open("about:blank", "_blank");
-    const previewQ = new URLSearchParams({ track: album.title, artist: album.artist });
-    fetch(`/api/preview?${previewQ}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => {
-        const sourceUrl = d?.preview?.sourceUrl || "";
-        const params = new URLSearchParams({ id, kind: seg, title: album.title, artist: album.artist, sourceUrl });
-        return fetch(`/api/spotify-link?${params}`);
-      })
-      .then((r) => r.json())
-      .then(({ url }: { url: string | null }) => {
-        const dest = url || search;
-        if (w) w.location.href = dest;
-        else window.open(dest, "_blank", "noopener");
-      })
-      .catch(() => { if (w) w.location.href = search; });
+    window.open(spotifyUrl || search, "_blank", "noopener");
   };
 
   const relatedTitle = isAlbum ? "more on LinerNotes" : "more on LinerNotes";
