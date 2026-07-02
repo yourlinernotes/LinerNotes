@@ -14,6 +14,9 @@ import { resolveYouTubeAudio } from "@/lib/youtube";
  * videoId is stable → cache hard; a miss → no-store.
  */
 export const runtime = "nodejs";
+// BotGuard PoToken + InnerTube session build can take several seconds on a cold
+// start; give it headroom so it isn't killed mid-handshake (→ silent null).
+export const maxDuration = 60;
 
 /** Kill switch: set YOUTUBE_FALLBACK=off in the env to disable this fragile tier
  *  (SABR/BotGuard) instantly — players then fall straight through to the preview. */

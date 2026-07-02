@@ -23,6 +23,11 @@ import vm from "node:vm";
 import { Innertube, Platform, UniversalCache } from "youtubei.js";
 import type { SabrFormat } from "googlevideo/shared-types";
 
+// Failures here fail soft to null (→ preview), which makes prod issues invisible.
+// Log every failure point so the Vercel function logs reveal WHY the tier is dead
+// (it works locally — prod breakage is environmental: BotGuard, timeouts, bundling).
+const ylog = (...a: unknown[]) => console.error("[youtube]", ...a);
+
 // ---------------------------------------------------------------------------
 // JavaScript evaluator for signature/n-param deciphering.
 //
@@ -95,8 +100,10 @@ async function generatePoToken(visitorData: string): Promise<string | null> {
       globalName: challenge.globalName,
       bgConfig,
     });
+    if (!result?.poToken) ylog("poToken generation returned empty");
     return result?.poToken ?? null;
-  } catch {
+  } catch (e) {
+    ylog("poToken generation threw:", (e as Error)?.message || e);
     return null;
   }
 }
@@ -107,9 +114,9 @@ async function buildSession(): Promise<YtSession | null> {
     // First a throwaway session just to read the visitor data the po token binds to.
     const seed = await Innertube.create({ retrieve_player: false });
     const visitorData = seed.session.context.client.visitorData;
-    if (!visitorData) return null;
+    if (!visitorData) { ylog("no visitorData from seed session"); return null; }
     const poToken = await generatePoToken(visitorData);
-    if (!poToken) return null;
+    if (!poToken) { ylog("buildSession: no poToken → session unavailable"); return null; }
     const yt = await Innertube.create({
       po_token: poToken,
       visitor_data: visitorData,
@@ -117,7 +124,8 @@ async function buildSession(): Promise<YtSession | null> {
       cache: new UniversalCache(false),
     });
     return { yt, poToken, visitorData, at: Date.now() };
-  } catch {
+  } catch (e) {
+    ylog("buildSession threw:", (e as Error)?.message || e);
     return null;
   }
 }
@@ -172,16 +180,17 @@ export async function resolveYouTubeAudio(
 ): Promise<YouTubeAudioMatch | null> {
   if (!track) return null;
   const session = await getSession();
-  if (!session) return null;
+  if (!session) { ylog("resolve: no session (BotGuard/PoToken failed) for", track); return null; }
 
   let results: unknown[];
   try {
     const res = await session.yt.search(`${artist} ${track}`.trim(), { type: "video" });
     results = (res?.results as unknown[]) || [];
-  } catch {
+  } catch (e) {
+    ylog("resolve: search threw:", (e as Error)?.message || e);
     return null;
   }
-  if (!results.length) return null;
+  if (!results.length) { ylog("resolve: search returned 0 results for", `${artist} ${track}`); return null; }
 
   const wantTitle = normTrack(track);
   const wantArtist = norm(artist);
@@ -252,7 +261,7 @@ export async function resolveYouTubeAudio(
     }
   }
 
-  if (!best) return null;
+  if (!best) { ylog("resolve: no confident match among", results.length, "results for", `${artist} ${track}`); return null; }
   return { videoId: best.id, durationSec: best.dur };
 }
 
@@ -353,15 +362,17 @@ export async function getYouTubeAudioStream(
 
   try {
     const session = await getSession();
-    if (!session) return null;
+    if (!session) { ylog("stream: no session for", videoId); return null; }
     return await attempt(session);
-  } catch {
+  } catch (e) {
+    ylog("stream: first attempt threw, rebuilding session:", (e as Error)?.message || e);
     // A stale po token / expired session throws — rebuild once and retry.
     try {
       const session = await getSession(true);
       if (!session) return null;
       return await attempt(session);
-    } catch {
+    } catch (e2) {
+      ylog("stream: retry threw:", (e2 as Error)?.message || e2);
       return null;
     }
   }
