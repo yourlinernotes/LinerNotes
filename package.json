@@ -11,7 +11,7 @@
     "ios": "cd apps/mobile && expo run:ios"
   },
   "engines": {
-    "node": "22.x",
+    "node": "24.x",
     "pnpm": ">=8.0.0"
   },
   "packageManager": "pnpm@8.15.0",
