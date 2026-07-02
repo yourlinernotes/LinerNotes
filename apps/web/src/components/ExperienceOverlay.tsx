@@ -127,7 +127,7 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     (async () => {
       try {
         const q = new URLSearchParams({ album: album.title, artist: album.artist });
-        const r = await fetch(`/api/soundcloud-album?${q}`);
+        const r = await fetch(`/api/soundcloud-album?${q}`, { cache: "no-store" });
         const d = r.ok ? await r.json() : null;
         if (!cancelled && d?.album?.tracks?.length) setScAlbumTracks(d.album.tracks);
       } catch { /* no-op — per-track Odesli fallback still applies */ }
@@ -141,7 +141,7 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     (async () => {
       try {
         const q = new URLSearchParams({ album: album.title, artist: album.artist });
-        const r = await fetch(`/api/album-previews?${q}`);
+        const r = await fetch(`/api/album-previews?${q}`, { cache: "no-store" });
         const d = r.ok ? await r.json() : null;
         const tracks: Array<{ name: string; previewUrl: string; sourceUrl?: string | null; durationSec?: number | null }> =
           d?.album?.tracks || [];
@@ -448,7 +448,7 @@ function TrackExperience({
       if (!subject.presetPreviewUrl) {
         try {
           const q = new URLSearchParams({ track, artist });
-          const r = await fetch(`/api/preview?${q}`);
+          const r = await fetch(`/api/preview?${q}`, { cache: "no-store" });
           if (r.ok) {
             const { preview } = await r.json();
             if (preview && !cancelled) {
@@ -486,7 +486,7 @@ function TrackExperience({
             q.set("id", subject.extId);
             q.set("platform", "itunes");
           }
-          const r = await fetch(`/api/soundcloud-link?${q}`);
+          const r = await fetch(`/api/soundcloud-link?${q}`, { cache: "no-store" });
           const d = r.ok ? await r.json() : null;
           if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
           // SoundCloud had nothing → try the YouTube full-song fallback (tier 2).

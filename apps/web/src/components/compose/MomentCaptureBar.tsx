@@ -89,7 +89,7 @@ export function MomentCaptureBar({
 
       try {
         const q = new URLSearchParams({ track, artist });
-        const r = await fetch(`/api/preview?${q}`);
+        const r = await fetch(`/api/preview?${q}`, { cache: "no-store" });
         if (r.ok) {
           const { preview } = await r.json();
           if (preview && !cancelled) {
@@ -115,7 +115,7 @@ export function MomentCaptureBar({
         const q = new URLSearchParams({ track, artist });
         if (durationSec) q.set("duration", String(durationSec));
         if (sourceUrl) q.set("url", sourceUrl);
-        const r = await fetch(`/api/soundcloud-link?${q}`);
+        const r = await fetch(`/api/soundcloud-link?${q}`, { cache: "no-store" });
         const d = r.ok ? await r.json() : null;
         if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
         else if (!cancelled) tryYouTube(); // SoundCloud had nothing → YouTube (tier 2)
