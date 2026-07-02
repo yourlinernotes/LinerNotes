@@ -161,11 +161,15 @@ export function MomentCaptureBar({
   const activeRef = useRef<HTMLDivElement | null>(null);
   const lyricsRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
+    if (activeIdx < 0) return;
     const pane = lyricsRef.current;
     const line = activeRef.current;
     if (!pane || !line) return;
-    const target = line.offsetTop - pane.clientHeight * 0.4 + line.clientHeight / 2;
-    pane.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+    const paneRect = pane.getBoundingClientRect();
+    const lineRect = line.getBoundingClientRect();
+    const delta = lineRect.top - paneRect.top - pane.clientHeight * 0.4 + lineRect.height / 2;
+    if (Math.abs(delta) < 6) return;
+    pane.scrollTo({ top: pane.scrollTop + delta, behavior: "smooth" });
   }, [activeIdx]);
 
   const pct = durationMs > 0 ? Math.min(1, positionMs / durationMs) : 0;
@@ -283,7 +287,7 @@ const S: Record<string, React.CSSProperties> = {
     fontFamily: "var(--ln-body)", fontSize: 11.5, fontStyle: "italic",
     color: "rgba(241,235,224,0.45)", lineHeight: 1.4,
   },
-  lyrics: { maxHeight: 200, overflowY: "auto", borderRadius: 10, border: "1px solid rgba(var(--ln-line-rgb),0.08)", padding: 8 },
+  lyrics: { position: "relative", maxHeight: 200, overflowY: "auto", borderRadius: 10, border: "1px solid rgba(var(--ln-line-rgb),0.08)", padding: 8 },
   lyricsHint: { fontFamily: "var(--ln-mono)", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--ln-fg-rgb),0.45)", padding: "2px 6px 6px" },
   lyricLine: {
     display: "flex", alignItems: "baseline", gap: 8,

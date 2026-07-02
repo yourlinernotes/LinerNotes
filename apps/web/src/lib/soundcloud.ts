@@ -192,23 +192,50 @@ export async function searchSoundCloudTrack(
   const wantArtist = norm(artist);
   const wantVariant = VARIANT.test(track);
 
-  const hit = results.find((t: any) => {
+  // Fuzzy "contains" matching is only safe when the shorter string is long
+  // enough to be distinctive — otherwise a 2-char artist like "xo" matches any
+  // handle, and a generic word title matches everything. Below the floor we
+  // require an exact match. Better to fall back to the preview than to play a
+  // random wrong song (a repeated user complaint).
+  const FUZZY_MIN = 4;
+  const looseEq = (a: string, b: string) => {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    if (Math.min(a.length, b.length) < FUZZY_MIN) return false;
+    return a.includes(b) || b.includes(a);
+  };
+
+  // Score candidates; require BOTH a title and an artist match, then prefer the
+  // exact-title / least-noisy result.
+  let best: any = null;
+  let bestScore = -1;
+  for (const t of results) {
     const titleNorm = normTrack(t.title || "");
     const userNorm = norm(t.user?.username || t.user?.permalink || "");
     const metaArtist = norm(t.publisher_metadata?.artist || "");
-    const titleOk = titleNorm.includes(wantTitle) || wantTitle.includes(titleNorm);
-    // Artist match: lenient — SC handle (e.g. "deantrouble") ≠ display name ("Dean"),
-    // so accept if either contains the other, or publisher metadata matches.
-    const artistOk =
-      !wantArtist ||
-      userNorm.includes(wantArtist) || wantArtist.includes(userNorm) ||
-      metaArtist.includes(wantArtist) || wantArtist.includes(metaArtist);
-    const isVariant = VARIANT.test(t.title || "");
-    return titleOk && artistOk && (!isVariant || wantVariant);
-  }) ?? null;
 
-  if (!hit) return null;
-  return { url: hit.permalink_url as string, trackId: String(hit.id) };
+    const titleOk = looseEq(titleNorm, wantTitle);
+    if (!titleOk) continue;
+
+    const artistOk =
+      !wantArtist || looseEq(userNorm, wantArtist) || looseEq(metaArtist, wantArtist);
+    if (!artistOk) continue;
+
+    const isVariant = VARIANT.test(t.title || "");
+    if (isVariant && !wantVariant) continue;
+
+    // Exact title + exact artist is the strongest; fuzzy contains scores lower.
+    let score = 0;
+    if (titleNorm === wantTitle) score += 3;
+    if (userNorm === wantArtist || metaArtist === wantArtist) score += 2;
+    if (score > bestScore) {
+      bestScore = score;
+      best = t;
+    }
+  }
+
+  if (!best) return null;
+  return { url: best.permalink_url as string, trackId: String(best.id) };
 }
 
 export interface SoundCloudAlbum {

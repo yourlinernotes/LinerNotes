@@ -469,12 +469,18 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
   const activeRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (!synced) return;
+    if (!synced || activeIdx < 0) return;
     const pane = paneRef.current;
     const line = activeRef.current;
     if (!pane || !line) return;
-    const target = line.offsetTop - pane.clientHeight * 0.4 + line.clientHeight / 2;
-    pane.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+    // Measure against the pane via getBoundingClientRect — offsetTop is relative
+    // to the nearest positioned ancestor (not necessarily the pane), which made
+    // the scroll target wrong and the pane jump around.
+    const paneRect = pane.getBoundingClientRect();
+    const lineRect = line.getBoundingClientRect();
+    const delta = lineRect.top - paneRect.top - pane.clientHeight * 0.4 + lineRect.height / 2;
+    if (Math.abs(delta) < 6) return; // ignore sub-pixel churn to keep it calm
+    pane.scrollTo({ top: pane.scrollTop + delta, behavior: "smooth" });
   }, [activeIdx, synced]);
 
   const notesByLine = useMemo(() => {
@@ -654,7 +660,7 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
 
           <div style={S.calloutSlot}>
             {activeMoment && (
-              <div style={S.callout}>
+              <div key={activeMoment.sec} style={S.callout}>
                 <span style={S.calloutTime}>{fmt(activeMoment.sec * 1000)}</span>
                 <span style={S.calloutDivider} />
                 <span style={S.calloutText}>
@@ -842,6 +848,8 @@ function LyricsBlock({
 const KEYFRAMES = `
   @keyframes ln-breathe { 0%,100% { transform: scale(1.06); } 50% { transform: scale(1.15); } }
   @keyframes ln-exp-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes ln-pop-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+  @keyframes ln-note-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 `;
 
 const S: Record<string, React.CSSProperties> = {
@@ -1005,7 +1013,7 @@ const S: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   calloutSlot: { width: "100%", minHeight: 46, marginTop: 12, display: "flex", alignItems: "center" },
-  callout: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, background: "var(--ln-accent)" },
+  callout: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, background: "var(--ln-accent)", animation: "ln-pop-in 0.32s cubic-bezier(.2,.8,.2,1)" },
   calloutTime: { fontFamily: "var(--ln-mono)", fontWeight: 700, fontSize: 12, color: "#0a0908" },
   calloutDivider: { width: 1, height: 16, background: "rgba(10,9,8,0.25)" },
   calloutText: { flex: 1, fontFamily: "var(--ln-body)", fontWeight: 600, fontSize: 13, color: "#0a0908" },
@@ -1065,7 +1073,7 @@ const S: Record<string, React.CSSProperties> = {
   },
   lyricsHint: { fontFamily: "var(--ln-body)", fontSize: 12, color: "rgba(241,235,224,0.5)", marginTop: 8, marginBottom: 10 },
   lyricsStatus: { fontFamily: "var(--ln-body)", fontStyle: "italic", fontSize: 13, color: "rgba(241,235,224,0.5)", marginTop: 10 },
-  lyricsPane: { maxHeight: "52vh", overflowY: "auto", marginTop: 4 },
+  lyricsPane: { position: "relative", maxHeight: "52vh", overflowY: "auto", marginTop: 4 },
   lyricLine: { padding: "4px 0", lineHeight: 1.55, transition: "font-size 0.2s, color 0.2s" },
   lyricBadge: {
     marginLeft: 8,
@@ -1087,6 +1095,7 @@ const S: Record<string, React.CSSProperties> = {
     border: "1px solid var(--ln-accent)",
     background: "rgba(217,178,90,0.1)",
     cursor: "pointer",
+    animation: "ln-note-in 0.3s ease",
   },
   inlineNoteTime: { fontFamily: "var(--ln-mono)", fontWeight: 700, fontSize: 11, color: "#0a0908", background: "var(--ln-accent)", borderRadius: 6, padding: "2px 6px" },
   inlineNoteText: { flex: 1, fontFamily: "var(--ln-body)", fontSize: 13.5, color: "#f1ebe0" },
