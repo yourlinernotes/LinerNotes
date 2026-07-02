@@ -328,6 +328,13 @@ export async function searchSoundCloudTrack(
     const scSec = t.duration ? t.duration / 1000 : null;
     const durOk = !!durationSec && !!scSec && Math.abs(scSec - durationSec) <= 4;
 
+    // Hard duration gate: lyric + moment timestamps are anchored to the REAL
+    // song's timeline, so a copy that's meaningfully longer/shorter (a fan
+    // re-upload padded with a minute of silence, an intro skit, an extended cut)
+    // makes sync junk. When we know the real length, reject copies off by >7s —
+    // better to fall to YouTube/preview (right length) than mis-sync a full song.
+    if (durationSec && scSec != null && Math.abs(scSec - durationSec) > 7) continue;
+
     // Require a confident pairing so we never play a wrong song. A title match is
     // specific; combined with any artist signal (uploader, metadata, or the
     // artist named in the title) or a duration match, it's trustworthy.
