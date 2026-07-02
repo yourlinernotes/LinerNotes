@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "prisma migrate deploy || echo 'migrate deploy failed — continuing build'; prisma generate && next build",
+    "vercel-build": "prisma migrate resolve --rolled-back 20260702120000_add_follow || true; prisma migrate deploy || echo 'migrate deploy failed — continuing build'; prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"
