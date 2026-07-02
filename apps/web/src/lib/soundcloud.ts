@@ -208,6 +208,37 @@ const normTrack = (s: string) =>
 
 const VARIANT = /\b(remix|live|edit|version|instrumental|acoustic|demo|cover|karaoke|remaster(ed)?|reprise|extended|sped|slowed)\b/i;
 
+// Whether the anonymous widget can actually stream a track. Go+/label uploads
+// carry cbc/ctr-encrypted-hls transcodings (DRM) — even when they ALSO list a
+// plain "hls", that stream is gated and won't play for a logged-out visitor, so
+// the *presence of any encrypted transcoding* marks the copy as unplayable.
+// A freely-uploaded copy has only progressive/plain-hls and no encrypted streams.
+const PLAIN_PROTOCOLS = new Set(["progressive", "hls"]);
+const protocolsOf = (tc: any): string[] =>
+  Array.isArray(tc) ? tc.map((x) => String(x?.format?.protocol || "")) : [];
+const anonPlayable = (tc: any): boolean => {
+  const ps = protocolsOf(tc);
+  const hasPlain = ps.some((p) => PLAIN_PROTOCOLS.has(p));
+  const hasEncrypted = ps.some((p) => p.includes("encrypted"));
+  return hasPlain && !hasEncrypted;
+};
+
+/** Can the anonymous widget actually stream this track? (Skips Go+/encrypted.) */
+async function isAnonStreamable(t: any, clientId: string): Promise<boolean> {
+  if (Array.isArray(t?.media?.transcodings)) return anonPlayable(t.media.transcodings);
+  // Search results often omit media — fetch the track detail to see its streams.
+  try {
+    const r = await fetch(`https://api-v2.soundcloud.com/tracks/${t.id}?client_id=${clientId}`, {
+      headers: { "User-Agent": UA },
+    });
+    if (!r.ok) return true; // can't tell → let the widget try (watchdog backstops)
+    const d = await r.json();
+    return anonPlayable(d?.media?.transcodings || []);
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Find a single track on SoundCloud by name + artist via api-v2 /search/tracks.
  * Used as the fallback when Odesli has no SoundCloud link for a track.
@@ -258,8 +289,7 @@ export async function searchSoundCloudTrack(
   const contains = (a: string, b: string) =>
     !!a && !!b && Math.min(a.length, b.length) >= FUZZY_MIN && (a.includes(b) || b.includes(a));
 
-  let best: any = null;
-  let bestScore = -1;
+  const candidates: { t: any; score: number }[] = [];
   for (const t of results) {
     const rawTitle = t.title || "";
     // Re-uploads commonly format the title as "Artist - Title (feat. …)". Compare
@@ -318,14 +348,23 @@ export async function searchSoundCloudTrack(
     // Prefer freely-streamable uploads — MONETIZE (Go+/label) tracks often use
     // encrypted HLS the anonymous widget can't play. Tie-break toward ALLOW.
     if (t.policy === "ALLOW") score += 1;
-    if (score > bestScore) {
-      bestScore = score;
-      best = t;
-    }
+    candidates.push({ t, score });
   }
 
-  if (!best) return null;
-  return { url: best.permalink_url as string, trackId: String(best.id) };
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => b.score - a.score);
+
+  // Return the highest-scored copy that can ACTUALLY stream anonymously. The
+  // official upload of a major-label track is usually encrypted-only (Go+) and
+  // scores highest but won't play — so we skip it and fall to a freely-uploaded
+  // copy (e.g. a fan re-upload) when one exists. If none are streamable we return
+  // null so the caller goes to YouTube/preview instead of stalling on a dead id.
+  for (const { t } of candidates.slice(0, 6)) {
+    if (await isAnonStreamable(t, clientId)) {
+      return { url: t.permalink_url as string, trackId: String(t.id) };
+    }
+  }
+  return null;
 }
 
 export interface SoundCloudAlbum {
@@ -419,10 +458,18 @@ export async function resolveSoundCloud(
 
   if (scUrl) {
     const trackId = await scrapeTrackId(scUrl);
-    if (trackId) return { url: scUrl.split("?")[0], trackId };
+    if (trackId) {
+      // Only return it if it actually streams anonymously — a direct/Odesli hit
+      // can still be an encrypted Go+ upload (e.g. a label's official track). If
+      // it's not playable, fall through to search for a freely-uploaded copy.
+      const cid = await getClientId();
+      const playable = cid ? await isAnonStreamable({ id: trackId }, cid) : true;
+      if (playable) return { url: scUrl.split("?")[0], trackId };
+    }
   }
 
-  // Odesli had no SC link — try searching by track name + artist directly.
+  // No usable direct/Odesli hit — search by name + artist (which itself skips
+  // encrypted copies and prefers a streamable one).
   if (args.track) {
     return searchSoundCloudTrack(args.track, args.artist || "", args.durationSec);
   }
