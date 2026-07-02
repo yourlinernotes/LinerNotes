@@ -1,4 +1,8 @@
 {
   "framework": "nextjs",
-  "buildCommand": "npm run vercel-build"
+  "buildCommand": "npm run vercel-build",
+  "functions": {
+    "app/api/youtube-audio/route.ts": { "memory": 1769, "maxDuration": 60 },
+    "app/api/youtube-stream/route.ts": { "memory": 1769, "maxDuration": 300 }
+  }
 }
