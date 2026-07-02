@@ -98,9 +98,13 @@ interface Subject {
   presetPreviewUrl?: string | null;
   /** A pre-resolved source URL (Deezer/iTunes) → Odesli → the full SoundCloud song. */
   presetSourceUrl?: string | null;
+  /** A directly-resolved SoundCloud track id (from the auto-found album set). */
+  presetScId?: string | null;
   /** A source URL / id Odesli can turn into a SoundCloud link. */
   extId?: string | null;
 }
+
+const stripTrackNo = (s: string) => (s || "").replace(/^\s*\d+\s*[-.)]\s*/, "");
 
 export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClose: () => void }) {
   const { album } = review;
@@ -110,6 +114,24 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
   // Album/playlist: resolve the real tracklist's previews once (album-scoped).
   type PMEntry = { previewUrl: string; sourceUrl: string | null };
   const [previewMap, setPreviewMap] = useState<Record<string, PMEntry>>({});
+  type ScTrack = { id: string; title: string | null };
+  const [scAlbumTracks, setScAlbumTracks] = useState<ScTrack[]>([]);
+
+  // Auto-find the album's SoundCloud set (keyless, no user input needed).
+  useEffect(() => {
+    if (!isCollection) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = new URLSearchParams({ album: album.title, artist: album.artist });
+        const r = await fetch(`/api/soundcloud-album?${q}`);
+        const d = r.ok ? await r.json() : null;
+        if (!cancelled && d?.album?.tracks?.length) setScAlbumTracks(d.album.tracks);
+      } catch { /* no-op — per-track Odesli fallback still applies */ }
+    })();
+    return () => { cancelled = true; };
+  }, [isCollection, album.title, album.artist]);
+
   useEffect(() => {
     if (!isCollection) return;
     let cancelled = false;
@@ -157,6 +179,16 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     const t = album.tracks[selected];
     if (!t) return null;
     const pm = previewMap[normName(t.name)];
+    // Match this track to its SoundCloud id from the auto-found set.
+    // Strip leading track numbers ("01.", "1 -" etc.) before comparing.
+    const wantNorm = normName(stripTrackNo(t.name));
+    let scHit: ScTrack | undefined =
+      scAlbumTracks.find((s) => normName(stripTrackNo(s.title || "")) === wantNorm) ||
+      scAlbumTracks.find((s) => {
+        const sn = normName(stripTrackNo(s.title || ""));
+        return sn.includes(wantNorm) || wantNorm.includes(sn);
+      }) ||
+      scAlbumTracks[selected]; // index fallback when titles don't match
     return {
       track: t.name,
       artist: album.artist,
@@ -165,9 +197,10 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
       body: t.review || undefined,
       presetPreviewUrl: pm?.previewUrl || null,
       presetSourceUrl: pm?.sourceUrl || null,
+      presetScId: scHit?.id ?? null,
       extId: null,
     };
-  }, [isCollection, selected, album, review.take, review.body, review.notes, previewMap]);
+  }, [isCollection, selected, album, review.take, review.body, review.notes, previewMap, scAlbumTracks]);
 
   const backToList = isCollection && selected != null ? () => setSelected(null) : null;
   // Next/prev track navigation within an album/playlist.
@@ -267,7 +300,7 @@ function AlbumList({
 
 function TrackExperience({ subject, palette }: { subject: Subject; palette: Palette }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(subject.presetPreviewUrl ?? null);
-  const [scTrackId, setScTrackId] = useState<string | null>(null);
+  const [scTrackId, setScTrackId] = useState<string | null>(subject.presetScId ?? null);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(true);
   const [positionMs, setPositionMs] = useState(0);
@@ -339,27 +372,30 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
       }
       if (!cancelled) setLyricsLoading(false);
 
-      try {
-        const q = new URLSearchParams();
-        if (odesliSourceUrl) q.set("url", odesliSourceUrl);
-        else if (subject.extId) {
-          q.set("id", subject.extId);
-          q.set("platform", "itunes");
+      // Skip Odesli resolution when we already have a direct SC track id.
+      if (!subject.presetScId) {
+        try {
+          const q = new URLSearchParams();
+          if (odesliSourceUrl) q.set("url", odesliSourceUrl);
+          else if (subject.extId) {
+            q.set("id", subject.extId);
+            q.set("platform", "itunes");
+          }
+          if ([...q].length) {
+            const r = await fetch(`/api/soundcloud-link?${q}`);
+            const d = r.ok ? await r.json() : null;
+            if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
+          }
+        } catch {
+          /* preview fallback */
         }
-        if ([...q].length) {
-          const r = await fetch(`/api/soundcloud-link?${q}`);
-          const d = r.ok ? await r.json() : null;
-          if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
-        }
-      } catch {
-        /* preview fallback */
       }
     })();
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject.track, subject.artist, subject.presetPreviewUrl, subject.presetSourceUrl, subject.extId]);
+  }, [subject.track, subject.artist, subject.presetPreviewUrl, subject.presetSourceUrl, subject.presetScId, subject.extId]);
 
   // SoundCloud widget
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
