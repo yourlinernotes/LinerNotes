@@ -9,12 +9,24 @@ name: API Canary
 #   /api/music/search/tracks  → iTunes + MusicBrainz
 #   /api/music/search/albums  → Cover Art Archive
 #   /api/spotify-link         → Spotify client-credentials (prod secret)
+#   /api/lyrics               → LRCLIB (synced / plain lyrics)
+#   /api/preview              → Deezer / iTunes 30s preview
+#   /api/soundcloud-album     → SoundCloud keyless (client_id scrape + api-v2)
 # These cover what BOTH web and mobile rely on (mobile calls the same API).
 # SOFT checks hit the third-party APIs directly for extra signal, but only WARN —
 # MusicBrainz/iTunes/etc. routinely throttle shared GitHub-Actions IPs, so a
-# direct failure usually means "CI IP blocked", not "integration down".
-# (LRCLIB / ListenBrainz / Audius are researched but not yet in the code — add
-#  them when they ship.)
+# direct failure usually means "CI IP blocked", not "integration down". The soft
+# set also covers LRCLIB, Deezer, ListenBrainz (keyless), the lyric-translate
+# upstream (MyMemory), the provider-agnostic /api/listening/prompts route (auth-
+# gated), and the YouTube audio fallback (SOFT until it ships to beta).
+#
+# CROWN JEWEL: a dedicated step validates the Spotify sp_dc TOTP secret — the
+# no-Last.fm listening path silently dies when Spotify rotates the TOTP secret.
+# We mint a live TOTP and hit open.spotify.com/api/token with a deliberately bad
+# sp_dc cookie, expecting 401 (TOTP accepted, only the dummy cookie rejected). A
+# non-401 (e.g. 400) means the TOTP itself was rejected → secret rotated. Needs
+# SPOTIFY_TOTP_SECRET / SPOTIFY_TOTP_VER as GitHub Actions secrets; skipped if
+# unset.
 on:
   schedule:
     - cron: "0 7 * * *" # daily 07:00 UTC
@@ -23,6 +35,12 @@ on:
     branches: [main]
     paths:
       - "apps/web/app/api/**"
+      - "apps/web/app/api/lyrics/**"
+      - "apps/web/app/api/preview/**"
+      - "apps/web/app/api/soundcloud-*/**"
+      - "apps/web/app/api/listening/**"
+      - "apps/web/app/api/youtube-*/**"
+      - "apps/web/src/lib/listening/**"
       - "apps/mobile/src/services/**"
       - ".github/workflows/api-canary.yml"
 
@@ -31,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }} # optional; soft-skipped if unset
+      SPOTIFY_TOTP_SECRET: ${{ secrets.SPOTIFY_TOTP_SECRET }} # optional; crown-jewel step skipped if unset
+      SPOTIFY_TOTP_VER: ${{ secrets.SPOTIFY_TOTP_VER }} # optional; defaults to 61
       WEB: https://beta-linernotes.vercel.app
     steps:
       - name: Run canaries
@@ -68,6 +88,15 @@ jobs:
             "$WEB/api/music/search/albums?q=joji&limit=1" "d.get('results') is not None"
           json_check hard "web /api/spotify-link (Spotify client-creds)" \
             "$WEB/api/spotify-link?id=1776741889&kind=track&title=Glimpse%20of%20Us&artist=Joji" "'url' in d"
+          json_check hard "web /api/lyrics (LRCLIB)" \
+            "$WEB/api/lyrics?track=Glimpse%20of%20Us&artist=Joji" \
+            "d.get('lyrics') and (d['lyrics'].get('syncedLyrics') or d['lyrics'].get('plainLyrics'))"
+          json_check hard "web /api/preview (Deezer/iTunes 30s preview)" \
+            "$WEB/api/preview?track=Glimpse%20of%20Us&artist=Joji" \
+            "d.get('preview') and d['preview'].get('previewUrl')"
+          json_check hard "web /api/soundcloud-album (keyless client_id scrape + api-v2)" \
+            "$WEB/api/soundcloud-album?album=TURMERIC&artist=The%20Twins" \
+            "d.get('album') and d['album'].get('tracks')"
 
           echo "── SOFT: direct third-party APIs (extra signal; warn only) ──"
           json_check soft "iTunes Search" \
@@ -79,6 +108,22 @@ jobs:
           json_check soft "Odesli / song.link (mobile deeplinks)" \
             "https://api.song.link/v1-alpha.1/links?url=https%3A%2F%2Fopen.spotify.com%2Ftrack%2F3aBGKDiAAvH2H7HLOyQ4US&userCountry=US" \
             "isinstance(d.get('linksByPlatform'), dict)"
+          json_check soft "LRCLIB (direct lyrics)" \
+            "https://lrclib.net/api/get?track_name=Glimpse%20of%20Us&artist_name=Joji" \
+            "d.get('syncedLyrics') or d.get('plainLyrics')"
+          json_check soft "Deezer (direct 30s preview)" \
+            "https://api.deezer.com/search?q=joji%20glimpse%20of%20us&limit=1" \
+            "d.get('data') and len(d['data'])>0 and d['data'][0].get('preview')"
+          json_check soft "ListenBrainz (keyless listens)" \
+            "https://api.listenbrainz.org/1/user/rob/listens?count=1" \
+            "d.get('payload') is not None"
+          json_check soft "MyMemory (lyric-translate upstream)" \
+            "https://api.mymemory.translated.net/get?q=hola&langpair=es|en" \
+            "d.get('responseData',{}).get('translatedText')"
+          code_check soft "web /api/listening/prompts (provider-agnostic; auth-gated)" \
+            "$WEB/api/listening/prompts" "^(401|200)$"
+          code_check soft "web /api/youtube-audio (fallback; may be undeployed)" \
+            "$WEB/api/youtube-audio?track=Glimpse%20of%20Us&artist=Joji" "^(200)$"
           if [ -n "${LASTFM_API_KEY:-}" ]; then
             json_check soft "Last.fm" \
               "https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${LASTFM_API_KEY}&artist=Joji&track=Glimpse%20of%20Us&format=json" \
@@ -88,3 +133,43 @@ jobs:
           echo "───────────────"
           if [ "$fail" -ne 0 ]; then echo "::error::A HARD canary failed — a prod integration is broken."; exit 1; fi
           echo "✅ All hard canaries healthy (soft warnings above are informational)."
+
+      - name: Spotify sp_dc TOTP secret validity (crown jewel — SOFT)
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -z "${SPOTIFY_TOTP_SECRET:-}" ]; then
+            echo "⚪ Spotify sp_dc TOTP — SKIPPED (no SPOTIFY_TOTP_SECRET secret)"
+            exit 0
+          fi
+          # RFC-6238 TOTP (HMAC-SHA1, 30s, 6 digits) over the base32 secret; the
+          # same math src/lib/listening/spotify-spdc.ts uses to mint web tokens.
+          read CODE CTIME < <(python3 - <<'PY'
+          import os, base64, hmac, hashlib, struct, time
+          sec = os.environ["SPOTIFY_TOTP_SECRET"].strip().upper()
+          key = base64.b32decode(sec + "=" * ((8 - len(sec) % 8) % 8))  # pad for b32decode
+          now = int(time.time())
+          h = hmac.new(key, struct.pack(">Q", now // 30), hashlib.sha1).digest()  # big-endian counter
+          off = h[-1] & 0x0F  # dynamic truncation
+          b = ((h[off] & 0x7F) << 24) | ((h[off + 1] & 0xFF) << 16) | ((h[off + 2] & 0xFF) << 8) | (h[off + 3] & 0xFF)
+          print(str(b % 1000000).zfill(6), now * 1000)
+          PY
+          )
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          URL="https://open.spotify.com/api/token?reason=transport&productType=web-player&totp=${CODE}&totpServer=${CODE}&totpVer=${SPOTIFY_TOTP_VER:-61}&cTime=${CTIME}"
+          # Live TOTP + a deliberately bad sp_dc cookie. When the TOTP is accepted,
+          # Spotify 302-redirects to ...&_authfailed=1 which resolves to 401 (only
+          # the dummy cookie is rejected) → follow redirects with -L and expect 401.
+          # A non-401 (e.g. 400) means the TOTP itself was rejected → secret rotated.
+          code=$(curl -sL -o /dev/null --max-time 25 \
+            -H "Cookie: sp_dc=INVALID_CANARY" \
+            -H "User-Agent: $UA" \
+            -H "Accept: application/json" \
+            -H "Referer: https://open.spotify.com/" \
+            -H "App-Platform: WebPlayer" \
+            -w "%{http_code}" "$URL")
+          if [ "$code" = "401" ]; then
+            echo "🟢 Spotify sp_dc TOTP — OK (HTTP 401: secret ACCEPTED, dummy cookie rejected)"
+          else
+            echo "::warning::⚠️ Spotify sp_dc TOTP — HTTP $code (expected 401): SPOTIFY_TOTP_SECRET may have rotated — refresh it"
+          fi
