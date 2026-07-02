@@ -90,6 +90,7 @@ export function MomentCaptureBar({
       // Try to resolve the full SoundCloud track (Odesli first, then api-v2 search).
       try {
         const q = new URLSearchParams({ track, artist });
+        if (durationSec) q.set("duration", String(durationSec));
         if (sourceUrl) q.set("url", sourceUrl);
         const r = await fetch(`/api/soundcloud-link?${q}`);
         const d = r.ok ? await r.json() : null;

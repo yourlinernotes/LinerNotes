@@ -325,13 +325,24 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     () => (syncedLines.length ? activeLineIndex(syncedLines, positionMs) : -1),
     [syncedLines, positionMs],
   );
-  const activeMoment = useMemo(
-    () =>
-      synced
-        ? subject.notes.find((n) => positionMs >= n.sec * 1000 && positionMs < (n.sec + 5) * 1000) || null
-        : null,
-    [subject.notes, positionMs, synced],
-  );
+  // A moment stays on screen from its timestamp until the next moment begins —
+  // so a note about a passage holds for the whole passage, not a fixed 5s. When
+  // it's the last moment (no successor), hold for a comfortable window.
+  const MOMENT_MIN_MS = 4500;
+  const MOMENT_MAX_MS = 20000;
+  const activeMoment = useMemo(() => {
+    if (!synced || !subject.notes.length) return null;
+    const sorted = [...subject.notes].sort((a, b) => a.sec - b.sec);
+    for (let i = 0; i < sorted.length; i++) {
+      const start = sorted[i].sec * 1000;
+      const nextStart = i + 1 < sorted.length ? sorted[i + 1].sec * 1000 : Infinity;
+      // Hold until the next moment, but at least MIN and at most MAX.
+      const end = Math.min(nextStart, start + MOMENT_MAX_MS);
+      const held = Math.max(end, start + MOMENT_MIN_MS);
+      if (positionMs >= start && positionMs < held) return sorted[i];
+    }
+    return null;
+  }, [subject.notes, positionMs, synced]);
 
   // Resolve preview (unless preset), lyrics, and a SoundCloud id.
   useEffect(() => {
@@ -378,6 +389,7 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
       if (!subject.presetScId) {
         try {
           const q = new URLSearchParams({ track, artist });
+          if (durationSec) q.set("duration", String(durationSec));
           if (odesliSourceUrl) q.set("url", odesliSourceUrl);
           else if (subject.extId) {
             q.set("id", subject.extId);

@@ -37,6 +37,8 @@ export interface ResolveSoundCloudArgs {
   /** Track name + artist — used as a direct api-v2 search fallback when Odesli has no SC link. */
   track?: string;
   artist?: string;
+  /** Known track duration (sec) — disambiguates short names in the search fallback. */
+  durationSec?: number;
 }
 
 /** Ask Odesli for a track's SoundCloud URL, when it has one. */
@@ -159,18 +161,26 @@ const VARIANT = /\b(remix|live|edit|version|instrumental|acoustic|demo|cover|kar
 /**
  * Find a single track on SoundCloud by name + artist via api-v2 /search/tracks.
  * Used as the fallback when Odesli has no SoundCloud link for a track.
- * Returns `{ url, trackId }` or null.
+ *
+ * Short names (title "3", artist "XO") can't be disambiguated by string matching
+ * alone — but the track's *duration* is a strong signal that works no matter how
+ * short the name is: among results titled "avatar", the one that's also the
+ * right length and by an artist that matches is almost certainly correct. So we
+ * pass the known duration (from the preview/Deezer) and score on
+ * title + artist + duration, requiring a confident pairing rather than a length
+ * floor. Returns `{ url, trackId }` or null.
  */
 export async function searchSoundCloudTrack(
   track: string,
   artist: string,
+  durationSec?: number,
 ): Promise<SoundCloudResult | null> {
   if (!track) return null;
 
   const run = async (clientId: string) => {
     const q = encodeURIComponent(`${artist} ${track}`.trim());
     const r = await fetch(
-      `https://api-v2.soundcloud.com/search/tracks?q=${q}&limit=15&client_id=${clientId}`,
+      `https://api-v2.soundcloud.com/search/tracks?q=${q}&limit=20&client_id=${clientId}`,
       { headers: { "User-Agent": UA } },
     );
     if (r.status === 401 || r.status === 403) return "reauth" as const;
@@ -192,42 +202,55 @@ export async function searchSoundCloudTrack(
   const wantArtist = norm(artist);
   const wantVariant = VARIANT.test(track);
 
-  // Fuzzy "contains" matching is only safe when the shorter string is long
-  // enough to be distinctive — otherwise a 2-char artist like "xo" matches any
-  // handle, and a generic word title matches everything. Below the floor we
-  // require an exact match. Better to fall back to the preview than to play a
-  // random wrong song (a repeated user complaint).
+  // "contains" is only meaningful for reasonably long strings; short strings
+  // must match exactly (but exact IS allowed, so "3"/"xo" can still match).
   const FUZZY_MIN = 4;
-  const looseEq = (a: string, b: string) => {
-    if (!a || !b) return false;
-    if (a === b) return true;
-    if (Math.min(a.length, b.length) < FUZZY_MIN) return false;
-    return a.includes(b) || b.includes(a);
-  };
+  const contains = (a: string, b: string) =>
+    !!a && !!b && Math.min(a.length, b.length) >= FUZZY_MIN && (a.includes(b) || b.includes(a));
 
-  // Score candidates; require BOTH a title and an artist match, then prefer the
-  // exact-title / least-noisy result.
   let best: any = null;
   let bestScore = -1;
   for (const t of results) {
     const titleNorm = normTrack(t.title || "");
-    const userNorm = norm(t.user?.username || t.user?.permalink || "");
-    const metaArtist = norm(t.publisher_metadata?.artist || "");
+    const artistFields = [
+      norm(t.user?.username || ""),
+      norm(t.user?.permalink || ""),
+      norm(t.publisher_metadata?.artist || ""),
+    ].filter(Boolean);
 
-    const titleOk = looseEq(titleNorm, wantTitle);
+    const titleExact = titleNorm === wantTitle;
+    const titleOk = titleExact || contains(titleNorm, wantTitle);
     if (!titleOk) continue;
-
-    const artistOk =
-      !wantArtist || looseEq(userNorm, wantArtist) || looseEq(metaArtist, wantArtist);
-    if (!artistOk) continue;
 
     const isVariant = VARIANT.test(t.title || "");
     if (isVariant && !wantVariant) continue;
 
-    // Exact title + exact artist is the strongest; fuzzy contains scores lower.
+    const artistExact = !wantArtist || artistFields.some((a) => a === wantArtist);
+    const artistLoose = !!wantArtist && artistFields.some((a) => contains(a, wantArtist));
+
+    // Duration match — the length-agnostic disambiguator. SC `duration` is ms.
+    const scSec = t.duration ? t.duration / 1000 : null;
+    const durOk = !!durationSec && !!scSec && Math.abs(scSec - durationSec) <= 4;
+
+    // Require a confident pairing so we never play a wrong song:
+    //   exact title + exact artist   (short names, e.g. "3"/"2hollis")
+    //   exact title + right duration (artist handle differs from display name)
+    //   exact artist + right duration
+    //   exact artist + title contains (long-ish titles)
+    const confident =
+      (titleExact && artistExact) ||
+      (titleExact && durOk) ||
+      (artistExact && durOk) ||
+      (artistExact && titleOk && !!wantArtist) ||
+      (artistLoose && durOk);
+    if (!confident) continue;
+
     let score = 0;
-    if (titleNorm === wantTitle) score += 3;
-    if (userNorm === wantArtist || metaArtist === wantArtist) score += 2;
+    if (titleExact) score += 3;
+    else if (titleOk) score += 1;
+    if (artistExact) score += 3;
+    else if (artistLoose) score += 1;
+    if (durOk) score += 3;
     if (score > bestScore) {
       bestScore = score;
       best = t;
@@ -327,7 +350,7 @@ export async function resolveSoundCloud(
 
   // Odesli had no SC link — try searching by track name + artist directly.
   if (args.track) {
-    return searchSoundCloudTrack(args.track, args.artist || "");
+    return searchSoundCloudTrack(args.track, args.artist || "", args.durationSec);
   }
 
   return null;
