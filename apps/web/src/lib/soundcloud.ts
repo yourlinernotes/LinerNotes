@@ -211,18 +211,26 @@ export async function searchSoundCloudTrack(
   let best: any = null;
   let bestScore = -1;
   for (const t of results) {
-    const titleNorm = normTrack(t.title || "");
+    const rawTitle = t.title || "";
+    // Re-uploads commonly format the title as "Artist - Title (feat. …)". Compare
+    // both the whole title and the part after an "Artist - " prefix, so a title
+    // like "DEAN - dayfly (ft. Sulli)" matches the track "dayfly" exactly.
+    const seg = rawTitle.includes(" - ") ? rawTitle.split(" - ").slice(1).join(" - ") : rawTitle;
+    const titleSeg = normTrack(seg);
+    const titleFull = normTrack(rawTitle);
+    const titleRaw = norm(rawTitle); // whole title incl. artist prefix, for artist-in-title
+
     const artistFields = [
       norm(t.user?.username || ""),
       norm(t.user?.permalink || ""),
       norm(t.publisher_metadata?.artist || ""),
     ].filter(Boolean);
 
-    const titleExact = titleNorm === wantTitle;
-    const titleOk = titleExact || contains(titleNorm, wantTitle);
+    const titleExact = titleSeg === wantTitle || titleFull === wantTitle;
+    const titleOk = titleExact || contains(titleSeg, wantTitle) || contains(titleFull, wantTitle);
     if (!titleOk) continue;
 
-    const isVariant = VARIANT.test(t.title || "");
+    const isVariant = VARIANT.test(rawTitle);
     if (isVariant && !wantVariant) continue;
 
     // Snippet-only (Go+ preview) tracks never give full playback in the widget.
@@ -230,29 +238,32 @@ export async function searchSoundCloudTrack(
 
     const artistExact = !wantArtist || artistFields.some((a) => a === wantArtist);
     const artistLoose = !!wantArtist && artistFields.some((a) => contains(a, wantArtist));
+    // The uploader is often a random fan account, but the artist name is in the
+    // title ("DEAN - dayfly"). If the artist appears in the title text, that plus
+    // a title match is high-confidence.
+    const artistInTitle = wantArtist.length >= 3 && titleRaw.includes(wantArtist);
+    const artistMatch = artistExact || artistLoose || artistInTitle;
 
     // Duration match — the length-agnostic disambiguator. SC `duration` is ms.
     const scSec = t.duration ? t.duration / 1000 : null;
     const durOk = !!durationSec && !!scSec && Math.abs(scSec - durationSec) <= 4;
 
-    // Require a confident pairing so we never play a wrong song:
-    //   exact title + exact artist   (short names, e.g. "3"/"2hollis")
-    //   exact title + right duration (artist handle differs from display name)
-    //   exact artist + right duration
-    //   exact artist + title contains (long-ish titles)
+    // Require a confident pairing so we never play a wrong song. A title match is
+    // specific; combined with any artist signal (uploader, metadata, or the
+    // artist named in the title) or a duration match, it's trustworthy.
     const confident =
-      (titleExact && artistExact) ||
+      (titleOk && artistExact) ||
+      (titleOk && artistInTitle) ||
       (titleExact && durOk) ||
-      (artistExact && durOk) ||
-      (artistExact && titleOk && !!wantArtist) ||
-      (artistLoose && durOk);
+      (artistMatch && durOk);
     if (!confident) continue;
 
     let score = 0;
     if (titleExact) score += 3;
     else if (titleOk) score += 1;
     if (artistExact) score += 3;
-    else if (artistLoose) score += 1;
+    else if (artistLoose) score += 2;
+    else if (artistInTitle) score += 1;
     if (durOk) score += 3;
     // Prefer freely-streamable uploads — MONETIZE (Go+/label) tracks often use
     // encrypted HLS the anonymous widget can't play. Tie-break toward ALLOW.
