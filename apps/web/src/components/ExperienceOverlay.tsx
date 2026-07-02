@@ -493,8 +493,25 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
   }, [syncedLines, subject.notes]);
 
   const openSpotify = () => {
-    const url = `https://open.spotify.com/search/${encodeURIComponent(`${subject.track} ${subject.artist}`.trim())}`;
-    window.open(url, "_blank");
+    const { track, artist, extId = "" } = subject;
+    const search = `https://open.spotify.com/search/${encodeURIComponent(`${track} ${artist}`.trim())}`;
+    // If extId is already a 22-char Spotify id, link straight to it.
+    if (/^[A-Za-z0-9]{22}$/.test(extId || "")) {
+      window.open(`https://open.spotify.com/track/${extId}`, "_blank", "noopener");
+      return;
+    }
+    // Open the tab synchronously (avoids popup-blocker) then navigate to the
+    // resolved Spotify URL — or search as a fallback.
+    const w = window.open("about:blank", "_blank");
+    const params = new URLSearchParams({ id: extId || "", kind: "track", title: track, artist });
+    fetch(`/api/spotify-link?${params}`)
+      .then((r) => r.json())
+      .then(({ url }: { url: string | null }) => {
+        const dest = url || search;
+        if (w) w.location.href = dest;
+        else window.open(dest, "_blank", "noopener");
+      })
+      .catch(() => { if (w) w.location.href = search; });
   };
 
   // Share a specific annotated moment (its note + the lyric line it sits on).
