@@ -87,15 +87,13 @@ export function MomentCaptureBar({
           setLyrics(parseLrc(d.lyrics.syncedLyrics));
       } catch { /* no lyrics */ }
 
-      // Try to resolve the full SoundCloud track.
+      // Try to resolve the full SoundCloud track (Odesli first, then api-v2 search).
       try {
-        const q = new URLSearchParams();
+        const q = new URLSearchParams({ track, artist });
         if (sourceUrl) q.set("url", sourceUrl);
-        if ([...q].length) {
-          const r = await fetch(`/api/soundcloud-link?${q}`);
-          const d = r.ok ? await r.json() : null;
-          if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
-        }
+        const r = await fetch(`/api/soundcloud-link?${q}`);
+        const d = r.ok ? await r.json() : null;
+        if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
       } catch { /* preview fallback */ }
 
       if (!cancelled) setLoading(false);

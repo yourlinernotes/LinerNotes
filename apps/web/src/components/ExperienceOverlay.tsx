@@ -375,17 +375,15 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
       // Skip Odesli resolution when we already have a direct SC track id.
       if (!subject.presetScId) {
         try {
-          const q = new URLSearchParams();
+          const q = new URLSearchParams({ track, artist });
           if (odesliSourceUrl) q.set("url", odesliSourceUrl);
           else if (subject.extId) {
             q.set("id", subject.extId);
             q.set("platform", "itunes");
           }
-          if ([...q].length) {
-            const r = await fetch(`/api/soundcloud-link?${q}`);
-            const d = r.ok ? await r.json() : null;
-            if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
-          }
+          const r = await fetch(`/api/soundcloud-link?${q}`);
+          const d = r.ok ? await r.json() : null;
+          if (!cancelled && d?.soundcloud?.trackId) setScTrackId(d.soundcloud.trackId);
         } catch {
           /* preview fallback */
         }

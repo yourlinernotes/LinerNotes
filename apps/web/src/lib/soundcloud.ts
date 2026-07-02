@@ -34,6 +34,9 @@ export interface ResolveSoundCloudArgs {
   id?: string;
   platform?: string;
   type?: "song" | "album";
+  /** Track name + artist — used as a direct api-v2 search fallback when Odesli has no SC link. */
+  track?: string;
+  artist?: string;
 }
 
 /** Ask Odesli for a track's SoundCloud URL, when it has one. */
@@ -147,6 +150,66 @@ async function getClientId(force = false): Promise<string | null> {
 }
 
 const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+/** Strip "feat. ..." / "(feat ...)" before comparing track titles — SC formats features differently. */
+const normTrack = (s: string) =>
+  norm((s || "").replace(/\s*[\[(]?(feat\.?|ft\.?|with|x)\s[\s\S]*?([\])]|$)/i, "").trim());
+
+const VARIANT = /\b(remix|live|edit|version|instrumental|acoustic|demo|cover|karaoke|remaster(ed)?|reprise|extended|sped|slowed)\b/i;
+
+/**
+ * Find a single track on SoundCloud by name + artist via api-v2 /search/tracks.
+ * Used as the fallback when Odesli has no SoundCloud link for a track.
+ * Returns `{ url, trackId }` or null.
+ */
+export async function searchSoundCloudTrack(
+  track: string,
+  artist: string,
+): Promise<SoundCloudResult | null> {
+  if (!track) return null;
+
+  const run = async (clientId: string) => {
+    const q = encodeURIComponent(`${artist} ${track}`.trim());
+    const r = await fetch(
+      `https://api-v2.soundcloud.com/search/tracks?q=${q}&limit=15&client_id=${clientId}`,
+      { headers: { "User-Agent": UA } },
+    );
+    if (r.status === 401 || r.status === 403) return "reauth" as const;
+    if (!r.ok) return null;
+    return (await r.json())?.collection || [];
+  };
+
+  let clientId = await getClientId();
+  if (!clientId) return null;
+  let results = await run(clientId);
+  if (results === "reauth") {
+    clientId = await getClientId(true);
+    if (!clientId) return null;
+    results = await run(clientId);
+  }
+  if (!results || results === "reauth" || !Array.isArray(results)) return null;
+
+  const wantTitle = normTrack(track);
+  const wantArtist = norm(artist);
+  const wantVariant = VARIANT.test(track);
+
+  const hit = results.find((t: any) => {
+    const titleNorm = normTrack(t.title || "");
+    const userNorm = norm(t.user?.username || t.user?.permalink || "");
+    const metaArtist = norm(t.publisher_metadata?.artist || "");
+    const titleOk = titleNorm.includes(wantTitle) || wantTitle.includes(titleNorm);
+    // Artist match: lenient — SC handle (e.g. "deantrouble") ≠ display name ("Dean"),
+    // so accept if either contains the other, or publisher metadata matches.
+    const artistOk =
+      !wantArtist ||
+      userNorm.includes(wantArtist) || wantArtist.includes(userNorm) ||
+      metaArtist.includes(wantArtist) || wantArtist.includes(metaArtist);
+    const isVariant = VARIANT.test(t.title || "");
+    return titleOk && artistOk && (!isVariant || wantVariant);
+  }) ?? null;
+
+  if (!hit) return null;
+  return { url: hit.permalink_url as string, trackId: String(hit.id) };
+}
 
 export interface SoundCloudAlbum {
   /** The set/playlist permalink. */
@@ -214,6 +277,11 @@ export async function searchSoundCloudAlbum(
 
 /**
  * Resolve to a `{ url, trackId }` playable by the Widget, or null (→ preview).
+ *
+ * Resolution ladder:
+ *   1. Direct SC URL passed in → scrape id.
+ *   2. Odesli → SC URL → scrape id.
+ *   3. api-v2 track search by name+artist (keyless, same as album search).
  */
 export async function resolveSoundCloud(
   args: ResolveSoundCloudArgs,
@@ -224,12 +292,16 @@ export async function resolveSoundCloud(
       ? args.sourceUrl
       : null;
   const scUrl = direct ?? (await odesliSoundCloudUrl(args));
-  if (!scUrl) return null;
 
-  const trackId = await scrapeTrackId(scUrl);
-  if (!trackId) return null;
+  if (scUrl) {
+    const trackId = await scrapeTrackId(scUrl);
+    if (trackId) return { url: scUrl.split("?")[0], trackId };
+  }
 
-  // Strip Odesli's tracking params for a clean canonical URL.
-  const clean = scUrl.split("?")[0];
-  return { url: clean, trackId };
+  // Odesli had no SC link — try searching by track name + artist directly.
+  if (args.track) {
+    return searchSoundCloudTrack(args.track, args.artist || "");
+  }
+
+  return null;
 }

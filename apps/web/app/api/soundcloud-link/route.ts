@@ -17,6 +17,8 @@ export async function GET(request: Request) {
   const id = (searchParams.get("id") || "").trim() || undefined;
   const platform = (searchParams.get("platform") || "").trim() || undefined;
   const type = searchParams.get("type") === "album" ? "album" : "song";
+  const track = (searchParams.get("track") || "").trim() || undefined;
+  const artist = (searchParams.get("artist") || "").trim() || undefined;
 
   const ok = (soundcloud: SoundCloudResult | null) =>
     NextResponse.json(
@@ -31,8 +33,8 @@ export async function GET(request: Request) {
     );
 
   try {
-    if (!sourceUrl && !(id && platform)) return ok(null);
-    return ok(await resolveSoundCloud({ sourceUrl, id, platform, type }));
+    if (!sourceUrl && !(id && platform) && !track) return ok(null);
+    return ok(await resolveSoundCloud({ sourceUrl, id, platform, type, track, artist }));
   } catch (error) {
     console.error("[soundcloud-link] error:", error);
     return ok(null);
