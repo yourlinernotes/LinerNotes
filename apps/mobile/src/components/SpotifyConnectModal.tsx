@@ -10,7 +10,7 @@
  * it to our backend. We never see their password; we only read the session
  * cookie their own login set.
  */
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import CookieManager from '@react-native-cookies/cookies';
@@ -32,23 +32,47 @@ export function SpotifyConnectModal({
   onConnected?: () => void;
 }) {
   const [status, setStatus] = useState<'login' | 'saving' | 'done' | 'error'>('login');
+  const [confirmText, setConfirmText] = useState<string | null>(null);
   const captured = useRef(false);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const tryCapture = async () => {
+  useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current); }, []);
+
+  // The sp_dc cookie is HttpOnly (native store only) and is set on open.spotify.com
+  // — check the specific hosts, since a bare "spotify.com" query misses it on iOS.
+  const readSpDc = async (): Promise<string | null> => {
+    for (const domain of ['https://open.spotify.com', 'https://accounts.spotify.com', 'https://spotify.com']) {
+      try {
+        const cookies = await CookieManager.get(domain, true);
+        if (cookies?.sp_dc?.value) return cookies.sp_dc.value;
+      } catch { /* try next host */ }
+    }
+    return null;
+  };
+
+  const tryCapture = async (attemptsLeft = 6) => {
     if (captured.current) return;
+    const spDc = await readSpDc();
+    if (!spDc) {
+      // The cookie write can lag the navigation event — poll a few times before
+      // giving up (still on the login screen, so no visible flicker).
+      if (attemptsLeft > 0) pollTimer.current = setTimeout(() => tryCapture(attemptsLeft - 1), 800);
+      return;
+    }
+    captured.current = true;
+    setStatus('saving');
     try {
-      // HttpOnly cookie — only the native store has it.
-      const cookies = await CookieManager.get('https://spotify.com', true);
-      const spDc = cookies?.sp_dc?.value;
-      if (!spDc) return; // not logged in yet
-      captured.current = true;
-      setStatus('saving');
       await api.connectSpotifySpDc(spDc);
+      // Confirm the whole chain actually works (needs the server TOTP secret) and
+      // reassure the user by echoing back what we can see.
+      let msg = 'Connected ✓';
+      try {
+        const { nowPlaying } = await api.getNowPlaying();
+        if (nowPlaying?.track) msg = `We see you ${nowPlaying.isPlaying ? 'playing' : 'last played'}: ${nowPlaying.track} — ${nowPlaying.artist}`;
+      } catch { /* keep generic confirmation */ }
+      setConfirmText(msg);
       setStatus('done');
-      setTimeout(() => {
-        onConnected?.();
-        onClose();
-      }, 1100);
+      setTimeout(() => { onConnected?.(); onClose(); }, 1700);
     } catch {
       captured.current = false;
       setStatus('error');
@@ -56,10 +80,8 @@ export function SpotifyConnectModal({
   };
 
   const onNav = (nav: WebViewNavigation) => {
-    // Once the login redirects back to the web player, the cookie is set.
-    if (/open\.spotify\.com/.test(nav.url) && !nav.loading) {
-      tryCapture();
-    }
+    // Once the login redirects back to the web player, the cookie should be set.
+    if (/open\.spotify\.com/.test(nav.url) && !nav.loading) tryCapture();
   };
 
   return (
@@ -95,7 +117,9 @@ export function SpotifyConnectModal({
               </>
             )}
             {status === 'done' && (
-              <Text style={[styles.centerText, { color: C.confirmGreen }]}>Connected ✓</Text>
+              <Text style={[styles.centerText, { color: C.confirmGreen, textAlign: 'center', paddingHorizontal: 28 }]}>
+                {confirmText || 'Connected ✓'}
+              </Text>
             )}
             {status === 'error' && (
               <>

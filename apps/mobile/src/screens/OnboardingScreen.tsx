@@ -468,11 +468,60 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                 </Text>
                 <Text style={[styles.description, { fontSize: 14.5, lineHeight: 21.75 }]}>
                   LinerNotes notices what you played, so when a song hits, the note is already
-                  half-written. it's the easiest way to start.
+                  half-written. connecting Spotify is one tap — no account to make.
                 </Text>
               </View>
 
-              {/* Last.fm card */}
+              {/* Spotify card — PRIMARY: one tap, no account needed */}
+              <View
+                style={[
+                  styles.lastFmCard,
+                  { borderColor: spotifyLinked ? `${COLORS.confirmGreen}55` : 'rgba(241,235,224,0.12)' },
+                ]}
+              >
+                <LinearGradient
+                  colors={spotifyLinked ? ['rgba(127,207,155,0.16)', 'transparent'] : ['rgba(30,215,96,0.18)', 'transparent']}
+                  locations={[0, 0.7]}
+                  style={styles.equalizerHeader}
+                >
+                  <View style={styles.equalizerBars}>
+                    {Array.from({ length: 11 }).map((_, i) => (
+                      <EqualizerBar
+                        key={i}
+                        index={i}
+                        status={spotifyLinked ? 'linked' : 'idle'}
+                        color={spotifyLinked ? COLORS.confirmGreen : '#1ED760'}
+                      />
+                    ))}
+                  </View>
+                </LinearGradient>
+
+                <View style={styles.lastFmContent}>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+                    <Text style={styles.lastFmTitle}>Spotify</Text>
+                    <Text style={[styles.lastFmSubtitle, { color: spotifyLinked ? COLORS.confirmGreen : 'rgba(241,235,224,0.45)' }]}>
+                      {spotifyLinked ? 'CONNECTED' : 'ONE TAP · NO ACCOUNT NEEDED'}
+                    </Text>
+                  </View>
+                  <Text style={styles.lastFmDescription}>
+                    {spotifyLinked
+                      ? "nice. we'll quietly follow what you play and surface it the moment you sit down to write."
+                      : 'just log in once — we read the session, never your password, and line up what you played.'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={spotifyLinked ? () => setStep(3) : () => setSpotifyModalOpen(true)}
+                    style={[styles.lastFmButton, { backgroundColor: COLORS.gold }]}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.lastFmButtonText, { color: COLORS.bg }]}>
+                      {spotifyLinked ? 'Continue' : 'Connect Spotify'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Last.fm card — SECONDARY: for people who already scrobble */}
+              <Text style={styles.orScrobbleLabel}>or, if you already scrobble</Text>
               <View
                 style={[
                   styles.lastFmCard,
@@ -579,20 +628,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
                   </TouchableOpacity>
                 </View>
               </View>
-
-              {/* Or connect Spotify (experimental) — no Last.fm account needed */}
-              <TouchableOpacity
-                onPress={() => setSpotifyModalOpen(true)}
-                activeOpacity={0.85}
-                style={styles.spotifyConnectBtn}
-              >
-                <View style={styles.spotifyDot}>
-                  <Icon name="play" size={9} color="#fff" />
-                </View>
-                <Text style={styles.spotifyConnectText}>
-                  {spotifyLinked ? 'Spotify connected ✓' : 'Or connect Spotify'}
-                </Text>
-              </TouchableOpacity>
 
               {/* Skip button */}
               {lastFmStatus !== 'linked' && !spotifyLinked && (
@@ -1087,6 +1122,16 @@ const styles = StyleSheet.create({
     lineHeight: 18.125,
     color: 'rgba(241,235,224,0.55)',
     marginBottom: 10,
+  },
+  orScrobbleLabel: {
+    fontFamily: tokens.typography.rnFonts.mono,
+    fontSize: 10.5,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: 'rgba(241,235,224,0.4)',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 2,
   },
   lastFmButton: {
     width: '100%',

@@ -474,6 +474,11 @@ class APIClient {
     return this.request('/connect/spotify-spdc', { method: 'DELETE' });
   }
 
+  /** Current/last play across connected services — used to confirm a connect worked. */
+  async getNowPlaying(): Promise<{ nowPlaying: { track: string; artist: string; isPlaying: boolean } | null }> {
+    return this.request('/listening/now');
+  }
+
   // ==========================================================================
   // MUSIC SEARCH
   // ==========================================================================
