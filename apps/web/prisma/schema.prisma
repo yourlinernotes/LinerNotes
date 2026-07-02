@@ -41,12 +41,30 @@ model User {
   albumReposts           AlbumRepost[]
   friendRequestsSent     Friendship[] @relation("FriendRequestsSent")
   friendRequestsReceived Friendship[] @relation("FriendRequestsReceived")
+  following              Follow[]     @relation("Following") // rows where this user follows someone
+  followers              Follow[]     @relation("Followers") // rows where this user is followed
   playlists              Playlist[]
   playlistLikes          PlaylistLike[]
   playlistReposts        PlaylistRepost[]
 
   @@index([handle])
   @@index([spotifyId])
+}
+
+// Asymmetric follow graph (Twitter/IG-style, no approval). Distinct from the
+// mutual Friendship model, which we keep for a future close-friends/DM tier.
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }
 
 // NextAuth.js models

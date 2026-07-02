@@ -8,6 +8,7 @@ import type { User, Review, AlbumReview } from "@/lib/types";
 import { TopBar, Footer } from "@/components/ln/nav";
 import { LNArt, LNStars, LNIcon } from "@/components/ln/atoms";
 import { LNWCard } from "@/components/ln/cards";
+import { FollowButton } from "@/components/FollowButton";
 import { toReviewVM, toAlbumReviewVM, type ReviewVM } from "@/lib/view-adapter";
 import { paletteFromString, tintFromString } from "@/lib/palette";
 
@@ -126,8 +127,20 @@ export default function ProfilePage() {
   const [savedFavs, setSavedFavs] = useState<FavMeta[]>([]);
   const [editingFavs, setEditingFavs] = useState(false);
   const [savingFavs, setSavingFavs] = useState(false);
+  const [followCounts, setFollowCounts] = useState<{ followers: number; following: number } | null>(null);
 
   const isOwnProfile = session?.user?.handle === handle;
+
+  // Follower/following counts for the asymmetric follow graph.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    fetch(`/api/follow?userId=${user.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d) setFollowCounts({ followers: d.followerCount || 0, following: d.followingCount || 0 }); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -285,12 +298,20 @@ export default function ProfilePage() {
                 <div style={{ display: "flex", gap: 26, marginTop: 18 }}>
                   <Stat n={reviews.length + albumReviews.length} label="notes" />
                   <Stat n={momentCount} label="moments" />
-                  <Stat n={user.friendCount || 0} label="friends" />
+                  <Stat n={followCounts?.followers ?? 0} label="followers" />
+                  <Stat n={followCounts?.following ?? 0} label="following" />
                 </div>
               </div>
-              {isOwnProfile && (
+              {isOwnProfile ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 6 }}>
                   <Link href="/profile/edit" className="ln-press" style={{ padding: "11px 26px", borderRadius: 999, textDecoration: "none", border: "1px solid rgba(var(--ln-fg-rgb),0.18)", background: "rgba(var(--ln-fg-rgb),0.04)", color: "var(--ln-fg)", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 600 }}>Edit profile</Link>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 6 }}>
+                  <FollowButton
+                    userId={user.id}
+                    onCountChange={(d) => setFollowCounts((c) => c ? { ...c, followers: Math.max(0, c.followers + d) } : c)}
+                  />
                 </div>
               )}
             </div>
