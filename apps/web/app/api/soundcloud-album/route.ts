@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const ok = (data: SoundCloudAlbum | null) =>
     NextResponse.json(
       { album: data },
-      { headers: { "Cache-Control": data ? "public, max-age=86400, s-maxage=604800" : "no-store" } },
+      { headers: { "Cache-Control": data ? "public, max-age=300, s-maxage=86400, stale-while-revalidate=86400" : "no-store" } },
     );
 
   try {

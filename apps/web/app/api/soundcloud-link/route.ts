@@ -28,8 +28,11 @@ export async function GET(request: Request) {
       { soundcloud },
       {
         headers: {
+          // Short browser cache so a resolution that later proves wrong (matching
+          // is still evolving) self-heals in minutes, not a day — the CDN
+          // (s-maxage, purged on each deploy) carries the perf. Nulls: no-store.
           "Cache-Control": soundcloud
-            ? "public, max-age=86400, s-maxage=604800"
+            ? "public, max-age=300, s-maxage=86400, stale-while-revalidate=86400"
             : "no-store",
         },
       },
