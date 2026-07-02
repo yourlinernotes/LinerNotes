@@ -18,7 +18,7 @@ import type { NowPlaying } from "./types";
  */
 
 const TOTP_SECRET_B32 = process.env.SPOTIFY_TOTP_SECRET || ""; // base32, no padding
-const TOTP_VER = process.env.SPOTIFY_TOTP_VER || "5";
+const TOTP_VER = process.env.SPOTIFY_TOTP_VER || "61";
 
 /** Decode an unpadded base32 string to bytes. */
 function base32Decode(s: string): Buffer {
@@ -56,50 +56,55 @@ interface SpToken {
 // Tiny in-process token cache keyed by sp_dc (avoids re-minting each poll).
 const tokenCache = new Map<string, SpToken>();
 
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 /** Mint a web-player access token from an sp_dc cookie. Null on any failure. */
 async function mintToken(spDc: string): Promise<string | null> {
   const cached = tokenCache.get(spDc);
   if (cached && cached.expiresAt > Date.now() + 10_000) return cached.accessToken;
   if (!TOTP_SECRET_B32) return null; // feature not configured
 
-  try {
-    const secret = base32Decode(TOTP_SECRET_B32);
-    // Use Spotify's server clock so the TOTP lines up with theirs.
-    let ts = Date.now();
-    try {
-      const st = await fetch("https://open.spotify.com/server-time", {
-        headers: { Cookie: `sp_dc=${spDc}` },
-      });
-      if (st.ok) {
-        const j = await st.json();
-        if (j?.serverTime) ts = Number(j.serverTime) * 1000;
-      }
-    } catch {
-      /* fall back to local time */
-    }
+  const secret = base32Decode(TOTP_SECRET_B32);
 
-    const code = totp(secret, ts);
-    const url =
-      `https://open.spotify.com/get_access_token?reason=transport&productType=web_player` +
-      `&totp=${code}&totpVer=${TOTP_VER}&ts=${ts}`;
-    const r = await fetch(url, {
-      headers: {
-        Cookie: `sp_dc=${spDc}`,
-        "User-Agent": "Mozilla/5.0",
-        "App-Platform": "WebPlayer",
-      },
-    });
-    if (!r.ok) return null;
-    const j = await r.json();
-    if (!j?.accessToken) return null;
-    tokenCache.set(spDc, {
-      accessToken: j.accessToken,
-      expiresAt: j.accessTokenExpirationTimestampMs || Date.now() + 55 * 60 * 1000,
-    });
-    return j.accessToken;
-  } catch {
-    return null;
-  }
+  // Current web-player flow (2026): GET open.spotify.com/api/token with a TOTP
+  // whose secret Spotify rotates (env, hotfixable). For totpVer >= 10 the client
+  // clock is fine — no server-time round-trip. Try "transport", then "init".
+  const attempt = async (reason: "transport" | "init"): Promise<string | null> => {
+    try {
+      const ts = Date.now();
+      const code = totp(secret, ts);
+      const params = new URLSearchParams({
+        reason,
+        productType: "web-player",
+        totp: code,
+        totpServer: code,
+        totpVer: TOTP_VER,
+        cTime: String(ts),
+      });
+      const r = await fetch(`https://open.spotify.com/api/token?${params}`, {
+        headers: {
+          Cookie: `sp_dc=${spDc}`,
+          "User-Agent": UA,
+          Accept: "application/json",
+          Referer: "https://open.spotify.com/",
+          "App-Platform": "WebPlayer",
+        },
+      });
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (!j?.accessToken) return null;
+      tokenCache.set(spDc, {
+        accessToken: j.accessToken,
+        expiresAt: j.accessTokenExpirationTimestampMs || Date.now() + 55 * 60 * 1000,
+      });
+      return j.accessToken;
+    } catch {
+      return null;
+    }
+  };
+
+  return (await attempt("transport")) || (await attempt("init"));
 }
 
 function toNowPlaying(item: any, isPlaying: boolean, at?: number): NowPlaying | null {
