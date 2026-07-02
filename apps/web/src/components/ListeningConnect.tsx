@@ -33,7 +33,6 @@ export function ListeningConnect({
 }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [open, setOpen] = useState<Provider | null>(null);
-  const [spDc, setSpDc] = useState("");
   const [lb, setLb] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -56,16 +55,6 @@ export function ListeningConnect({
   };
 
   const after = async () => { await loadStatus(); onChange?.(); };
-
-  const connectSpotify = async () => {
-    if (!spDc.trim()) return;
-    setBusy(true); setError(null);
-    try {
-      const r = await fetch("/api/connect/spotify-spdc", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ spDc: spDc.trim() }) });
-      if (!r.ok) throw new Error("Couldn't connect Spotify — check the sp_dc value.");
-      setSpDc(""); setOpen(null); await confirm(); await after();
-    } catch (e: any) { setError(e.message); } finally { setBusy(false); }
-  };
 
   const connectLB = async () => {
     if (!lb.trim()) return;
@@ -101,17 +90,14 @@ export function ListeningConnect({
         )}
       </Card>
 
-      {/* Spotify (sp_dc) */}
-      <Card name="Spotify" blurb="No Last.fm? Connect Spotify directly — works for everyone." connected={!!st?.spotify.connected} onToggle={() => setOpen(open === "spotify" ? null : "spotify")} expanded={open === "spotify"}>
+      {/* Spotify — captured effortlessly in the app (WebView); web rides that.
+          A web page can't read Spotify's HttpOnly cookie, so there's no paste. */}
+      <Card name="Spotify" blurb="Full listening history, uncapped." connected={!!st?.spotify.connected}>
         {st?.spotify.connected ? (
           <button type="button" onClick={() => disconnect("/api/connect/spotify-spdc")} disabled={busy} style={ghost}>Disconnect</button>
-        ) : open === "spotify" ? (
-          <div style={col}>
-            <p style={hint}>Paste your <code>sp_dc</code> cookie from a logged-in open.spotify.com session (DevTools → Application → Cookies → sp_dc). It stays private to your account.</p>
-            <input value={spDc} onChange={(e) => setSpDc(e.target.value)} placeholder="sp_dc value" style={input} />
-            <button type="button" onClick={connectSpotify} disabled={busy || !spDc.trim()} style={{ ...cta, opacity: busy || !spDc.trim() ? 0.5 : 1 }}>{busy ? "Connecting…" : "Connect Spotify"}</button>
-          </div>
-        ) : null}
+        ) : (
+          <p style={hint}>Connect Spotify in the LinerNotes app — one tap, no password. It syncs here automatically once you do.</p>
+        )}
       </Card>
 
       {/* ListenBrainz */}
