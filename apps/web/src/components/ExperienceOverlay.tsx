@@ -112,9 +112,9 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
   const isCollection = album.kind === "album" || album.kind === "playlist";
 
   // Album/playlist: resolve the real tracklist's previews once (album-scoped).
-  type PMEntry = { previewUrl: string; sourceUrl: string | null };
+  type PMEntry = { previewUrl: string; sourceUrl: string | null; durationSec: number | null };
   const [previewMap, setPreviewMap] = useState<Record<string, PMEntry>>({});
-  type ScTrack = { id: string; title: string | null };
+  type ScTrack = { id: string; title: string | null; durationSec?: number | null };
   const [scAlbumTracks, setScAlbumTracks] = useState<ScTrack[]>([]);
 
   // Auto-find the album's SoundCloud set (keyless, no user input needed).
@@ -140,11 +140,11 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
         const q = new URLSearchParams({ album: album.title, artist: album.artist });
         const r = await fetch(`/api/album-previews?${q}`);
         const d = r.ok ? await r.json() : null;
-        const tracks: Array<{ name: string; previewUrl: string; sourceUrl?: string | null }> =
+        const tracks: Array<{ name: string; previewUrl: string; sourceUrl?: string | null; durationSec?: number | null }> =
           d?.album?.tracks || [];
         if (cancelled || !tracks.length) return;
         const map: Record<string, PMEntry> = {};
-        for (const t of tracks) map[normName(t.name)] = { previewUrl: t.previewUrl, sourceUrl: t.sourceUrl ?? null };
+        for (const t of tracks) map[normName(t.name)] = { previewUrl: t.previewUrl, sourceUrl: t.sourceUrl ?? null, durationSec: t.durationSec ?? null };
         setPreviewMap(map);
       } catch {
         /* per-track /api/preview fallback still applies */
@@ -180,15 +180,27 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     if (!t) return null;
     const pm = previewMap[normName(t.name)];
     // Match this track to its SoundCloud id from the auto-found set.
-    // Strip leading track numbers ("01.", "1 -" etc.) before comparing.
+    // Strip leading track numbers ("01.", "1 -", "8- " etc.) before comparing.
     const wantNorm = normName(stripTrackNo(t.name));
-    let scHit: ScTrack | undefined =
-      scAlbumTracks.find((s) => normName(stripTrackNo(s.title || "")) === wantNorm) ||
+    const wantDur = pm?.durationSec ?? null;
+    const scNorm = (s: ScTrack) => normName(stripTrackNo(s.title || ""));
+    const scHit: ScTrack | undefined =
+      // 1. Exact title match.
+      scAlbumTracks.find((s) => scNorm(s) === wantNorm) ||
+      // 2. Substring match — but guard against empty/short strings, else a stub
+      //    with a blank title matches everything ("mattress".includes("") is true).
       scAlbumTracks.find((s) => {
-        const sn = normName(stripTrackNo(s.title || ""));
-        return sn.includes(wantNorm) || wantNorm.includes(sn);
+        const sn = scNorm(s);
+        return sn.length >= 3 && wantNorm.length >= 3 && (sn.includes(wantNorm) || wantNorm.includes(sn));
       }) ||
-      scAlbumTracks[selected]; // index fallback when titles don't match
+      // 3. Duration match (from the Deezer preview) — disambiguates when titles differ.
+      scAlbumTracks.find(
+        (s) => wantDur != null && s.durationSec != null && Math.abs(s.durationSec - wantDur) <= 4,
+      ) ||
+      // 4. Index fallback — ONLY when the two tracklists are the same length, so a
+      //    1:1 positional map is safe. Otherwise no full song (→ preview) beats a
+      //    wrong song.
+      (scAlbumTracks.length === album.tracks.length ? scAlbumTracks[selected] : undefined);
     return {
       track: t.name,
       artist: album.artist,

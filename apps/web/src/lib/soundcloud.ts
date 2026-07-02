@@ -81,6 +81,8 @@ async function scrapeTrackId(scUrl: string): Promise<string | null> {
 export interface SoundCloudSetTrack {
   id: string;
   title: string | null;
+  /** Full-song length in seconds, when known — disambiguates title matching. */
+  durationSec?: number | null;
 }
 
 /**
@@ -103,10 +105,18 @@ export async function resolveSoundCloudSet(url: string): Promise<SoundCloudSetTr
         return playlist.data.tracks.map((t: any) => ({
           id: String(t.id),
           title: t.title ?? null,
+          durationSec: t.duration ? Math.round(t.duration / 1000) : null,
         }));
       }
       const single = hy.find((x: any) => x.hydratable === "sound");
-      if (single?.data?.id) return [{ id: String(single.data.id), title: single.data.title ?? null }];
+      if (single?.data?.id)
+        return [
+          {
+            id: String(single.data.id),
+            title: single.data.title ?? null,
+            durationSec: single.data.duration ? Math.round(single.data.duration / 1000) : null,
+          },
+        ];
     }
     // Fallback: a lone track page exposes `sounds:<id>`.
     const one = html.match(/sounds:(\d+)/);
@@ -149,6 +159,46 @@ async function getClientId(force = false): Promise<string | null> {
     /* fall through */
   }
   return null;
+}
+
+/**
+ * A SoundCloud set only hydrates the first few tracks' metadata; the rest arrive
+ * as stubs (`title: null`, no duration). Batch-fetch the missing ones by id via
+ * api-v2 /tracks?ids= so every track has a real title + duration for matching.
+ * Preserves the input order (the batch endpoint returns ids in arbitrary order).
+ */
+async function hydrateStubTracks(tracks: SoundCloudSetTrack[]): Promise<SoundCloudSetTrack[]> {
+  const missing = tracks.filter((t) => !t.title).map((t) => t.id);
+  if (!missing.length) return tracks;
+  const clientId = await getClientId();
+  if (!clientId) return tracks;
+
+  const byId = new Map<string, { title: string | null; durationSec: number | null }>();
+  // /tracks?ids= accepts up to 50 ids per call.
+  for (let i = 0; i < missing.length; i += 50) {
+    const batch = missing.slice(i, i + 50);
+    try {
+      const r = await fetch(
+        `https://api-v2.soundcloud.com/tracks?ids=${batch.join(",")}&client_id=${clientId}`,
+        { headers: { "User-Agent": UA } },
+      );
+      if (!r.ok) continue;
+      const rows: any[] = await r.json();
+      for (const row of rows) {
+        byId.set(String(row.id), {
+          title: row.title ?? null,
+          durationSec: row.duration ? Math.round(row.duration / 1000) : null,
+        });
+      }
+    } catch {
+      /* leave those stubs as-is */
+    }
+  }
+
+  return tracks.map((t) => {
+    const h = byId.get(t.id);
+    return h ? { ...t, title: t.title ?? h.title, durationSec: t.durationSec ?? h.durationSec } : t;
+  });
 }
 
 const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -331,7 +381,11 @@ export async function searchSoundCloudAlbum(
 
   let tracks: SoundCloudSetTrack[] = (hit.tracks || [])
     .filter((t: any) => t?.id)
-    .map((t: any) => ({ id: String(t.id), title: t.title ?? null }));
+    .map((t: any) => ({
+      id: String(t.id),
+      title: t.title ?? null,
+      durationSec: t.duration ? Math.round(t.duration / 1000) : null,
+    }));
   // Search results sometimes carry only track stubs — read the set page for the
   // full ordered tracklist in that case.
   if (tracks.length < (hit.track_count || 0) || !tracks.length) {
@@ -339,6 +393,9 @@ export async function searchSoundCloudAlbum(
     if (full && full.length >= tracks.length) tracks = full;
   }
   if (!tracks.length) return null;
+  // A set hydrates only its first few tracks; fill the rest (title + duration) so
+  // later tracks match by name/length instead of falling to a wrong index.
+  tracks = await hydrateStubTracks(tracks);
   return { url: hit.permalink_url, tracks };
 }
 
