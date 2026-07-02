@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { TopBar, Footer } from "@/components/ln/nav";
 import { FeedItem } from "@/components/ln/cards";
+import { SuggestedToFollow } from "@/components/SuggestedToFollow";
 import { toggleLike, toggleRepost } from "@/lib/api";
 import { toReviewVM, toAlbumReviewVM, type ReviewVM } from "@/lib/view-adapter";
 import type { AlbumReview } from "@/lib/types";
@@ -120,6 +121,12 @@ export default function FeedPage() {
                 <>Nothing in the community yet. <Link href="/log" style={{ color: "var(--ln-accent)" }}>Log the first note</Link>.</>
               )}
             </div>
+          )}
+
+          {/* Cold-start rail: fill a sparse feed with people to follow. Always in
+              Discover; in Home only when it's thin. */}
+          {!loading && session && (view === "discover" || items.length < 5) && (
+            <SuggestedToFollow />
           )}
 
           {!loading && session && items.length > 0 && (
