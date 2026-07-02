@@ -217,10 +217,25 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
   const backToList = isCollection && selected != null ? () => setSelected(null) : null;
   // Next/prev track navigation within an album/playlist.
   const trackCount = album.tracks.length;
-  const goPrev =
-    isCollection && selected != null && selected > 0 ? () => setSelected(selected - 1) : null;
+  // When advancing we want the next track to start playing on its own (seamless).
+  const [autoplayNext, setAutoplayNext] = useState(false);
+  const advance = (dir: 1 | -1, autoplay: boolean) => {
+    if (selected == null) return;
+    const next = selected + dir;
+    if (next < 0 || next >= trackCount) return;
+    setAutoplayNext(autoplay);
+    setSelected(next);
+  };
+  const goPrev = isCollection && selected != null && selected > 0 ? () => advance(-1, true) : null;
   const goNext =
-    isCollection && selected != null && selected < trackCount - 1 ? () => setSelected(selected + 1) : null;
+    isCollection && selected != null && selected < trackCount - 1 ? () => advance(1, true) : null;
+  // When the current song finishes: roll into the next track, or — at the end of
+  // the album/playlist — return to the tracklist (recommended-next comes later).
+  const onTrackEnded = () => {
+    if (selected == null) return;
+    if (selected < trackCount - 1) advance(1, true);
+    else setSelected(null);
+  };
 
   return (
     <div style={S.overlay}>
@@ -250,9 +265,15 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
       </div>
 
       {subject ? (
-        <TrackExperience key={selected ?? "single"} subject={subject} palette={p} />
+        <TrackExperience
+          key={selected ?? "single"}
+          subject={subject}
+          palette={p}
+          autoPlay={isCollection && autoplayNext}
+          onEnded={isCollection ? onTrackEnded : undefined}
+        />
       ) : (
-        <AlbumList album={album} previewMap={previewMap} onPick={setSelected} />
+        <AlbumList album={album} previewMap={previewMap} onPick={(i) => { setAutoplayNext(false); setSelected(i); }} />
       )}
     </div>
   );
@@ -310,7 +331,19 @@ function AlbumList({
 // TrackExperience — playback + synced lyrics for one track
 // ===========================================================================
 
-function TrackExperience({ subject, palette }: { subject: Subject; palette: Palette }) {
+function TrackExperience({
+  subject,
+  palette,
+  autoPlay = false,
+  onEnded,
+}: {
+  subject: Subject;
+  palette: Palette;
+  /** Start playing as soon as the source resolves (seamless album advance). */
+  autoPlay?: boolean;
+  /** Called when the full song finishes — parent advances to the next track. */
+  onEnded?: () => void;
+}) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(subject.presetPreviewUrl ?? null);
   const [previewSourceUrl, setPreviewSourceUrl] = useState<string | null>(subject.presetSourceUrl ?? null);
   const [scTrackId, setScTrackId] = useState<string | null>(subject.presetScId ?? null);
@@ -454,7 +487,10 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
       const w = window.SC.Widget(iframeRef.current);
       widgetRef.current = w;
       const E = window.SC.Widget.Events;
-      w.bind(E.READY, () => w.getDuration((d: number) => setDurationMs(d || 0)));
+      w.bind(E.READY, () => {
+        w.getDuration((d: number) => setDurationMs(d || 0));
+        if (autoPlay) w.play(); // seamless advance from the previous track
+      });
       w.bind(E.PLAY_PROGRESS, (e: any) => {
         if ((e.currentPosition || 0) > 0) {
           progressed = true;
@@ -470,7 +506,10 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
         }, 45000);
       });
       w.bind(E.PAUSE, () => setPlaying(false));
-      w.bind(E.FINISH, () => setPlaying(false));
+      w.bind(E.FINISH, () => {
+        setPlaying(false);
+        onEnded?.(); // full song done → parent advances to the next track
+      });
       w.bind(E.ERROR, () => setScTrackId(null));
     });
     return () => {
@@ -495,6 +534,7 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     a.addEventListener("play", onPlay);
     a.addEventListener("pause", onPause);
     a.addEventListener("ended", onPause);
+    if (autoPlay) a.play().catch(() => {}); // seamless advance
     return () => {
       a.pause();
       a.removeEventListener("timeupdate", onTime);
