@@ -96,6 +96,8 @@ interface Subject {
   body?: string;
   /** A pre-resolved browser-playable preview (from the album finder). */
   presetPreviewUrl?: string | null;
+  /** A pre-resolved source URL (Deezer/iTunes) → Odesli → the full SoundCloud song. */
+  presetSourceUrl?: string | null;
   /** A source URL / id Odesli can turn into a SoundCloud link. */
   extId?: string | null;
 }
@@ -106,7 +108,8 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
   const isCollection = album.kind === "album" || album.kind === "playlist";
 
   // Album/playlist: resolve the real tracklist's previews once (album-scoped).
-  const [previewMap, setPreviewMap] = useState<Record<string, string>>({});
+  type PMEntry = { previewUrl: string; sourceUrl: string | null };
+  const [previewMap, setPreviewMap] = useState<Record<string, PMEntry>>({});
   useEffect(() => {
     if (!isCollection) return;
     let cancelled = false;
@@ -115,10 +118,11 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
         const q = new URLSearchParams({ album: album.title, artist: album.artist });
         const r = await fetch(`/api/album-previews?${q}`);
         const d = r.ok ? await r.json() : null;
-        const tracks: Array<{ name: string; previewUrl: string }> = d?.album?.tracks || [];
+        const tracks: Array<{ name: string; previewUrl: string; sourceUrl?: string | null }> =
+          d?.album?.tracks || [];
         if (cancelled || !tracks.length) return;
-        const map: Record<string, string> = {};
-        for (const t of tracks) map[normName(t.name)] = t.previewUrl;
+        const map: Record<string, PMEntry> = {};
+        for (const t of tracks) map[normName(t.name)] = { previewUrl: t.previewUrl, sourceUrl: t.sourceUrl ?? null };
         setPreviewMap(map);
       } catch {
         /* per-track /api/preview fallback still applies */
@@ -152,22 +156,30 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
     if (selected == null) return null;
     const t = album.tracks[selected];
     if (!t) return null;
+    const pm = previewMap[normName(t.name)];
     return {
       track: t.name,
       artist: album.artist,
       artworkUrl: album.artworkUrl,
       notes: t.moments || [],
       body: t.review || undefined,
-      presetPreviewUrl: previewMap[normName(t.name)] || null,
+      presetPreviewUrl: pm?.previewUrl || null,
+      presetSourceUrl: pm?.sourceUrl || null,
       extId: null,
     };
   }, [isCollection, selected, album, review.take, review.body, review.notes, previewMap]);
 
   const backToList = isCollection && selected != null ? () => setSelected(null) : null;
+  // Next/prev track navigation within an album/playlist.
+  const trackCount = album.tracks.length;
+  const goPrev =
+    isCollection && selected != null && selected > 0 ? () => setSelected(selected - 1) : null;
+  const goNext =
+    isCollection && selected != null && selected < trackCount - 1 ? () => setSelected(selected + 1) : null;
 
   return (
     <div style={S.overlay}>
-      <style>{BREATHE_KEYFRAMES}</style>
+      <style>{KEYFRAMES}</style>
       <div style={{ ...S.flood, background: `linear-gradient(155deg, ${p.mid} 0%, ${p.deep} 60%, ${p.lo} 100%)` }} />
       <div style={{ ...S.floodGlow, background: `radial-gradient(circle at 78% 78%, ${p.glow}cc, transparent 60%)` }} />
       <div style={{ ...S.floodGlow, background: `radial-gradient(circle at 14% 88%, ${p.accent}55, transparent 55%)` }} />
@@ -178,7 +190,18 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
           {backToList ? "‹" : "✕"}
         </button>
         <span style={S.expLabel}>the experience</span>
-        <span style={{ width: 34 }} />
+        {isCollection && selected != null ? (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={goPrev || undefined} disabled={!goPrev} style={{ ...S.navBtn, opacity: goPrev ? 1 : 0.3 }} aria-label="Previous track">
+              ‹
+            </button>
+            <button onClick={goNext || undefined} disabled={!goNext} style={{ ...S.navBtn, opacity: goNext ? 1 : 0.3 }} aria-label="Next track">
+              ›
+            </button>
+          </div>
+        ) : (
+          <span style={{ width: 34 }} />
+        )}
       </div>
 
       {subject ? (
@@ -200,7 +223,7 @@ function AlbumList({
   onPick,
 }: {
   album: ReviewVM["album"];
-  previewMap: Record<string, string>;
+  previewMap: Record<string, { previewUrl: string; sourceUrl: string | null }>;
   onPick: (i: number) => void;
 }) {
   return (
@@ -251,6 +274,9 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
   const [durationMs, setDurationMs] = useState(0);
   const [playing, setPlaying] = useState(false);
   const source: Source = scTrackId ? "soundcloud" : previewUrl ? "preview" : "none";
+  // Lyrics/moment timestamps are FULL-SONG times, so real sync only works on the
+  // full song. A 30s preview is a random clip — never fake-sync against it.
+  const synced = source === "soundcloud";
 
   // Lyric translation (keyless, on-demand) — a second text track at the same times.
   const [translations, setTranslations] = useState<string[] | null>(null);
@@ -266,8 +292,11 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     [syncedLines, positionMs],
   );
   const activeMoment = useMemo(
-    () => subject.notes.find((n) => positionMs >= n.sec * 1000 && positionMs < (n.sec + 5) * 1000) || null,
-    [subject.notes, positionMs],
+    () =>
+      synced
+        ? subject.notes.find((n) => positionMs >= n.sec * 1000 && positionMs < (n.sec + 5) * 1000) || null
+        : null,
+    [subject.notes, positionMs, synced],
   );
 
   // Resolve preview (unless preset), lyrics, and a SoundCloud id.
@@ -276,7 +305,9 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     (async () => {
       const { track, artist } = subject;
       let durationSec: number | undefined;
-      let odesliSourceUrl: string | null = null;
+      // Prefer a preset source URL (album finder) so album tracks resolve the
+      // full SoundCloud song even when we already have their preview.
+      let odesliSourceUrl: string | null = subject.presetSourceUrl ?? null;
 
       if (!subject.presetPreviewUrl) {
         try {
@@ -287,7 +318,7 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
             if (preview && !cancelled) {
               setPreviewUrl(preview.previewUrl);
               if (preview.durationSec) durationSec = preview.durationSec;
-              odesliSourceUrl = preview.sourceUrl || null;
+              if (!odesliSourceUrl) odesliSourceUrl = preview.sourceUrl || null;
             }
           }
         } catch {
@@ -328,7 +359,7 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject.track, subject.artist, subject.presetPreviewUrl, subject.extId]);
+  }, [subject.track, subject.artist, subject.presetPreviewUrl, subject.presetSourceUrl, subject.extId]);
 
   // SoundCloud widget
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -397,10 +428,18 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
     [source],
   );
 
+  // Auto-scroll the active line — but ONLY within the lyrics pane, never the
+  // whole overlay (scrollIntoView(block:center) yanks the page). Only when synced.
   const activeRef = useRef<HTMLDivElement | null>(null);
+  const paneRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [activeIdx]);
+    if (!synced) return;
+    const pane = paneRef.current;
+    const line = activeRef.current;
+    if (!pane || !line) return;
+    const target = line.offsetTop - pane.clientHeight * 0.4 + line.clientHeight / 2;
+    pane.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+  }, [activeIdx, synced]);
 
   const notesByLine = useMemo(() => {
     const map: Record<number, MomentVM[]> = {};
@@ -508,7 +547,8 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
                 <div style={{ flex: 1 }}>
                   <div ref={scrubRef} onClick={onScrub} style={S.scrubTrack}>
                     <div style={{ ...S.scrubFill, width: `${pct * 100}%` }} />
-                    {durationMs > 0 &&
+                    {synced &&
+                      durationMs > 0 &&
                       subject.notes.map((n, i) => {
                         const on = activeMoment === n;
                         return (
@@ -539,11 +579,17 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
                 </div>
               </div>
               <div style={S.playbackMeta}>
-                <span style={S.sourceBadge}>{source === "soundcloud" ? "soundcloud" : "preview · 0:30"}</span>
+                <span style={S.sourceBadge}>{synced ? "full song · soundcloud" : "preview · 0:30"}</span>
                 <button onClick={openSpotify} style={S.openSpotify}>
                   open in spotify ↗
                 </button>
               </div>
+              {!synced && (syncedLines.length > 0 || subject.notes.length > 0) && (
+                <div style={S.previewNote}>
+                  playing a 30s preview — the full song wasn’t found on SoundCloud, so lyrics &amp; moments
+                  aren’t synced to this clip.
+                </div>
+              )}
             </div>
           ) : (
             <button onClick={openSpotify} style={S.spotifyBtn}>
@@ -570,12 +616,33 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
           {subject.quote && <div style={S.quote}>&ldquo;{subject.quote}&rdquo;</div>}
           {subject.body && <div style={S.body}>{subject.body}</div>}
 
+          {/* When not synced, the moments can't ride the clock — show them as a
+              static list (still the author's notes, just not seekable). */}
+          {!synced && subject.notes.length > 0 && (
+            <div style={S.section}>
+              <div style={S.sectionLabel}>the moment{subject.notes.length > 1 ? "s" : ""}</div>
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                {subject.notes.map((n, i) => (
+                  <div key={i} style={S.staticNote}>
+                    <span style={S.inlineNoteTime}>{fmt(n.sec * 1000)}</span>
+                    <span style={S.inlineNoteText}>{n.note}</span>
+                    <button onClick={() => shareMoment(n)} style={S.inlineShare} aria-label="Share moment">
+                      ⤴
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <LyricsBlock
             loading={lyricsLoading}
             lyrics={lyrics}
             lines={syncedLines}
             activeIdx={activeIdx}
             activeRef={activeRef}
+            paneRef={paneRef}
+            synced={synced}
             notesByLine={notesByLine}
             onSeek={seekTo}
             hasAudio={!!(previewUrl || scTrackId)}
@@ -597,6 +664,8 @@ function LyricsBlock({
   lines,
   activeIdx,
   activeRef,
+  paneRef,
+  synced,
   notesByLine,
   onSeek,
   hasAudio,
@@ -611,6 +680,8 @@ function LyricsBlock({
   lines: LyricLine[];
   activeIdx: number;
   activeRef: React.RefObject<HTMLDivElement | null>;
+  paneRef: React.RefObject<HTMLDivElement | null>;
+  synced: boolean;
   notesByLine: Record<number, MomentVM[]>;
   onSeek: (ms: number) => void;
   hasAudio: boolean;
@@ -648,25 +719,28 @@ function LyricsBlock({
           </button>
         </div>
         <div style={S.lyricsHint}>
-          {hasAudio ? "it follows the song — click any line to jump there." : "click a line to jump when playing."}
+          {synced
+            ? "it follows the song — click any line to jump there."
+            : "connect the full song for synced, tappable lyrics."}
         </div>
-        <div style={S.lyricsPane}>
+        <div ref={paneRef} style={S.lyricsPane}>
           {lines.map((ln, idx) => {
-            const isActive = idx === activeIdx;
+            const isActive = synced && idx === activeIdx;
             const distance = Math.abs(idx - activeIdx);
-            const opacity = activeIdx < 0 ? 0.8 : isActive ? 1 : Math.max(0.3, 1 - distance * 0.12);
-            const lineNotes = notesByLine[idx];
+            const opacity = !synced ? 0.85 : activeIdx < 0 ? 0.8 : isActive ? 1 : Math.max(0.3, 1 - distance * 0.12);
+            // On a preview, note timestamps don't match the clip — don't interleave.
+            const lineNotes = synced ? notesByLine[idx] : undefined;
             const translated = translations?.[idx];
             return (
               <div key={idx} ref={isActive ? activeRef : undefined} style={{ opacity }}>
                 <div
-                  onClick={() => onSeek(ln.timeMs)}
+                  onClick={synced ? () => onSeek(ln.timeMs) : undefined}
                   style={{
                     ...S.lyricLine,
                     fontSize: isActive ? 22 : 18,
                     color: isActive ? "var(--ln-fg, #f1ebe0)" : "rgba(241,235,224,0.6)",
                     fontFamily: isActive ? "var(--ln-display, var(--ln-body))" : "var(--ln-body)",
-                    cursor: "pointer",
+                    cursor: synced ? "pointer" : "default",
                   }}
                 >
                   {ln.text || "♪"}
@@ -710,10 +784,20 @@ function LyricsBlock({
   return null;
 }
 
-const BREATHE_KEYFRAMES = `@keyframes ln-breathe { 0%,100% { transform: scale(1.06); } 50% { transform: scale(1.15); } }`;
+const KEYFRAMES = `
+  @keyframes ln-breathe { 0%,100% { transform: scale(1.06); } 50% { transform: scale(1.15); } }
+  @keyframes ln-exp-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+`;
 
 const S: Record<string, React.CSSProperties> = {
-  overlay: { position: "fixed", inset: 0, zIndex: 1000, background: "var(--ln-bg, #0a0908)", overflow: "hidden" },
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1000,
+    background: "var(--ln-bg, #0a0908)",
+    overflow: "hidden",
+    animation: "ln-exp-in 0.34s cubic-bezier(.2,.8,.2,1)",
+  },
   flood: { position: "absolute", inset: -80, animation: "ln-breathe 10.4s ease-in-out infinite" },
   floodGlow: { position: "absolute", inset: -80, opacity: 0.55 },
   darken: {
@@ -744,6 +828,34 @@ const S: Record<string, React.CSSProperties> = {
     lineHeight: 1,
   },
   expLabel: { fontFamily: "var(--ln-mono)", fontSize: 11, letterSpacing: "0.08em", color: "rgba(241,235,224,0.65)" },
+  navBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    background: "rgba(241,235,224,0.08)",
+    border: "1px solid rgba(241,235,224,0.14)",
+    color: "#f1ebe0",
+    cursor: "pointer",
+    fontSize: 16,
+    lineHeight: 1,
+  },
+  previewNote: {
+    fontFamily: "var(--ln-body)",
+    fontSize: 11.5,
+    fontStyle: "italic",
+    color: "rgba(241,235,224,0.5)",
+    marginTop: 10,
+    lineHeight: 1.4,
+  },
+  staticNote: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(241,235,224,0.1)",
+    background: "rgba(241,235,224,0.03)",
+  },
   scroll: { position: "absolute", inset: 0, overflowY: "auto", padding: "84px 0 80px" },
   content: { maxWidth: 560, margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", alignItems: "center" },
   cover: { width: 200, height: 200, borderRadius: 14, overflow: "hidden", cursor: "pointer", boxShadow: "0 32px 70px -28px rgba(0,0,0,0.9)" },

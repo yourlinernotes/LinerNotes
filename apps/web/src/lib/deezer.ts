@@ -184,6 +184,8 @@ export interface AlbumTrackPreview {
   name: string;
   previewUrl: string;
   durationSec: number | null;
+  /** The track's canonical URL — feed to Odesli to resolve the full SoundCloud song. */
+  sourceUrl: string | null;
 }
 
 const ALBUM_VARIANT = /\b(remix(ed)?|live|deluxe|instrumental|acoustic|karaoke|remaster(ed)?|reissue|edit|version|sessions?)\b/i;
@@ -225,7 +227,7 @@ async function deezerAlbumTracks(album: string, artist: string): Promise<AlbumTr
   const rows: any[] = (await t.json())?.data || [];
   return rows
     .filter((x) => x.preview)
-    .map((x) => ({ name: x.title, previewUrl: x.preview, durationSec: x.duration ?? null }));
+    .map((x) => ({ name: x.title, previewUrl: x.preview, durationSec: x.duration ?? null, sourceUrl: x.link ?? null }));
 }
 
 async function itunesAlbumTracks(album: string, artist: string): Promise<AlbumTrackPreview[] | null> {
@@ -249,6 +251,7 @@ async function itunesAlbumTracks(album: string, artist: string): Promise<AlbumTr
       name: x.trackName,
       previewUrl: x.previewUrl,
       durationSec: x.trackTimeMillis ? Math.round(x.trackTimeMillis / 1000) : null,
+      sourceUrl: x.trackViewUrl ?? null,
     }));
 }
 
