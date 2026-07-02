@@ -80,6 +80,10 @@ function sliceStream(
 }
 
 export async function GET(request: Request) {
+  // Kill switch — mirrors /api/youtube-audio. YOUTUBE_FALLBACK=off disables the tier.
+  if (/^(off|0|false|no)$/i.test(process.env.YOUTUBE_FALLBACK || "")) {
+    return new Response("youtube fallback disabled", { status: 503 });
+  }
   const { searchParams } = new URL(request.url);
   const videoId = (searchParams.get("v") || "").trim();
   if (!videoId) return new Response("missing v", { status: 400 });

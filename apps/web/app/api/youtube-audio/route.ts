@@ -15,6 +15,10 @@ import { resolveYouTubeAudio } from "@/lib/youtube";
  */
 export const runtime = "nodejs";
 
+/** Kill switch: set YOUTUBE_FALLBACK=off in the env to disable this fragile tier
+ *  (SABR/BotGuard) instantly — players then fall straight through to the preview. */
+const youtubeEnabled = () => !/^(off|0|false|no)$/i.test(process.env.YOUTUBE_FALLBACK || "");
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const track = (searchParams.get("track") || "").trim();
@@ -37,7 +41,7 @@ export async function GET(request: Request) {
     );
 
   try {
-    if (!track) return ok(null);
+    if (!track || !youtubeEnabled()) return ok(null);
     const match = await resolveYouTubeAudio(track, artist, durationSec);
     if (!match) return ok(null);
     return ok({
