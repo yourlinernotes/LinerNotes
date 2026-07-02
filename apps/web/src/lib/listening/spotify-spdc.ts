@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { NowPlaying } from "./types";
+import type { RecentPlay } from "./recent";
 
 /**
  * EXPERIMENTAL — Spotify now-playing WITHOUT the official API.
@@ -158,4 +159,67 @@ export async function spotifySpDcNowPlaying(spDc: string): Promise<NowPlaying | 
     /* none */
   }
   return null;
+}
+
+/** Normalise a Spotify track object into a RecentPlay. Album art comes free. */
+function trackToRecentPlay(track: any, playedAt?: string): RecentPlay | null {
+  if (!track?.name) return null;
+  const artist = (track.artists || []).map((a: any) => a.name).join(", ");
+  return {
+    track: track.name,
+    artist,
+    album: track.album?.name || undefined,
+    playedAt: playedAt ? new Date(playedAt).getTime() : undefined,
+    artworkUrl: track.album?.images?.[0]?.url || null,
+    // Spotify returns ISRC, not MBID.
+    mbid: null,
+  };
+}
+
+/**
+ * The user's recently-played tracks via the sp_dc cookie (newest first).
+ * Album art is captured from item.track.album.images[0].url. Fails soft to [].
+ */
+export async function spotifySpDcRecent(spDc: string, limit = 50): Promise<RecentPlay[]> {
+  if (!spDc) return [];
+  const token = await mintToken(spDc);
+  if (!token) return [];
+  try {
+    const r = await fetch(
+      `https://api.spotify.com/v1/me/player/recently-played?limit=${limit}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!r.ok) return [];
+    const j = await r.json();
+    const items: any[] = j?.items || [];
+    return items
+      .map((it) => trackToRecentPlay(it.track, it.played_at))
+      .filter((p): p is RecentPlay => p !== null);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The user's short-term top tracks via the sp_dc cookie. May 403 if the minted
+ * token lacks the scope — fails soft to [] in that case (and any other error).
+ */
+export async function spotifySpDcTopTracks(spDc: string, limit = 20): Promise<RecentPlay[]> {
+  if (!spDc) return [];
+  const token = await mintToken(spDc);
+  if (!token) return [];
+  try {
+    const r = await fetch(
+      `https://api.spotify.com/v1/me/top/tracks?time_range=short_term&limit=${limit}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!r.ok) return []; // e.g. 403 missing scope
+    const j = await r.json();
+    const items: any[] = j?.items || [];
+    return items
+      .map((t) => trackToRecentPlay(t))
+      .filter((p): p is RecentPlay => p !== null);
+  } catch {
+    return [];
+  }
 }
