@@ -300,6 +300,7 @@ function AlbumList({
 
 function TrackExperience({ subject, palette }: { subject: Subject; palette: Palette }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(subject.presetPreviewUrl ?? null);
+  const [previewSourceUrl, setPreviewSourceUrl] = useState<string | null>(subject.presetSourceUrl ?? null);
   const [scTrackId, setScTrackId] = useState<string | null>(subject.presetScId ?? null);
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(true);
@@ -352,6 +353,7 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
               setPreviewUrl(preview.previewUrl);
               if (preview.durationSec) durationSec = preview.durationSec;
               if (!odesliSourceUrl) odesliSourceUrl = preview.sourceUrl || null;
+              if (preview.sourceUrl && !cancelled) setPreviewSourceUrl(preview.sourceUrl);
             }
           }
         } catch {
@@ -493,15 +495,12 @@ function TrackExperience({ subject, palette }: { subject: Subject; palette: Pale
   const openSpotify = () => {
     const { track, artist, extId = "" } = subject;
     const search = `https://open.spotify.com/search/${encodeURIComponent(`${track} ${artist}`.trim())}`;
-    // If extId is already a 22-char Spotify id, link straight to it.
     if (/^[A-Za-z0-9]{22}$/.test(extId || "")) {
       window.open(`https://open.spotify.com/track/${extId}`, "_blank", "noopener");
       return;
     }
-    // Open the tab synchronously (avoids popup-blocker) then navigate to the
-    // resolved Spotify URL — or search as a fallback.
     const w = window.open("about:blank", "_blank");
-    const params = new URLSearchParams({ id: extId || "", kind: "track", title: track, artist });
+    const params = new URLSearchParams({ id: extId || "", kind: "track", title: track, artist, sourceUrl: previewSourceUrl || "" });
     fetch(`/api/spotify-link?${params}`)
       .then((r) => r.json())
       .then(({ url }: { url: string | null }) => {

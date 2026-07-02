@@ -306,16 +306,34 @@ function PromptCard({
           {prompt.type !== "album" && (
             <PreviewPlayer track={prompt.track} artist={prompt.artist} accent={accent} size={28} title="Hear a snippet" />
           )}
-          <a
-            href={`https://open.spotify.com/search/${encodeURIComponent(
-              (prompt.type === "album" ? `${prompt.album} ${prompt.artist}` : `${prompt.track} ${prompt.artist}`).trim(),
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: "rgba(var(--ln-fg-rgb),0.55)", textDecoration: "none", letterSpacing: "0.3px" }}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const isAlbum = prompt.type === "album";
+              const title = isAlbum ? prompt.album : prompt.track;
+              const kind = isAlbum ? "album" : "track";
+              const search = `https://open.spotify.com/search/${encodeURIComponent(`${title} ${prompt.artist}`.trim())}`;
+              const w = window.open("about:blank", "_blank");
+              // Fetch the preview first to get a Deezer/iTunes sourceUrl for
+              // Odesli cross-resolution — no Spotify creds needed.
+              const previewQ = new URLSearchParams({ track: prompt.track || title, artist: prompt.artist });
+              fetch(`/api/preview?${previewQ}`)
+                .then((r) => r.ok ? r.json() : null)
+                .then((d) => {
+                  const sourceUrl = d?.preview?.sourceUrl || "";
+                  return fetch(`/api/spotify-link?${new URLSearchParams({ kind, title, artist: prompt.artist, sourceUrl })}`);
+                })
+                .then((r) => r.json())
+                .then(({ url }: { url: string | null }) => {
+                  const dest = url || search;
+                  if (w) w.location.href = dest; else window.open(dest, "_blank", "noopener");
+                })
+                .catch(() => { if (w) w.location.href = search; });
+            }}
+            style={{ fontFamily: "var(--ln-mono)", fontSize: 10.5, color: "rgba(var(--ln-fg-rgb),0.55)", background: "none", border: "none", padding: 0, cursor: "pointer", letterSpacing: "0.3px" }}
           >
             listen ↗
-          </a>
+          </button>
         </div>
 
         {/* Quick-rate + Note button */}

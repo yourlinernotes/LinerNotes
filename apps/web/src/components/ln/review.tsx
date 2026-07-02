@@ -314,21 +314,24 @@ export function ImmersiveReview({
       return;
     }
 
-    // iTunes/MusicBrainz id (or none): resolve the real Spotify deeplink via the
-    // API. Open the tab now (synchronously, so it isn't popup-blocked) and point
-    // it at the resolved URL — or search if resolution fails.
+    // Fetch preview to get a Deezer/iTunes sourceUrl for Odesli cross-resolution
+    // (no Spotify creds needed). Open the tab now to avoid popup-blockers.
     const w = window.open("about:blank", "_blank");
-    const params = new URLSearchParams({ id, kind: seg, title: album.title, artist: album.artist });
-    fetch(`/api/spotify-link?${params.toString()}`)
+    const previewQ = new URLSearchParams({ track: album.title, artist: album.artist });
+    fetch(`/api/preview?${previewQ}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        const sourceUrl = d?.preview?.sourceUrl || "";
+        const params = new URLSearchParams({ id, kind: seg, title: album.title, artist: album.artist, sourceUrl });
+        return fetch(`/api/spotify-link?${params}`);
+      })
       .then((r) => r.json())
       .then(({ url }: { url: string | null }) => {
         const dest = url || search;
         if (w) w.location.href = dest;
         else window.open(dest, "_blank", "noopener");
       })
-      .catch(() => {
-        if (w) w.location.href = search;
-      });
+      .catch(() => { if (w) w.location.href = search; });
   };
 
   const relatedTitle = isAlbum ? "more on LinerNotes" : "more on LinerNotes";
