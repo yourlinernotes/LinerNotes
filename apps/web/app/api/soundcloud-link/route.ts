@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveSoundCloud, type SoundCloudResult } from "@/lib/soundcloud";
+import { resolvePreview } from "@/lib/deezer";
 
 /**
  * GET /api/soundcloud-link?url=&id=&platform=&type=
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   const track = (searchParams.get("track") || "").trim() || undefined;
   const artist = (searchParams.get("artist") || "").trim() || undefined;
   const durationRaw = Number(searchParams.get("duration"));
-  const durationSec = Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : undefined;
+  let durationSec = Number.isFinite(durationRaw) && durationRaw > 0 ? durationRaw : undefined;
 
   const ok = (soundcloud: SoundCloudResult | null) =>
     NextResponse.json(
@@ -36,6 +37,16 @@ export async function GET(request: Request) {
 
   try {
     if (!sourceUrl && !(id && platform) && !track) return ok(null);
+    // The duration gate (reject wrong-length copies that break sync) only fires
+    // when we know the real length. Clients don't always send it (e.g. album
+    // tracks that skip the preview fetch), so resolve it server-side via Deezer
+    // when absent — makes the gate reliable for every caller.
+    if (!durationSec && track) {
+      try {
+        const p = await resolvePreview(track, artist || "");
+        if (p?.durationSec) durationSec = p.durationSec;
+      } catch { /* fall through — gate just won't apply */ }
+    }
     return ok(await resolveSoundCloud({ sourceUrl, id, platform, type, track, artist, durationSec }));
   } catch (error) {
     console.error("[soundcloud-link] error:", error);

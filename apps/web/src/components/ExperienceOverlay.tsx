@@ -100,6 +100,9 @@ interface Subject {
   presetSourceUrl?: string | null;
   /** A directly-resolved SoundCloud track id (from the auto-found album set). */
   presetScId?: string | null;
+  /** The track's real length (album finder) — feeds the duration gate when the
+   *  per-track preview fetch is skipped. */
+  presetDurationSec?: number | null;
   /** A source URL / id Odesli can turn into a SoundCloud link. */
   extId?: string | null;
 }
@@ -210,6 +213,7 @@ export function ExperienceOverlay({ review, onClose }: { review: ReviewVM; onClo
       presetPreviewUrl: pm?.previewUrl || null,
       presetSourceUrl: pm?.sourceUrl || null,
       presetScId: scHit?.id ?? null,
+      presetDurationSec: pm?.durationSec ?? null,
       extId: null,
     };
   }, [isCollection, selected, album, review.take, review.body, review.notes, previewMap, scAlbumTracks]);
@@ -433,7 +437,10 @@ function TrackExperience({
     let cancelled = false;
     (async () => {
       const { track, artist } = subject;
-      let durationSec: number | undefined;
+      // Seed from the album finder's known length so the duration gate applies to
+      // album tracks (whose per-track preview fetch below is skipped).
+      let durationSec: number | undefined = subject.presetDurationSec ?? undefined;
+      if (durationSec) durationSecRef.current = durationSec;
       // Prefer a preset source URL (album finder) so album tracks resolve the
       // full SoundCloud song even when we already have their preview.
       let odesliSourceUrl: string | null = subject.presetSourceUrl ?? null;
