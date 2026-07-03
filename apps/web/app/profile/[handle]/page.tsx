@@ -169,10 +169,17 @@ export default function ProfilePage() {
           setAlbumReviews(albumReviewsData.albumReviews || []);
         }
 
-        const repostsResponse = await fetch(`/api/reviews?type=reposts`);
-        if (repostsResponse.ok) {
-          const repostsData = await repostsResponse.json();
-          setRepostedReviews(repostsData.reviews || []);
+        // Reposts on a profile are THAT user's reposts. `/api/reviews?type=reposts`
+        // returns the *current* user's reposts (no userId), so only fetch it on
+        // your own profile — otherwise your reposts leak onto everyone else's.
+        if (session?.user?.handle === handle) {
+          const repostsResponse = await fetch(`/api/reviews?type=reposts`);
+          if (repostsResponse.ok) {
+            const repostsData = await repostsResponse.json();
+            setRepostedReviews(repostsData.reviews || []);
+          }
+        } else {
+          setRepostedReviews([]);
         }
       } catch (err) {
         console.error("Failed to load profile:", err);
