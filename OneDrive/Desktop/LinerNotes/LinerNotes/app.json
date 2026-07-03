@@ -3,6 +3,9 @@
     "name": "LinerNotes",
     "slug": "LinerNotes",
     "version": "1.0.0",
+    "updates":{
+      "enabled": false
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "linernotes",
