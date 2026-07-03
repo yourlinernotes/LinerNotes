@@ -12,9 +12,13 @@ import { LNIcon } from "./atoms";
 
 export function TopBar({ transparent = false }: { transparent?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const { data: session } = useSession();
   const handle = session?.user?.handle;
+
+  // Close the mobile menu on route change.
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 8);
@@ -158,13 +162,82 @@ export function TopBar({ transparent = false }: { transparent?: boolean }) {
             </Link>
           </>
         )}
+
+        {/* Mobile hamburger — the desktop links are hidden on small screens, so
+            this is the only way to reach Feed / Friends / Profile / compose. */}
+        <button
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          className="ln-press lnw-nav-menu-btn"
+          style={{
+            display: "none",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 10,
+            border: `1px solid rgba(${transparent ? "241,235,224" : "var(--ln-fg-rgb)"},0.18)`,
+            background: "transparent",
+            color: ink,
+            cursor: "pointer",
+            fontSize: 17,
+            lineHeight: 1,
+          }}
+        >
+          {menuOpen ? "✕" : "☰"}
+        </button>
       </div>
+
+      {/* Mobile drawer */}
+      {menuOpen && (
+        <div
+          className="lnw-nav-drawer"
+          style={{
+            position: "absolute",
+            top: 64,
+            left: 0,
+            right: 0,
+            background: transparent ? "rgba(10,8,7,0.96)" : "rgba(var(--ln-surface-rgb),0.98)",
+            backdropFilter: "blur(18px) saturate(140%)",
+            WebkitBackdropFilter: "blur(18px) saturate(140%)",
+            borderBottom: `1px solid rgba(var(--ln-line-rgb),0.12)`,
+            padding: "8px 16px 14px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          <MobileItem href="/" label="Home" onNav={() => setMenuOpen(false)} ink={ink} />
+          <MobileItem href="/feed" label="Feed" onNav={() => setMenuOpen(false)} ink={ink} />
+          <MobileItem href="/log" label="Log a note" onNav={() => setMenuOpen(false)} ink={ink} />
+          {session ? (
+            <>
+              <MobileItem href="/friends" label="Friends" onNav={() => setMenuOpen(false)} ink={ink} />
+              {handle && <MobileItem href={`/profile/${handle}`} label="Profile" onNav={() => setMenuOpen(false)} ink={ink} />}
+              {handle && <MobileItem href="/profile/edit" label="Edit profile" onNav={() => setMenuOpen(false)} ink={ink} />}
+              <button
+                onClick={() => { setMenuOpen(false); signOut({ callbackUrl: "/" }); }}
+                className="ln-press"
+                style={{ textAlign: "left", padding: "12px 6px", background: "none", border: "none", cursor: "pointer", color: "rgba(var(--ln-fg-rgb),0.7)", fontFamily: "var(--ln-body)", fontSize: 15.5, fontWeight: 600 }}
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <MobileItem href="/login" label="Log in" onNav={() => setMenuOpen(false)} ink={ink} />
+              <MobileItem href="/login" label="Join the beta" onNav={() => setMenuOpen(false)} ink={ink} accent />
+            </>
+          )}
+        </div>
+      )}
 
       <style>{`
         @media (max-width: 760px) {
           .lnw-nav-inner { gap: 14px !important; }
           .lnw-nav-links { display: none !important; }
           .lnw-nav-compose { display: none !important; }
+          .lnw-nav-menu-btn { display: inline-flex !important; }
         }
         @media (max-width: 460px) {
           .lnw-nav-inner { padding: 0 16px !important; }
@@ -172,6 +245,40 @@ export function TopBar({ transparent = false }: { transparent?: boolean }) {
         }
       `}</style>
     </header>
+  );
+}
+
+function MobileItem({
+  href,
+  label,
+  onNav,
+  ink,
+  accent = false,
+}: {
+  href: string;
+  label: string;
+  onNav: () => void;
+  ink: string;
+  accent?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNav}
+      className="ln-press"
+      style={{
+        display: "block",
+        padding: "12px 6px",
+        textDecoration: "none",
+        color: accent ? "var(--ln-accent)" : ink,
+        fontFamily: "var(--ln-body)",
+        fontSize: 15.5,
+        fontWeight: accent ? 700 : 600,
+        borderBottom: "1px solid rgba(var(--ln-line-rgb),0.06)",
+      }}
+    >
+      {label}
+    </Link>
   );
 }
 
