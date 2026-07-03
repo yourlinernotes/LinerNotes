@@ -304,7 +304,17 @@ export async function getYouTubeAudioStream(
 
     const info = await session.yt.getInfo(videoId);
     const sd = info.streaming_data;
-    if (!sd?.server_abr_streaming_url || !sd.adaptive_formats?.length) return null;
+    ylog(
+      "stream: getInfo",
+      videoId,
+      "| playability:", (info.playability_status as { status?: string } | undefined)?.status,
+      "| abrUrl?", !!sd?.server_abr_streaming_url,
+      "| formats:", sd?.adaptive_formats?.length ?? 0,
+    );
+    if (!sd?.server_abr_streaming_url || !sd.adaptive_formats?.length) {
+      ylog("stream: missing SABR url / adaptive formats → null");
+      return null;
+    }
 
     // The ustreamer config authorises the SABR session; it lives in the raw
     // player response (defensively dug out of the parsed page).
@@ -317,7 +327,10 @@ export async function getYouTubeAudioStream(
       };
     })?.player_config?.media_common_config?.media_ustreamer_request_config
       ?.video_playback_ustreamer_config;
-    if (!cfg) return null;
+    if (!cfg) {
+      ylog("stream: no ustreamer config in player response → null");
+      return null;
+    }
 
     // The ABR streaming URL still needs its n-param descrambled.
     const abrUrl = await session.yt.session.player!.decipher(sd.server_abr_streaming_url);
