@@ -249,7 +249,7 @@ export function MomentCaptureBar({
         <button type="button" onClick={toggle} style={S.playBtn} aria-label={playing ? "Pause" : "Play"}>
           {playing ? "❚❚" : "►"}
         </button>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 150 }}>
           <div ref={scrubRef} onClick={onScrub} style={S.track}>
             <div style={{ ...S.fill, width: `${pct * 100}%` }} />
             <span style={{ ...S.knob, left: `${pct * 100}%` }} />
@@ -311,7 +311,7 @@ export function MomentCaptureBar({
 const S: Record<string, React.CSSProperties> = {
   wrap: { position: "relative", display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 },
   status: { fontFamily: "var(--ln-body)", fontSize: 12.5, fontStyle: "italic", color: "rgba(var(--ln-fg-rgb),0.5)", marginBottom: 10 },
-  row: { display: "flex", alignItems: "center", gap: 12 },
+  row: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" },
   playBtn: {
     width: 38, height: 38, borderRadius: 19,
     background: "var(--ln-accent)", border: "none",

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Album, Track, Reaction, AlbumReview } from "@/lib/types";
 import { AlbumSearch } from "./AlbumSearch";
 import { StarsInput, MomentsEditor, CaptionPicker, Chip, DepthMeter, ModeTabs, PreviewShell, cmpInput, type Depth } from "./composer-ui";
+import { MomentCaptureBar } from "./MomentCaptureBar";
 import { LNArt, LNReact, LN_REACT, LNIcon } from "@/components/ln/atoms";
 import { LNWCard } from "@/components/ln/cards";
 import { paletteFromString } from "@/lib/palette";
@@ -287,6 +288,14 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                         {open && (
                           <div style={{ padding: "2px 14px 14px", display: "flex", flexDirection: "column", gap: 9, background: `${gold}07` }}>
                             <textarea value={tr.take || ""} onChange={(e) => upd(i, { take: e.target.value })} rows={2} placeholder={`A note on “${tr.track.name}”…`} style={{ ...cmpInput, fontSize: 13.5 }} />
+                            {/* Listen + scrub / tap a lyric to capture this track's moment. */}
+                            <MomentCaptureBar
+                              track={tr.track.name}
+                              artist={tr.track.artist || selectedAlbum.artist}
+                              onMark={(seconds, lyric) =>
+                                upd(i, { notes: [...tr.notes, { seconds, label: "moment", note: lyric || "" }].sort((a, b) => a.seconds - b.seconds) })
+                              }
+                            />
                             <MomentsEditor
                               moments={tr.notes.map((n) => ({ seconds: n.seconds, label: n.label || "moment", note: n.note || "" }))}
                               onAdd={(m) => upd(i, { notes: [...tr.notes, { seconds: m.seconds, label: m.label || "moment", note: m.note }].sort((a, b) => a.seconds - b.seconds) })}
