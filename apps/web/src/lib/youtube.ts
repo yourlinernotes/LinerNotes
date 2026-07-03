@@ -111,6 +111,11 @@ async function generatePoToken(visitorData: string): Promise<string | null> {
   }
 }
 
+// A logged-in YouTube account's cookie (from a DEDICATED throwaway Google
+// account). Authenticates the InnerTube session so streaming isn't gated behind
+// LOGIN_REQUIRED from a datacenter IP. Fragile (ban/expiry) → env, hotfixable.
+const YT_COOKIE = process.env.YOUTUBE_COOKIE || "";
+
 async function buildSession(): Promise<YtSession | null> {
   installEvaluator();
   try {
@@ -119,14 +124,19 @@ async function buildSession(): Promise<YtSession | null> {
     const visitorData = seed.session.context.client.visitorData;
     if (!visitorData) { ylog("no visitorData from seed session"); return null; }
     const poToken = await generatePoToken(visitorData);
-    if (!poToken) { ylog("buildSession: no poToken → session unavailable"); return null; }
+    // With an account cookie the session is authenticated and streaming works even
+    // if BotGuard/po-token generation fails, so only hard-require a po_token when
+    // there's no cookie to fall back on.
+    if (!poToken && !YT_COOKIE) { ylog("buildSession: no poToken and no cookie → session unavailable"); return null; }
     const yt = await Innertube.create({
-      po_token: poToken,
+      po_token: poToken ?? undefined,
       visitor_data: visitorData,
       retrieve_player: true,
       cache: new UniversalCache(false),
+      ...(YT_COOKIE ? { cookie: YT_COOKIE } : {}),
     });
-    return { yt, poToken, visitorData, at: Date.now() };
+    ylog("buildSession OK", YT_COOKIE ? "(authenticated via cookie)" : "(anonymous)", poToken ? "+poToken" : "");
+    return { yt, poToken: poToken ?? "", visitorData, at: Date.now() };
   } catch (e) {
     ylog("buildSession threw:", (e as Error)?.message || e);
     return null;
