@@ -120,12 +120,15 @@ export async function GET(request: NextRequest) {
 
     // Reposts - reviews the current user has reposted
     if (reviewType === "reposts") {
-      if (!currentUserId) {
+      // ?userId=<them> → that user's reposts (public, shown on their profile).
+      // No userId → the current user's own reposts (requires auth).
+      const targetUserId = userId || currentUserId;
+      if (!targetUserId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
       const reposts = await prisma.repost.findMany({
-        where: { userId: currentUserId },
+        where: { userId: targetUserId },
         include: {
           review: {
             include: {
