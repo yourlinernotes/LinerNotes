@@ -86,12 +86,23 @@ export async function GET(request: NextRequest) {
         );
         where = { ...base, userId: { in: friendIds } };
       } else {
-        // home: people you follow + your own
-        const follows = await prisma.follow.findMany({
-          where: { followerId: currentUserId },
-          select: { followingId: true },
-        });
-        const authorIds = [...follows.map((f) => f.followingId), currentUserId!];
+        // home: people you follow + your existing friends + your own. (Friends
+        // are included so the pre-follow-graph friend network doesn't vanish.)
+        const [follows, friendships] = await Promise.all([
+          prisma.follow.findMany({ where: { followerId: currentUserId }, select: { followingId: true } }),
+          prisma.friendship.findMany({
+            where: {
+              OR: [
+                { requesterId: currentUserId, status: "ACCEPTED" },
+                { addresseeId: currentUserId, status: "ACCEPTED" },
+              ],
+            },
+          }),
+        ]);
+        const friendIds = friendships.map((f) =>
+          f.requesterId === currentUserId ? f.addresseeId : f.requesterId,
+        );
+        const authorIds = [...new Set([currentUserId!, ...follows.map((f) => f.followingId), ...friendIds])];
         where = { ...base, userId: { in: authorIds } };
       }
 
