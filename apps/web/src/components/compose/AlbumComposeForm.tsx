@@ -300,6 +300,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                               moments={tr.notes.map((n) => ({ seconds: n.seconds, label: n.label || "moment", note: n.note || "" }))}
                               onAdd={(m) => upd(i, { notes: [...tr.notes, { seconds: m.seconds, label: m.label || "moment", note: m.note }].sort((a, b) => a.seconds - b.seconds) })}
                               onRemove={(idx) => upd(i, { notes: tr.notes.filter((_, j) => j !== idx) })}
+                              onEdit={(idx, patch) => upd(i, { notes: tr.notes.map((n, j) => (j === idx ? { ...n, ...patch } : n)) })}
                             />
                           </div>
                         )}

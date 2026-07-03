@@ -199,6 +199,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
                   moments={moments}
                   onAdd={(m) => setMoments((a) => [...a, m].sort((x, y) => x.seconds - y.seconds))}
                   onRemove={(idx) => setMoments((a) => a.filter((_, i) => i !== idx))}
+                  onEdit={(idx, patch) => setMoments((a) => a.map((m, i) => (i === idx ? { ...m, ...patch } : m)))}
                 />
               </div>
             )}

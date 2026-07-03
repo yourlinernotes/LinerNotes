@@ -3,6 +3,9 @@
 Where we left off after the Android bring-up session. Full context:
 [`SESSION_HANDOFF.md`](./SESSION_HANDOFF.md). Branch: **`main`**.
 
+> Point-in-time build/deploy/security snapshot lives in the Obsidian vault:
+> **`LinerNotes Vault/01 - Project Status.md`** (regenerate when it drifts).
+
 Priority: 🔴 blocking · 🟡 important · 🟢 nice-to-have
 
 ---

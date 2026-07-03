@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+**/dist
+apps/mobile
+apps/backend
+ios
+**/ios
+.git
+*.log

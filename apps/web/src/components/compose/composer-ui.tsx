@@ -138,10 +138,12 @@ export function MomentsEditor({
   moments,
   onAdd,
   onRemove,
+  onEdit,
 }: {
   moments: DraftMoment[];
   onAdd: (m: DraftMoment) => void;
   onRemove: (idx: number) => void;
+  onEdit?: (idx: number, patch: Partial<DraftMoment>) => void;
 }) {
   const [m, setM] = useState({ mm: "", ss: "", label: "", note: "" });
   const add = () => {
@@ -154,6 +156,26 @@ export function MomentsEditor({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {moments.map((mm, idx) => {
+        // Captured moments (via scrub / lyric-tap) are editable inline so the
+        // author can write the subtitle instead of being stuck with "moment".
+        if (onEdit) {
+          const isBareLabel = mm.label && mm.label !== "moment";
+          return (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "rgba(var(--ln-fg-rgb),0.05)", border: "1px solid rgba(var(--ln-fg-rgb),0.08)", flexWrap: "wrap" }}>
+              <span style={{ fontFamily: "var(--ln-mono)", fontSize: 12, color: "#1a0a04", background: GOLD, borderRadius: 6, padding: "2px 7px", flexShrink: 0, fontWeight: 600 }}>{lnFmt(mm.seconds)}</span>
+              <LabelPicker value={isBareLabel ? mm.label : ""} onChange={(v) => onEdit(idx, { label: v || "moment" })} />
+              <input
+                value={mm.note}
+                onChange={(e) => onEdit(idx, { note: e.target.value })}
+                placeholder="What happens here?"
+                style={{ ...cmpInput, flex: 1, minWidth: 120, padding: "9px 12px", fontSize: 13.5 }}
+              />
+              <button type="button" onClick={() => onRemove(idx)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", flexShrink: 0 }} aria-label="Remove moment">
+                <LNIcon name="close" size={14} color="rgba(var(--ln-fg-rgb),0.45)" />
+              </button>
+            </div>
+          );
+        }
         const hasLabel = !!mm.label && mm.label !== "moment";
         return (
           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 10, background: "rgba(var(--ln-fg-rgb),0.05)", border: "1px solid rgba(var(--ln-fg-rgb),0.08)" }}>

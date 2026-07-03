@@ -17,6 +17,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
@@ -24,6 +25,12 @@ import * as Google from 'expo-auth-session/providers/google';
 import { useAuth } from '../contexts/AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TERMS_URL = 'https://beta-linernotes.vercel.app/terms';
+const PRIVACY_URL = 'https://beta-linernotes.vercel.app/privacy';
+
+type FieldErrors = { handle?: string; displayName?: string; email?: string; password?: string };
 
 // Warm gradient colors for auth screens
 const AUTH_COLORS = {
@@ -42,6 +49,20 @@ export function LoginScreen() {
   const [handle, setHandle] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<FieldErrors>({});
+
+  // Inline validation — replaces the old blocking "Please enter email and
+  // password" Alerts with per-field messages shown under each input (the
+  // report flagged the web signup for having no inline validation).
+  function validate(): boolean {
+    const e: FieldErrors = {};
+    if (mode === 'signup' && !handle.trim()) e.handle = 'Choose a handle.';
+    if (mode === 'signup' && !displayName.trim()) e.displayName = 'Enter a display name.';
+    if (!EMAIL_RE.test(email.trim())) e.email = 'Enter a valid email address.';
+    if (password.length < 6) e.password = 'Password must be at least 6 characters.';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
 
   // Google OAuth configuration
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -91,15 +112,7 @@ export function LoginScreen() {
   }
 
   async function handleEmailAuth() {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
-      return;
-    }
-
-    if (mode === 'signup' && (!handle || !displayName)) {
-      Alert.alert('Error', 'Please enter handle and display name');
-      return;
-    }
+    if (!validate()) return;
 
     try {
       setIsLoading(true);
@@ -167,6 +180,8 @@ export function LoginScreen() {
               style={styles.googleButton}
               onPress={() => promptAsync()}
               disabled={!request || isLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Continue with Google"
             >
               {/* Google Logo SVG */}
               <View style={styles.googleLogo}>
@@ -185,53 +200,79 @@ export function LoginScreen() {
             {/* Signup fields */}
             {mode === 'signup' && (
               <>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Handle (e.g., anushaisawesome)"
-                  placeholderTextColor="rgba(241,235,224,0.4)"
-                  value={handle}
-                  onChangeText={setHandle}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Display Name"
-                  placeholderTextColor="rgba(241,235,224,0.4)"
-                  value={displayName}
-                  onChangeText={setDisplayName}
-                  autoCapitalize="words"
-                />
+                <View>
+                  <TextInput
+                    style={[styles.input, errors.handle && styles.inputError]}
+                    placeholder="Handle (e.g., anushaisawesome)"
+                    placeholderTextColor="rgba(241,235,224,0.4)"
+                    value={handle}
+                    onChangeText={setHandle}
+                    onBlur={() => setErrors((e) => ({ ...e, handle: handle.trim() ? undefined : 'Choose a handle.' }))}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    accessibilityLabel="Handle"
+                    accessibilityHint="Your unique @username on LinerNotes"
+                  />
+                  {errors.handle && <Text style={styles.fieldError}>{errors.handle}</Text>}
+                </View>
+                <View>
+                  <TextInput
+                    style={[styles.input, errors.displayName && styles.inputError]}
+                    placeholder="Display Name"
+                    placeholderTextColor="rgba(241,235,224,0.4)"
+                    value={displayName}
+                    onChangeText={setDisplayName}
+                    onBlur={() => setErrors((e) => ({ ...e, displayName: displayName.trim() ? undefined : 'Enter a display name.' }))}
+                    autoCapitalize="words"
+                    accessibilityLabel="Display name"
+                  />
+                  {errors.displayName && <Text style={styles.fieldError}>{errors.displayName}</Text>}
+                </View>
               </>
             )}
 
             {/* Email & Password */}
-            <TextInput
-              style={styles.input}
-              placeholder="you@email.com"
-              placeholderTextColor="rgba(241,235,224,0.4)"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View>
+              <TextInput
+                style={[styles.input, errors.email && styles.inputError]}
+                placeholder="you@email.com"
+                placeholderTextColor="rgba(241,235,224,0.4)"
+                value={email}
+                onChangeText={setEmail}
+                onBlur={() => setErrors((e) => ({ ...e, email: EMAIL_RE.test(email.trim()) ? undefined : 'Enter a valid email address.' }))}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+                accessibilityLabel="Email address"
+              />
+              {errors.email && <Text style={styles.fieldError}>{errors.email}</Text>}
+            </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="rgba(241,235,224,0.4)"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            <View>
+              <TextInput
+                style={[styles.input, errors.password && styles.inputError]}
+                placeholder="Password"
+                placeholderTextColor="rgba(241,235,224,0.4)"
+                value={password}
+                onChangeText={setPassword}
+                onBlur={() => setErrors((e) => ({ ...e, password: password.length >= 6 ? undefined : 'Password must be at least 6 characters.' }))}
+                secureTextEntry
+                autoCapitalize="none"
+                textContentType={mode === 'signup' ? 'newPassword' : 'password'}
+                accessibilityLabel="Password"
+                accessibilityHint="At least 6 characters"
+              />
+              {errors.password && <Text style={styles.fieldError}>{errors.password}</Text>}
+            </View>
 
             {/* Submit Button */}
             <TouchableOpacity
               style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
               onPress={handleEmailAuth}
               disabled={isLoading}
+              accessibilityRole="button"
+              accessibilityLabel={mode === 'signup' ? 'Create account' : 'Log in'}
             >
               {isLoading ? (
                 <ActivityIndicator color={tokens.colors.nearBlack} />
@@ -242,12 +283,34 @@ export function LoginScreen() {
               )}
             </TouchableOpacity>
 
+            {/* Consent — the report flagged the web signup for offering no
+                Terms/Privacy disclosure before account creation. */}
+            {mode === 'signup' && (
+              <Text style={styles.consent}>
+                By creating an account, you agree to our{' '}
+                <Text style={styles.consentLink} onPress={() => Linking.openURL(TERMS_URL)}>
+                  Terms
+                </Text>{' '}
+                and{' '}
+                <Text style={styles.consentLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
+                  Privacy Policy
+                </Text>
+                .
+              </Text>
+            )}
+
             {/* Toggle mode */}
             <View style={styles.toggleContainer}>
               <Text style={styles.togglePrompt}>
                 {mode === 'signup' ? 'already here?' : 'new to LinerNotes?'}{' '}
               </Text>
-              <TouchableOpacity onPress={() => setMode(mode === 'signup' ? 'login' : 'signup')}>
+              <TouchableOpacity
+                onPress={() => { setMode(mode === 'signup' ? 'login' : 'signup'); setErrors({}); }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={styles.toggleButton}
+                accessibilityRole="button"
+                accessibilityLabel={mode === 'signup' ? 'Switch to log in' : 'Switch to sign up'}
+              >
                 <Text style={styles.toggleLink}>
                   {mode === 'signup' ? 'log in' : 'sign up'}
                 </Text>
@@ -387,6 +450,16 @@ const styles = StyleSheet.create({
     fontFamily: tokens.typography.rnFonts.body,
     fontSize: 15,
   },
+  inputError: {
+    borderColor: 'rgba(220,38,38,0.6)',
+  },
+  fieldError: {
+    fontFamily: tokens.typography.rnFonts.body,
+    fontSize: 12.5,
+    color: '#ffb4b4',
+    marginTop: 6,
+    marginLeft: 2,
+  },
   submitButton: {
     width: '100%',
     padding: 14,
@@ -405,11 +478,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.colors.nearBlack,
   },
+  consent: {
+    fontFamily: tokens.typography.rnFonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+    color: 'rgba(241,235,224,0.5)',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  consentLink: {
+    color: AUTH_COLORS.accent,
+    textDecorationLine: 'underline',
+  },
   toggleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
+  },
+  toggleButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
   },
   togglePrompt: {
     fontFamily: tokens.typography.rnFonts.body,
