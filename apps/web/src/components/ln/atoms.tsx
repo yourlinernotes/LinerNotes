@@ -3,7 +3,7 @@
 // LinerNotes atoms — icons, stars, reactions, placeholder/real album art, the
 // signature "moment" notch. Ported from the design bundle's atoms.jsx to TSX.
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { Palette } from "@/lib/palette";
 import { extractPaletteFromImage } from "@/lib/extractPalette";
@@ -260,6 +260,15 @@ export function LNArt({
 }) {
   const p = palette;
   const imgRef = useRef<HTMLImageElement>(null);
+  // `crossOrigin="anonymous"` forces a CORS fetch — needed to read pixels for
+  // palette extraction, but it makes the image FAIL to display on hosts that
+  // don't send CORS headers (mobile Safari enforces this strictly; that's why
+  // some covers loaded on desktop but not mobile). So only request CORS when we
+  // actually need to extract a palette, and if that load fails, retry without it
+  // so the cover still shows. Also upgrade http→https (blocked as mixed content).
+  const [corsFailed, setCorsFailed] = useState(false);
+  const httpsSrc = src ? src.replace(/^http:\/\//i, "https://") : src;
+  const useCors = !!onPaletteExtracted && !corsFailed;
 
   useEffect(() => {
     if (!src || !imgRef.current || !onPaletteExtracted) return;
@@ -299,13 +308,14 @@ export function LNArt({
         ...style,
       }}
     >
-      {src && (
+      {httpsSrc && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           ref={imgRef}
-          src={src}
+          src={httpsSrc}
           alt={label || "cover"}
-          crossOrigin="anonymous"
+          {...(useCors ? { crossOrigin: "anonymous" as const } : {})}
+          onError={() => { if (useCors) setCorsFailed(true); }}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       )}
