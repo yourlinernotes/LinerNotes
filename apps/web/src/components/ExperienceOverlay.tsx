@@ -432,6 +432,23 @@ function TrackExperience({
     return null;
   }, [subject.notes, positionMs, synced, syncedLines, durationMs]);
 
+  // Keep the callout mounted through a fade-OUT instead of snapping away when the
+  // moment ends. `shownMoment` lags `activeMoment`: it fills in immediately on a
+  // new note (key change → fade-in), and lingers for the exit fade when the note
+  // clears. Note→note swaps cross-fade via the keyed remount.
+  const [shownMoment, setShownMoment] = useState<MomentVM | null>(null);
+  const [momentLeaving, setMomentLeaving] = useState(false);
+  useEffect(() => {
+    if (activeMoment) {
+      setShownMoment(activeMoment);
+      setMomentLeaving(false);
+      return;
+    }
+    setMomentLeaving(true);
+    const t = setTimeout(() => setShownMoment(null), 300);
+    return () => clearTimeout(t);
+  }, [activeMoment]);
+
   // Resolve preview (unless preset), lyrics, and a SoundCloud id.
   useEffect(() => {
     let cancelled = false;
@@ -832,15 +849,19 @@ function TrackExperience({
           )}
 
           <div style={S.calloutSlot}>
-            {activeMoment && (
-              <div key={activeMoment.sec} style={S.callout}>
-                <span style={S.calloutTime}>{fmt(activeMoment.sec * 1000)}</span>
+            {shownMoment && (
+              <div
+                key={shownMoment.sec}
+                className="ln-callout"
+                style={{ ...S.callout, ...(momentLeaving ? S.calloutLeaving : null) }}
+              >
+                <span style={S.calloutTime}>{fmt(shownMoment.sec * 1000)}</span>
                 <span style={S.calloutDivider} />
                 <span style={S.calloutText}>
-                  {activeMoment.label ? `${activeMoment.label} — ` : ""}
-                  {activeMoment.note}
+                  {shownMoment.label ? `${shownMoment.label} — ` : ""}
+                  {shownMoment.note}
                 </span>
-                <button onClick={() => shareMoment(activeMoment)} style={S.calloutShare} aria-label="Share moment">
+                <button onClick={() => shareMoment(shownMoment)} style={S.calloutShare} aria-label="Share moment">
                   {shared ? "copied" : "share ⤴"}
                 </button>
               </div>
@@ -1022,7 +1043,12 @@ const KEYFRAMES = `
   @keyframes ln-breathe { 0%,100% { transform: scale(1.06); } 50% { transform: scale(1.15); } }
   @keyframes ln-exp-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   @keyframes ln-pop-in { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: none; } }
+  @keyframes ln-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(0.98); } }
   @keyframes ln-note-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ln-callout { animation-name: ln-fade-in !important; animation-duration: 0.18s !important; }
+  }
+  @keyframes ln-fade-in { from { opacity: 0; } to { opacity: 1; } }
 `;
 
 const S: Record<string, React.CSSProperties> = {
@@ -1194,7 +1220,8 @@ const S: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   calloutSlot: { width: "100%", minHeight: 46, marginTop: 12, display: "flex", alignItems: "center" },
-  callout: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, background: "var(--ln-accent)", animation: "ln-pop-in 0.32s cubic-bezier(.2,.8,.2,1)" },
+  callout: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, background: "var(--ln-accent)", animation: "ln-pop-in 0.28s cubic-bezier(.2,.7,.2,1) both" },
+  calloutLeaving: { animation: "ln-pop-out 0.26s cubic-bezier(.4,0,.6,1) forwards" },
   calloutTime: { fontFamily: "var(--ln-mono)", fontWeight: 700, fontSize: 12, color: "#0a0908" },
   calloutDivider: { width: 1, height: 16, background: "rgba(10,9,8,0.25)" },
   calloutText: { flex: 1, fontFamily: "var(--ln-body)", fontWeight: 600, fontSize: 13, color: "#0a0908" },
