@@ -159,11 +159,9 @@ export function MomentsEditor({
         // Captured moments (via scrub / lyric-tap) are editable inline so the
         // author can write the subtitle instead of being stuck with "moment".
         if (onEdit) {
-          const isBareLabel = mm.label && mm.label !== "moment";
           return (
             <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "rgba(var(--ln-fg-rgb),0.05)", border: "1px solid rgba(var(--ln-fg-rgb),0.08)", flexWrap: "wrap" }}>
               <span style={{ fontFamily: "var(--ln-mono)", fontSize: 12, color: "#1a0a04", background: GOLD, borderRadius: 6, padding: "2px 7px", flexShrink: 0, fontWeight: 600 }}>{lnFmt(mm.seconds)}</span>
-              <LabelPicker value={isBareLabel ? mm.label : ""} onChange={(v) => onEdit(idx, { label: v || "moment" })} />
               <input
                 value={mm.note}
                 onChange={(e) => onEdit(idx, { note: e.target.value })}
