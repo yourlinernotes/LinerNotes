@@ -72,6 +72,12 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
       alert("Please select a track first");
       return;
     }
+    // Logging is the one action that needs an account. Signed-out users compose
+    // freely and only hit the gate here — send them to sign up, not a dead-end.
+    if (!session?.user) {
+      window.location.href = "/login?mode=signup&next=/log";
+      return;
+    }
     setSubmitting(true);
     try {
       const reviewData = {

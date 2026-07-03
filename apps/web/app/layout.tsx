@@ -59,6 +59,7 @@ export default function RootLayout({
       className={`${newsreader.variable} ${hanken.variable} ${spaceMono.variable} ${bricolage.variable} ${syne.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <a href="#main" className="ln-skip">Skip to content</a>
         <SessionProvider>{children}</SessionProvider>
         {/* film-grain overlay (matches the design's mix-blend grain) */}
         <div className="ln-grain" aria-hidden />

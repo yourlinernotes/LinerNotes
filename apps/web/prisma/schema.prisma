@@ -22,6 +22,12 @@ model User {
   favourites    String?   // JSON array of "track:<id>" / "album:<id>" refs — the curated Top 4
   passwordHash  String?   // For email/password auth
 
+  // Account privacy. PUBLIC: profile + reviews appear in the community feed and
+  // are viewable by anyone. PRIVATE: hidden from Discover and from strangers'
+  // profile views — only accepted friends (or self) see the profile and its
+  // reviews. Individual reviews can still be shared by direct /card/[id] link.
+  visibility    Visibility @default(PUBLIC)
+
   // Legacy Spotify ID (nullable for migration from old auth)
   spotifyId     String?   @unique
 
@@ -313,6 +319,11 @@ enum FriendshipStatus {
   PENDING
   ACCEPTED
   REJECTED
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
 }
 
 model Playlist {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth-helpers";
+import { canViewPrivateUser } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -33,7 +34,11 @@ export async function GET(request: NextRequest) {
 
       let where: any;
       if (feed === "discover") {
-        where = currentUserId ? { userId: { not: currentUserId } } : {};
+        // Community feed: PUBLIC accounts only.
+        where = {
+          user: { visibility: "PUBLIC" },
+          ...(currentUserId ? { userId: { not: currentUserId } } : {}),
+        };
       } else if (feed === "friends") {
         const friendships = await prisma.friendship.findMany({
           where: {
@@ -63,7 +68,13 @@ export async function GET(request: NextRequest) {
         const friendIds = friendships.map((f) =>
           f.requesterId === currentUserId ? f.addresseeId : f.requesterId,
         );
-        where = { userId: { in: [...new Set([currentUserId!, ...follows.map((f) => f.followingId), ...friendIds])] } };
+        const authorIds = [...new Set([currentUserId!, ...follows.map((f) => f.followingId), ...friendIds])];
+        // Don't leak a PRIVATE followed-but-not-friend user into Home.
+        const canSeePrivate = [currentUserId!, ...friendIds];
+        where = {
+          userId: { in: authorIds },
+          OR: [{ user: { visibility: "PUBLIC" } }, { userId: { in: canSeePrivate } }],
+        };
       }
 
       let albumReviews = await prisma.albumReview.findMany({
@@ -76,7 +87,7 @@ export async function GET(request: NextRequest) {
       if (feed === "home" && albumReviews.length < 6) {
         const have = new Set(albumReviews.map((a) => a.id));
         const extra = await prisma.albumReview.findMany({
-          where: { id: { notIn: [...have] } },
+          where: { id: { notIn: [...have] }, user: { visibility: "PUBLIC" } },
           include: albumInclude,
           orderBy: { createdAt: "desc" },
           take: 12,
@@ -138,8 +149,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ albumReviews: transformedAlbumReviews });
     }
 
-    // Get specific user's album reviews (public)
+    // Get specific user's album reviews. PRIVATE accounts are visible only to
+    // the owner or an accepted friend; otherwise the list reads as empty.
     if (userId) {
+      if (userId !== currentUserId) {
+        const target = await prisma.user.findUnique({ where: { id: userId }, select: { visibility: true } });
+        if (target?.visibility === "PRIVATE" && !(await canViewPrivateUser(currentUserId, userId))) {
+          return NextResponse.json({ albumReviews: [] });
+        }
+      }
       const albumReviews = await prisma.albumReview.findMany({
         where: { userId },
         include: {

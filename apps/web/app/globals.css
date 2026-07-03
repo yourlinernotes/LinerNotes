@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+/* Skip-to-content link — visually hidden until keyboard-focused, then it drops
+   into the top-left over the fixed header so keyboard users can jump the nav. */
+.ln-skip {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 1000;
+  transform: translateY(-140%);
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--ln-accent);
+  color: #1a0a04;
+  font-family: var(--ln-body);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.8);
+  transition: transform 0.16s ease;
+}
+.ln-skip:focus {
+  transform: translateY(0);
+  outline: 2px solid #1a0a04;
+  outline-offset: 2px;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    LinerNotes — editorial design system (ported from the Claude design bundle)
    Dark "garnet" front-door surface by default; gold accent; serif display,

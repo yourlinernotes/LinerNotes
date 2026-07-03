@@ -142,9 +142,13 @@ export function TopBar({ transparent = false }: { transparent?: boolean }) {
               Log in
             </Link>
             <Link
-              href="/login"
+              href="/login?mode=signup"
               className="ln-press"
               style={{
+                display: "inline-flex",
+                alignItems: "center",
+                minHeight: 44,
+                boxSizing: "border-box",
                 padding: "9px 17px",
                 borderRadius: 999,
                 border: "none",
@@ -173,8 +177,8 @@ export function TopBar({ transparent = false }: { transparent?: boolean }) {
             display: "none",
             alignItems: "center",
             justifyContent: "center",
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             borderRadius: 10,
             border: `1px solid rgba(${transparent ? "241,235,224" : "var(--ln-fg-rgb)"},0.18)`,
             background: "transparent",
@@ -225,7 +229,7 @@ export function TopBar({ transparent = false }: { transparent?: boolean }) {
           ) : (
             <>
               <MobileItem href="/login" label="Log in" onNav={() => setMenuOpen(false)} ink={ink} />
-              <MobileItem href="/login" label="Join the beta" onNav={() => setMenuOpen(false)} ink={ink} accent />
+              <MobileItem href="/login?mode=signup" label="Join the beta" onNav={() => setMenuOpen(false)} ink={ink} accent />
             </>
           )}
         </div>
@@ -266,8 +270,11 @@ function MobileItem({
       onClick={onNav}
       className="ln-press"
       style={{
-        display: "block",
-        padding: "12px 6px",
+        display: "flex",
+        alignItems: "center",
+        minHeight: 44,
+        boxSizing: "border-box",
+        padding: "11px 6px",
         textDecoration: "none",
         color: accent ? "var(--ln-accent)" : ink,
         fontFamily: "var(--ln-body)",
@@ -342,11 +349,12 @@ export function Footer({ dark = true }: { dark?: boolean }) {
         <div style={{ display: "flex", gap: 54, flexWrap: "wrap" }}>
           <FootCol head="Product" links={[["The feed", "/feed"], ["Log a note", "/log"]]} fg={fg} muted={muted} />
           <FootCol head="You" links={[["Friends", "/friends"], ["Log in", "/login"]]} fg={fg} muted={muted} />
+          <FootCol head="Legal" links={[["Privacy", "/privacy"], ["Terms", "/terms"]]} fg={fg} muted={muted} />
         </div>
 
         <div style={{ minWidth: 220 }}>
           <div style={{ fontFamily: "var(--ln-label)", fontSize: 10.5, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 700, color: accent, marginBottom: 12 }}>get early access</div>
-          <Link href="/login" className="ln-press" style={{ display: "block", textAlign: "center", textDecoration: "none", width: "100%", boxSizing: "border-box", padding: "13px", borderRadius: 12, background: accent, color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 700, boxShadow: `0 10px 26px -12px ${accent}` }}>
+          <Link href="/login?mode=signup" className="ln-press" style={{ display: "block", textAlign: "center", textDecoration: "none", width: "100%", boxSizing: "border-box", padding: "13px", borderRadius: 12, background: accent, color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 14, fontWeight: 700, boxShadow: `0 10px 26px -12px ${accent}` }}>
             Join the beta
           </Link>
           <p style={{ margin: "10px 0 0", fontFamily: "var(--ln-mono)", fontSize: 10, lineHeight: 1.5, color: muted, letterSpacing: "0.02em" }}>iOS &amp; Android · invites roll out weekly</p>

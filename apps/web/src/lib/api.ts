@@ -9,11 +9,7 @@ export async function searchTracks(query: string): Promise<Track[]> {
   );
 
   if (!response.ok) {
-    const data = await response.json();
-    if (data.requiresAuth) {
-      window.location.href = "/login";
-      throw new Error("Authentication required");
-    }
+    const data = await response.json().catch(() => ({}));
     throw new Error(data.error || "Search failed");
   }
 

@@ -12,7 +12,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { toReviewVM, toAlbumReviewVM, type ReviewVM } from "@/lib/view-adapter";
 import { paletteFromString, tintFromString } from "@/lib/palette";
 
-type ProfileUser = User & { bio?: string; friendCount?: number; favourites?: string | null };
+type ProfileUser = User & { bio?: string; friendCount?: number; favourites?: string | null; visibility?: "PUBLIC" | "PRIVATE"; locked?: boolean };
 
 // A favourite is self-contained metadata (NOT a review reference), so picks made
 // before anything is rated (e.g. mobile onboarding Top-4 from search) still work.
@@ -105,6 +105,66 @@ function FavTile({ item, rank, onOpen, onRemove, selected, flat }: { item: FavIt
         <div style={{ fontFamily: "var(--ln-album)", fontWeight: 600, fontSize: 15, color: "var(--ln-fg)", lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
         <div style={{ fontFamily: "var(--ln-body)", fontSize: 12.5, color: "var(--ln-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.artist}</div>
       </div>
+    </div>
+  );
+}
+
+// Rendered for a PRIVATE account the viewer isn't allowed to see. Shows just
+// enough (name, avatar, friend count) plus a friend-request CTA — the reviews
+// themselves stay hidden until the request is accepted.
+function PrivateProfile({ user, isLoggedIn }: { user: ProfileUser; isLoggedIn: boolean }) {
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  const sendRequest = async () => {
+    if (!isLoggedIn) {
+      window.location.href = `/login?mode=signup&next=${encodeURIComponent(`/profile/${user.handle}`)}`;
+      return;
+    }
+    setState("sending");
+    try {
+      const res = await fetch(`/api/friends/${user.id}`, { method: "POST" });
+      setState(res.ok ? "sent" : "error");
+    } catch {
+      setState("error");
+    }
+  };
+
+  return (
+    <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <TopBar />
+      <main id="main" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ textAlign: "center", maxWidth: 380 }}>
+          {user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={user.avatarUrl} alt={user.displayName || user.handle || "avatar"} style={{ width: 88, height: 88, borderRadius: "50%", objectFit: "cover", margin: "0 auto" }} />
+          ) : (
+            <div aria-hidden style={{ width: 88, height: 88, borderRadius: "50%", margin: "0 auto", background: "rgba(var(--ln-fg-rgb),0.08)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--ln-display)", fontSize: 34, color: "var(--ln-fg)" }}>{(user.displayName || user.handle || "?")[0].toUpperCase()}</div>
+          )}
+          <h1 style={{ margin: "16px 0 2px", fontFamily: "var(--ln-display)", fontWeight: 700, fontSize: 26, color: "var(--ln-fg)" }}>{user.displayName || user.handle}</h1>
+          <div style={{ fontFamily: "var(--ln-mono)", fontSize: 13, color: "rgba(var(--ln-fg-rgb),0.5)" }}>@{user.handle}</div>
+
+          <div style={{ margin: "22px auto 0", padding: "18px 20px", maxWidth: 340, borderRadius: 16, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.1)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "var(--ln-body)", fontWeight: 700, fontSize: 15 }}>
+              <span aria-hidden>🔒</span> This account is private
+            </div>
+            <p style={{ margin: "8px 0 16px", fontFamily: "var(--ln-body)", fontSize: 14, lineHeight: 1.55, color: "rgba(var(--ln-fg-rgb),0.68)" }}>
+              {isLoggedIn
+                ? "Send a friend request — once they accept, you'll see their notes."
+                : "Sign up and send a friend request to see their notes."}
+            </p>
+            <button
+              onClick={sendRequest}
+              disabled={state === "sending" || state === "sent"}
+              className="ln-press"
+              style={{ width: "100%", padding: "13px", borderRadius: 999, cursor: state === "sent" ? "default" : "pointer", background: state === "sent" ? "rgba(var(--ln-fg-rgb),0.08)" : "var(--ln-accent)", color: state === "sent" ? "var(--ln-fg)" : "#1a0a04", border: "none", fontFamily: "var(--ln-body)", fontSize: 15, fontWeight: 700, opacity: state === "sending" ? 0.6 : 1 }}
+            >
+              {state === "sent" ? "Request sent ✓" : state === "sending" ? "Sending…" : isLoggedIn ? "Add friend" : "Sign up to add friend"}
+            </button>
+            {state === "error" && <p style={{ margin: "10px 0 0", fontFamily: "var(--ln-body)", fontSize: 13, color: "#e88" }}>Couldn&apos;t send the request. Try again.</p>}
+          </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }
@@ -248,6 +308,10 @@ export default function ProfilePage() {
     );
   }
 
+  if (user.locked) {
+    return <PrivateProfile user={user} isLoggedIn={!!session} />;
+  }
+
   const tint = tintFromString(user.id || user.handle);
   const recentItems = [...reviews]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -280,7 +344,7 @@ export default function ProfilePage() {
     <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", display: "flex", flexDirection: "column", flex: 1 }}>
       <TopBar />
 
-      <main style={{ position: "relative", zIndex: 1, flex: 1 }}>
+      <main id="main" style={{ position: "relative", zIndex: 1, flex: 1 }}>
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, height: 320, background: `linear-gradient(180deg, ${tint}1f 0%, transparent 90%)`, pointerEvents: "none" }} />
           <div style={{ position: "relative", maxWidth: 1080, margin: "0 auto", padding: "120px 24px 0" }}>

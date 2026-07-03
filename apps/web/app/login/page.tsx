@@ -1,7 +1,8 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 
 const INK = "#f8ecdb";
@@ -22,22 +23,66 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  marginBottom: 6,
+  fontFamily: "var(--ln-body)",
+  fontSize: 12.5,
+  fontWeight: 600,
+  color: muted(0.7),
+};
+
+const fieldErrorStyle: React.CSSProperties = {
+  margin: "6px 2px 0",
+  fontFamily: "var(--ln-body)",
+  fontSize: 12.5,
+  color: "#ffb4b4",
+};
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function LoginForm() {
-  const [isSignup, setIsSignup] = useState(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const [isSignup, setIsSignup] = useState(searchParams.get("mode") === "signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
-  const searchParams = useSearchParams();
-  const router = useRouter();
 
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const didMount = useRef(false);
+
+  // On toggle, move focus to the first field that matters for the chosen mode —
+  // the newly revealed "Your name" on signup, or email on log in — rather than
+  // leaving it on the toggle button (the reported focus-management miss). Skip on
+  // first mount so we don't steal focus from a cold page load.
+  useEffect(() => {
+    if (!didMount.current) { didMount.current = true; return; }
+    (isSignup ? nameRef : emailRef).current?.focus();
+  }, [isSignup]);
+
+  // Honor ?next= (our newer links) and ?callbackUrl= (NextAuth default).
+  const callbackUrl = searchParams.get("next") || searchParams.get("callbackUrl") || "/";
   const errorParam = searchParams.get("error");
+
+  const validate = () => {
+    const fe: { name?: string; email?: string; password?: string } = {};
+    if (isSignup && !displayName.trim()) fe.name = "Enter your name.";
+    if (!EMAIL_RE.test(email.trim())) fe.email = "Enter a valid email address.";
+    if (password.length < 6) fe.password = "Password must be at least 6 characters.";
+    setFieldErrors(fe);
+    return Object.keys(fe).length === 0;
+  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!validate()) return;
     setLoading(true);
     try {
       const result = await signIn("credentials", {
@@ -113,20 +158,79 @@ function LoginForm() {
               <span style={{ flex: 1, height: 1, background: LINE }} />
             </div>
 
-            <form onSubmit={handleEmailAuth} style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+            <form onSubmit={handleEmailAuth} noValidate style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {isSignup && (
-                <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required={isSignup} placeholder="Your name" style={inputStyle} />
+                <div>
+                  <label htmlFor="ln-name" style={labelStyle}>Your name</label>
+                  <input
+                    id="ln-name"
+                    ref={nameRef}
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    onBlur={() => setFieldErrors((f) => ({ ...f, name: displayName.trim() ? undefined : "Enter your name." }))}
+                    required={isSignup}
+                    placeholder="Your name"
+                    aria-invalid={!!fieldErrors.name}
+                    aria-describedby={fieldErrors.name ? "ln-name-err" : undefined}
+                    style={{ ...inputStyle, borderColor: fieldErrors.name ? "rgba(220,38,38,0.6)" : LINE }}
+                  />
+                  {fieldErrors.name && <p id="ln-name-err" style={fieldErrorStyle}>{fieldErrors.name}</p>}
+                </div>
               )}
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="you@email.com" inputMode="email" style={inputStyle} />
-              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required minLength={6} placeholder="••••••••" style={inputStyle} />
+              <div>
+                <label htmlFor="ln-email" style={labelStyle}>Email</label>
+                <input
+                  id="ln-email"
+                  ref={emailRef}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setFieldErrors((f) => ({ ...f, email: EMAIL_RE.test(email.trim()) ? undefined : "Enter a valid email address." }))}
+                  type="email"
+                  required
+                  placeholder="you@email.com"
+                  inputMode="email"
+                  autoComplete="email"
+                  aria-invalid={!!fieldErrors.email}
+                  aria-describedby={fieldErrors.email ? "ln-email-err" : undefined}
+                  style={{ ...inputStyle, borderColor: fieldErrors.email ? "rgba(220,38,38,0.6)" : LINE }}
+                />
+                {fieldErrors.email && <p id="ln-email-err" style={fieldErrorStyle}>{fieldErrors.email}</p>}
+              </div>
+              <div>
+                <label htmlFor="ln-password" style={labelStyle}>Password</label>
+                <input
+                  id="ln-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setFieldErrors((f) => ({ ...f, password: password.length >= 6 ? undefined : "Password must be at least 6 characters." }))}
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="At least 6 characters"
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  aria-invalid={!!fieldErrors.password}
+                  aria-describedby={fieldErrors.password ? "ln-password-err" : undefined}
+                  style={{ ...inputStyle, borderColor: fieldErrors.password ? "rgba(220,38,38,0.6)" : LINE }}
+                />
+                {fieldErrors.password && <p id="ln-password-err" style={fieldErrorStyle}>{fieldErrors.password}</p>}
+              </div>
               <button type="submit" disabled={loading} className="ln-press" style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", cursor: loading ? "default" : "pointer", background: gold, color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 15, fontWeight: 700, boxShadow: `0 12px 30px -10px ${gold}cc`, opacity: loading ? 0.6 : 1 }}>
                 {loading ? "Please wait…" : isSignup ? "Join the beta" : "Log in"}
               </button>
+
+              {isSignup && (
+                <p style={{ margin: "2px 2px 0", fontFamily: "var(--ln-body)", fontSize: 12, lineHeight: 1.5, color: muted(0.55) }}>
+                  By joining, you agree to our{" "}
+                  <Link href="/terms" style={{ color: gold, textDecoration: "underline", textUnderlineOffset: 2 }}>Terms</Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" style={{ color: gold, textDecoration: "underline", textUnderlineOffset: 2 }}>Privacy Policy</Link>.
+                </p>
+              )}
             </form>
 
             <div style={{ textAlign: "center", marginTop: 6, fontFamily: "var(--ln-body)", fontSize: 13, color: muted(0.64) }}>
               {isSignup ? "Already have an account?" : "New to LinerNotes?"}{" "}
-              <button onClick={() => { setIsSignup(!isSignup); setError(""); }} style={{ background: "none", border: "none", cursor: "pointer", color: gold, fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: 0 }}>
+              <button onClick={() => { setIsSignup(!isSignup); setError(""); setFieldErrors({}); }} style={{ background: "none", border: "none", cursor: "pointer", color: gold, fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: 0 }}>
                 {isSignup ? "Log in" : "Join the beta"}
               </button>
             </div>

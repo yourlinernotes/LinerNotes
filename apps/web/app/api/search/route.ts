@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSession } from "@/lib/auth-helpers";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://beta-linernotes.vercel.app/api";
 
@@ -21,15 +20,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const session = await getAuthSession();
-    const currentUserId = session?.user?.id;
-
-    if (!currentUserId) {
-      return NextResponse.json(
-        { error: "Not authenticated", requiresAuth: true },
-        { status: 401 }
-      );
-    }
+    // Track search is public: it proxies to the backend / iTunes and uses no
+    // per-user data, so signed-out visitors can search and compose a note. Only
+    // *saving* a note requires an account (enforced in POST /api/reviews).
 
     // Try backend first, fallback to iTunes API if backend not deployed yet
     const endpoint = type === "album" ? "albums" : "tracks";

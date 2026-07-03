@@ -47,6 +47,7 @@ function EditProfileContent() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [handle, setHandle] = useState("");
+  const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const fileRef = useRef<HTMLInputElement>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
 
@@ -100,6 +101,7 @@ function EditProfileContent() {
         setBio(data.user.bio || "");
         setAvatarUrl(data.user.avatarUrl || "");
         setHandle(data.user.handle || "");
+        setVisibility(data.user.visibility === "PRIVATE" ? "PRIVATE" : "PUBLIC");
       } catch (error) {
         console.error("Failed to load profile:", error);
         alert("Failed to load profile");
@@ -162,6 +164,7 @@ function EditProfileContent() {
           bio: bio.trim(),
           avatarUrl: avatarUrl.trim(),
           handle: handle.trim().toLowerCase(),
+          visibility,
         }),
       });
       if (!res.ok) {
@@ -218,7 +221,7 @@ function EditProfileContent() {
     <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", display: "flex", flexDirection: "column", flex: 1 }}>
       <TopBar />
 
-      <main style={{ position: "relative", zIndex: 1, flex: 1 }}>
+      <main id="main" style={{ position: "relative", zIndex: 1, flex: 1 }}>
         <section style={{ maxWidth: 560, margin: "0 auto", padding: "112px 20px 90px" }}>
           <h1 style={{ margin: "0 0 26px", fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 30, letterSpacing: "-0.01em" }}>Edit profile</h1>
 
@@ -270,6 +273,44 @@ function EditProfileContent() {
               <label style={labelStyle}>Bio</label>
               <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Logging the songs worth stopping for…" maxLength={200} rows={4} style={{ ...inputStyle, resize: "none" }} />
               <div style={{ ...hintStyle, textAlign: "right" }}>{bio.length}/200</div>
+            </div>
+
+            {/* Account privacy */}
+            <div style={{ borderTop: "1px solid rgba(var(--ln-line-rgb),0.12)", paddingTop: 22, marginTop: 8 }}>
+              <label style={labelStyle} id="privacy-label">Account privacy</label>
+              <div role="radiogroup" aria-labelledby="privacy-label" style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
+                {([
+                  { val: "PUBLIC", title: "Public", desc: "Anyone can see your profile and notes, and they appear in the community feed." },
+                  { val: "PRIVATE", title: "Private", desc: "Only accepted friends see your profile and notes. You can still share a single note by link." },
+                ] as const).map((opt) => {
+                  const active = visibility === opt.val;
+                  return (
+                    <button
+                      key={opt.val}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setVisibility(opt.val)}
+                      className="ln-press"
+                      style={{
+                        textAlign: "left",
+                        padding: "13px 15px",
+                        borderRadius: 13,
+                        cursor: "pointer",
+                        background: active ? "rgba(var(--ln-accent-rgb),0.1)" : "rgba(var(--ln-fg-rgb),0.04)",
+                        border: active ? "1px solid rgba(var(--ln-accent-rgb),0.5)" : "1px solid rgba(var(--ln-fg-rgb),0.14)",
+                        color: "var(--ln-fg)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--ln-body)", fontWeight: 700, fontSize: 15 }}>
+                        <span aria-hidden style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, border: active ? "5px solid var(--ln-accent)" : "2px solid rgba(var(--ln-fg-rgb),0.4)", boxSizing: "border-box" }} />
+                        {opt.title}
+                      </div>
+                      <p style={{ margin: "6px 0 0 24px", fontFamily: "var(--ln-body)", fontSize: 13, lineHeight: 1.5, color: "rgba(var(--ln-fg-rgb),0.65)" }}>{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Last.fm Connection Section */}

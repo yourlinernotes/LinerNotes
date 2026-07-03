@@ -81,7 +81,7 @@ export default function Home() {
     <div style={{ background: "var(--ln-bg)", color: "var(--ln-fg)", minHeight: "100vh", position: "relative", display: "flex", flexDirection: "column", flex: 1 }}>
       <TopBar />
 
-      <main style={{ position: "relative", zIndex: 1 }}>
+      <main id="main" style={{ position: "relative", zIndex: 1 }}>
         {/* Hero — the pitch */}
         <section style={{ maxWidth: 1180, margin: "0 auto", padding: "118px 24px 26px" }}>
           <div style={{ maxWidth: 760, animation: "ln-rise 0.6s cubic-bezier(.2,.8,.2,1) both" }}>
@@ -101,7 +101,7 @@ export default function Home() {
                   Go to your feed
                 </Link>
               ) : (
-                <Link href="/login" className="ln-press" style={{ padding: "14px 24px", borderRadius: 999, textDecoration: "none", background: "var(--ln-accent)", color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 15, fontWeight: 700, boxShadow: "0 14px 32px -12px var(--ln-accent)" }}>
+                <Link href="/login?mode=signup" className="ln-press" style={{ padding: "14px 24px", borderRadius: 999, textDecoration: "none", background: "var(--ln-accent)", color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 15, fontWeight: 700, boxShadow: "0 14px 32px -12px var(--ln-accent)" }}>
                   Join the beta
                 </Link>
               )}

@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
         avatarUrl: true,
         bio: true,
         email: true,
+        visibility: true,
         createdAt: true,
       },
     });
@@ -58,7 +59,14 @@ export async function PATCH(request: NextRequest) {
     const user = await requireAuth();
 
     const body = await request.json();
-    const { displayName, bio, avatarUrl, handle, favourites } = body;
+    const { displayName, bio, avatarUrl, handle, favourites, visibility } = body;
+
+    if (visibility !== undefined && visibility !== "PUBLIC" && visibility !== "PRIVATE") {
+      return NextResponse.json(
+        { error: "Visibility must be PUBLIC or PRIVATE" },
+        { status: 400 }
+      );
+    }
 
     // Favourites: self-contained album/track metadata (NOT review references),
     // so picks made before anything is rated — e.g. the mobile onboarding Top-4
@@ -144,6 +152,7 @@ export async function PATCH(request: NextRequest) {
         ...(bio !== undefined && { bio: bio.trim() || null }),
         ...(avatarUrl !== undefined && { avatarUrl: avatarUrl.trim() || null }),
         ...(handle !== undefined && { handle: handle.trim().toLowerCase() }),
+        ...(visibility !== undefined && { visibility }),
       },
       select: {
         id: true,
@@ -152,6 +161,7 @@ export async function PATCH(request: NextRequest) {
         avatarUrl: true,
         bio: true,
         email: true,
+        visibility: true,
       },
     });
 

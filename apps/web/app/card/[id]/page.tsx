@@ -20,6 +20,7 @@ export default function CardPage() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showNotePicker, setShowNotePicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -38,6 +39,7 @@ export default function CardPage() {
         const authRes = await fetch("/api/auth/me");
         if (authRes.ok) {
           const authData = await authRes.json();
+          setIsLoggedIn(!!authData.user?.id);
           setIsOwner(authData.user?.id === data.review.userId);
         }
 
@@ -165,6 +167,14 @@ export default function CardPage() {
           />
         }
       />
+
+      {/* Signed-out conversion bar — a shared review is the viral entry point. */}
+      {!isLoggedIn && (
+        <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 300, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", justifyContent: "center", padding: "14px 18px", background: "rgba(10,8,7,0.86)", backdropFilter: "blur(10px)", borderTop: "1px solid rgba(255,205,165,0.14)" }}>
+          <span style={{ fontFamily: "var(--ln-body)", fontSize: 14.5, color: "#f1ebe0" }}>Like this note? Log your own on LinerNotes.</span>
+          <a href="/login?mode=signup" className="ln-press" style={{ padding: "10px 22px", borderRadius: 999, textDecoration: "none", background: "var(--ln-accent)", color: "#1a0a04", fontFamily: "var(--ln-body)", fontSize: 14.5, fontWeight: 700 }}>Join the beta</a>
+        </div>
+      )}
 
       {/* Note picker */}
       {showNotePicker && review.notes && review.notes.length > 0 && (

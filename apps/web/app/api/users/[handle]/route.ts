@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthSession } from "@/lib/auth-helpers";
+import { canViewPrivateUser } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -39,6 +41,31 @@ export async function GET(
     const friendCount =
       user._count.friendRequestsSent + user._count.friendRequestsReceived;
 
+    // Privacy gate: a PRIVATE account is only fully visible to the owner or an
+    // accepted friend. Everyone else gets a minimal "locked" profile (enough to
+    // render the private state + a friend-request CTA) with no reviews/bio/favs.
+    const session = await getAuthSession();
+    const viewerId = session?.user?.id;
+    const locked =
+      user.visibility === "PRIVATE" &&
+      !(await canViewPrivateUser(viewerId, user.id));
+
+    if (locked) {
+      return NextResponse.json({
+        user: {
+          id: user.id,
+          handle: user.handle,
+          displayName: user.displayName,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
+          image: user.image,
+          visibility: user.visibility,
+          friendCount,
+          locked: true,
+        },
+      });
+    }
+
     let favourites: string | null = null;
     try {
       const f = await prisma.user.findUnique({ where: { handle }, select: { favourites: true } });
@@ -52,6 +79,7 @@ export async function GET(
         ...user,
         favourites,
         friendCount,
+        locked: false,
       },
     });
   } catch (error) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth-helpers";
+import { canViewPrivateUser } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 
 const FEED_INCLUDE = {
@@ -61,6 +62,20 @@ export async function GET(request: NextRequest) {
     const feedType = searchParams.get("feed"); // friends | home | discover
     const reviewType = searchParams.get("type"); // "reposts" or "saved" or null
 
+    // Profile-scoped reads (?userId=…, incl. ?type=reposts): a PRIVATE account's
+    // reviews/reposts are visible only to the owner or an accepted friend. To
+    // everyone else the list reads as empty (the profile page shows the locked
+    // state). Individual reviews stay reachable via /api/reviews/[id].
+    if (userId && userId !== currentUserId) {
+      const target = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { visibility: true },
+      });
+      if (target?.visibility === "PRIVATE" && !(await canViewPrivateUser(currentUserId, userId))) {
+        return NextResponse.json({ reviews: [] });
+      }
+    }
+
     if (feedType === "friends" || feedType === "home" || feedType === "discover") {
       // Discover is public; friends/home need a logged-in user.
       if (!currentUserId && feedType !== "discover") {
@@ -71,7 +86,13 @@ export async function GET(request: NextRequest) {
       let where: any;
 
       if (feedType === "discover") {
-        where = { ...base, ...(currentUserId ? { userId: { not: currentUserId } } : {}) };
+        // Community feed: PUBLIC accounts only (PRIVATE users never surface in
+        // Discover, even to their friends — friends see them in Home).
+        where = {
+          ...base,
+          user: { visibility: "PUBLIC" },
+          ...(currentUserId ? { userId: { not: currentUserId } } : {}),
+        };
       } else if (feedType === "friends") {
         const friendships = await prisma.friendship.findMany({
           where: {
@@ -103,7 +124,14 @@ export async function GET(request: NextRequest) {
           f.requesterId === currentUserId ? f.addresseeId : f.requesterId,
         );
         const authorIds = [...new Set([currentUserId!, ...follows.map((f) => f.followingId), ...friendIds])];
-        where = { ...base, userId: { in: authorIds } };
+        // A PRIVATE user you follow but aren't friends with must not leak into
+        // your Home feed — only PUBLIC authors, accepted friends, or yourself.
+        const canSeePrivate = [currentUserId!, ...friendIds];
+        where = {
+          ...base,
+          userId: { in: authorIds },
+          OR: [{ user: { visibility: "PUBLIC" } }, { userId: { in: canSeePrivate } }],
+        };
       }
 
       let reviews = await prisma.review.findMany({
@@ -115,10 +143,11 @@ export async function GET(request: NextRequest) {
 
       // Home backfill: a new user follows few people, so top up a sparse home
       // feed with recent community posts (deduped) — never an empty feed.
+      // Backfill draws from the community, so PUBLIC accounts only.
       if (feedType === "home" && reviews.length < 12) {
         const have = new Set(reviews.map((r) => r.id));
         const extra = await prisma.review.findMany({
-          where: { albumReviewId: null, id: { notIn: [...have] } },
+          where: { albumReviewId: null, id: { notIn: [...have] }, user: { visibility: "PUBLIC" } },
           include: FEED_INCLUDE,
           orderBy: { createdAt: "desc" },
           take: 24,
