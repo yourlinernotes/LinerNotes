@@ -505,6 +505,12 @@ function TrackExperience({
   // SoundCloud widget
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const widgetRef = useRef<any>(null);
+  // The player (SC widget or <audio>) initialises async and the source resolves
+  // async, so early taps used to hit a dead control (the "2–3 taps to start" bug
+  // on mobile). Remember a play intent and honour it the moment the player is
+  // ready. scReadyRef gates SC toggling until the widget's READY event.
+  const pendingPlayRef = useRef(false);
+  const scReadyRef = useRef(false);
   // True once the track itself is actually advancing. Until then, an ad-supported
   // track may be playing SoundCloud's ad first — we show a heads-up, not silence.
   const [scStarted, setScStarted] = useState(false);
@@ -512,6 +518,7 @@ function TrackExperience({
     if (source !== "soundcloud" || !scTrackId) return;
     let disposed = false;
     setScStarted(false);
+    scReadyRef.current = false;
     // Long safety net: an ad-supported track plays SoundCloud's ad first (~15-30s)
     // then the song, so we wait it out. Only if nothing has advanced after a
     // generous grace (Go+/encrypted or geo-locked tracks that never stream) do we
@@ -524,8 +531,10 @@ function TrackExperience({
       widgetRef.current = w;
       const E = window.SC.Widget.Events;
       w.bind(E.READY, () => {
+        scReadyRef.current = true;
         w.getDuration((d: number) => setDurationMs(d || 0));
-        if (autoPlay) w.play(); // seamless advance from the previous track
+        // Auto-advance, or an early tap that landed before the widget was ready.
+        if (autoPlay || pendingPlayRef.current) { pendingPlayRef.current = false; w.play(); }
       });
       w.bind(E.PLAY_PROGRESS, (e: any) => {
         if ((e.currentPosition || 0) > 0) {
@@ -552,6 +561,7 @@ function TrackExperience({
       disposed = true;
       if (stuckTimer) clearTimeout(stuckTimer);
       widgetRef.current = null;
+      scReadyRef.current = false;
     };
   }, [source, scTrackId]);
 
@@ -577,7 +587,8 @@ function TrackExperience({
     a.addEventListener("play", onPlay);
     a.addEventListener("pause", onPause);
     a.addEventListener("ended", onEndedEvt);
-    if (autoPlay) a.play().catch(() => {}); // seamless advance
+    // Auto-advance, or an early tap that landed before this source resolved.
+    if (autoPlay || pendingPlayRef.current) { pendingPlayRef.current = false; a.play().catch(() => {}); }
     return () => {
       a.pause();
       a.removeEventListener("timeupdate", onTime);
@@ -591,10 +602,18 @@ function TrackExperience({
   }, [source, audioSrc]);
 
   const toggle = useCallback(() => {
-    if (source === "soundcloud") widgetRef.current?.toggle();
-    else if (source === "preview" && audioRef.current) {
+    if (source === "soundcloud") {
+      // Only toggle once the widget has fired READY; an earlier tap is remembered
+      // and auto-played on READY, so the first tap always "sticks".
+      if (scReadyRef.current && widgetRef.current) widgetRef.current.toggle();
+      else pendingPlayRef.current = true;
+    } else if (audioRef.current) {
+      // youtube OR preview — both use the <audio> element.
       if (audioRef.current.paused) audioRef.current.play().catch(() => {});
       else audioRef.current.pause();
+    } else {
+      // Source not resolved yet — honour this tap the moment it is.
+      pendingPlayRef.current = true;
     }
   }, [source]);
 
