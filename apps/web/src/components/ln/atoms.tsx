@@ -260,15 +260,12 @@ export function LNArt({
 }) {
   const p = palette;
   const imgRef = useRef<HTMLImageElement>(null);
-  // `crossOrigin="anonymous"` forces a CORS fetch — needed to read pixels for
-  // palette extraction, but it makes the image FAIL to display on hosts that
-  // don't send CORS headers (mobile Safari enforces this strictly; that's why
-  // some covers loaded on desktop but not mobile). So only request CORS when we
-  // actually need to extract a palette, and if that load fails, retry without it
-  // so the cover still shows. Also upgrade http→https (blocked as mixed content).
-  const [corsFailed, setCorsFailed] = useState(false);
-  const httpsSrc = src ? src.replace(/^http:\/\//i, "https://") : src;
-  const useCors = !!onPaletteExtracted && !corsFailed;
+  // Route covers through our same-origin image proxy. Cover hosts (mzstatic,
+  // coverartarchive, lastfm, i.scdn) are CORS-less and some are flaky; proxying
+  // makes them load reliably on every device (no CORS, no mixed-content) AND
+  // lets palette extraction read the pixels (same-origin canvas isn't tainted),
+  // so we no longer need crossOrigin at all.
+  const httpsSrc = src ? `/api/img?url=${encodeURIComponent(src)}` : src;
 
   useEffect(() => {
     if (!src || !imgRef.current || !onPaletteExtracted) return;
@@ -314,8 +311,7 @@ export function LNArt({
           ref={imgRef}
           src={httpsSrc}
           alt={label || "cover"}
-          {...(useCors ? { crossOrigin: "anonymous" as const } : {})}
-          onError={() => { if (useCors) setCorsFailed(true); }}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       )}
