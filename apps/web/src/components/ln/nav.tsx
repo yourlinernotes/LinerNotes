@@ -214,7 +214,6 @@ export function TopBar({ transparent = false }: { transparent?: boolean }) {
             <>
               <MobileItem href="/friends" label="Friends" onNav={() => setMenuOpen(false)} ink={ink} />
               {handle && <MobileItem href={`/profile/${handle}`} label="Profile" onNav={() => setMenuOpen(false)} ink={ink} />}
-              {handle && <MobileItem href="/profile/edit" label="Edit profile" onNav={() => setMenuOpen(false)} ink={ink} />}
               <button
                 onClick={() => { setMenuOpen(false); signOut({ callbackUrl: "/" }); }}
                 className="ln-press"

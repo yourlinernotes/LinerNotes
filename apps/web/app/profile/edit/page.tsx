@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TopBar, Footer } from "@/components/ln/nav";
 import { tintFromString } from "@/lib/palette";
@@ -47,6 +47,38 @@ function EditProfileContent() {
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [handle, setHandle] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+
+  // Pick a photo from the device → resize to a small square → store inline (a
+  // data URL). No storage infra needed; a 256px JPEG is ~20KB.
+  const onAvatarFile = (file: File | undefined) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setAvatarBusy(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const size = 256;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { setAvatarBusy(false); return; }
+        // Center-crop cover.
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        setAvatarUrl(canvas.toDataURL("image/jpeg", 0.85));
+        setAvatarBusy(false);
+      };
+      img.onerror = () => setAvatarBusy(false);
+      img.src = reader.result as string;
+    };
+    reader.onerror = () => setAvatarBusy(false);
+    reader.readAsDataURL(file);
+  };
   const [lastfmConnected, setLastfmConnected] = useState(false);
   const [lastfmUsername, setLastfmUsername] = useState("");
   const [lastfmLoading, setLastfmLoading] = useState(false);
@@ -191,22 +223,34 @@ function EditProfileContent() {
           <h1 style={{ margin: "0 0 26px", fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 30, letterSpacing: "-0.01em" }}>Edit profile</h1>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 22, padding: "26px 24px", borderRadius: 18, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.08)" }}>
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl} alt="Avatar preview" style={{ width: 104, height: 104, borderRadius: "50%", objectFit: "cover" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-              ) : (
-                <div style={{ width: 104, height: 104, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: `${tint}22`, border: `1.5px solid ${tint}66`, color: tint, fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 44 }}>
-                  {(displayName || handle || "?")[0].toUpperCase()}
-                </div>
-              )}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              {/* Tap the avatar to pick a photo from your device. */}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="ln-press"
+                style={{ position: "relative", width: 104, height: 104, borderRadius: "50%", padding: 0, border: "none", background: "none", cursor: "pointer", overflow: "hidden" }}
+                aria-label="Change profile photo"
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="Avatar preview" style={{ width: 104, height: 104, borderRadius: "50%", objectFit: "cover", display: "block" }} />
+                ) : (
+                  <div style={{ width: 104, height: 104, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: `${tint}22`, border: `1.5px solid ${tint}66`, color: tint, fontFamily: "var(--ln-display)", fontWeight: 600, fontSize: 44 }}>
+                    {(displayName || handle || "?")[0].toUpperCase()}
+                  </div>
+                )}
+                {/* "camera" overlay hint */}
+                <span style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(10,8,7,0.55)", color: "#f1ebe0", fontFamily: "var(--ln-mono)", fontSize: 9, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 0", textAlign: "center" }}>
+                  {avatarBusy ? "…" : "change"}
+                </span>
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" onChange={(e) => onAvatarFile(e.target.files?.[0])} style={{ display: "none" }} />
+              <button type="button" onClick={() => fileRef.current?.click()} className="ln-press" style={{ padding: "9px 18px", borderRadius: 999, cursor: "pointer", background: "rgba(var(--ln-fg-rgb),0.06)", color: "var(--ln-fg)", border: "1px solid rgba(var(--ln-fg-rgb),0.16)", fontFamily: "var(--ln-body)", fontSize: 13.5, fontWeight: 600 }}>
+                {avatarBusy ? "Processing…" : "Choose from device"}
+              </button>
             </div>
 
-            <div>
-              <label style={labelStyle}>Avatar URL</label>
-              <input type="url" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://example.com/your-avatar.jpg" style={inputStyle} />
-              <p style={hintStyle}>Paste a link to your profile picture.</p>
-            </div>
 
             <div>
               <label style={labelStyle}>Display name *</label>
