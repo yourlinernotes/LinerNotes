@@ -27,7 +27,11 @@ All findings below were **fixed** in this pass (web + mobile + backend), except 
 - **Rotate these credentials** (they sat in working-tree `.env*` — never committed, but rotate to be safe): `LASTFM_API_SECRET`, `SPOTIFY_TOTP_SECRET`, and the backend `JWT_SECRET`. Do this in the Last.fm / Spotify / your secrets dashboards.
 - **Backend deploy status** — confirm whether `apps/backend` is actually deployed. If it's legacy/dead, delete it instead of maintaining the hardening. The new **iss/aud** claims will reject any tokens issued before this change (forced re-login) — stage it if the backend is live.
 - **Cover Art Archive images** — `coverartarchive.org` 307-redirects to `us.archive.org`, and the proxy now refuses redirects → those covers 502 (the `<img onError>` palette fallback still fires). **Verify cover loading in staging;** pre-resolve those URLs if needed.
-- **Deferred code follow-ups:** mobile PKCE/auth-code rewrite (only ID-token-only done); App B LoginScreen `TODO` to wire the ID token; signup "email already exists" message still enumerable (web + backend); optional Prisma `omit` parity on the backend client.
+- **Backend Prisma `omit` parity — DONE** (follow-up commit): backend client now also omits `passwordHash`/`email` by default, with auth-path opt-ins. Needs a login smoke-test since the backend has no live DB here to runtime-verify.
+- **Deferred (need a decision / device, NOT safe to do blind):**
+  - **Signup enumeration** (web + backend): a truly non-enumerable signup needs an email-verification flow ("check your inbox" regardless of whether the address exists). Without email infra, a generic error just means legit users never learn their email is taken — a product/UX + infra decision, not a code-only fix.
+  - **Mobile PKCE/auth-code rewrite:** requires an on-device OAuth round-trip + a configured native client to verify; done blind it risks breaking login. Current state already sends ID-token-only (main substitution risk gone); residual is custom-scheme redirect interception. Do this with a device in the loop.
+  - **App B LoginScreen `TODO`:** wire the ID token from the screen (the api-client path already does).
 
 Everything above is documented in detail below.
 

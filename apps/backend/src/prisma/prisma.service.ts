@@ -24,11 +24,18 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
     this.prisma = new PrismaClient({
       adapter,
+      // Defense-in-depth: never select the user's secret fields by default.
+      // Callers that legitimately need them (auth) opt back in per-query with
+      // `omit: { passwordHash: false, email: false }`.
+      omit: { user: { passwordHash: true, email: true } },
       // Avoid verbose query/info logging (which can leak parameters) in prod.
       log: isProduction
         ? ['warn', 'error']
         : ['query', 'info', 'warn', 'error'],
-    });
+      // The client-level `omit` narrows the client's generic type; the field is
+      // declared as the base PrismaClient, so cast (the omit still applies at
+      // runtime). Matches the web app's approach.
+    } as ConstructorParameters<typeof PrismaClient>[0]) as PrismaClient;
   }
 
   async onModuleInit() {

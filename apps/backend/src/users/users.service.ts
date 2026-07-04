@@ -57,8 +57,11 @@ export class UsersService {
   }
 
   async findByEmail(email: string) {
+    // Auth path: needs passwordHash (bcrypt compare) and email (token/session),
+    // both globally omitted — opt back in here.
     return this.prisma.user.findUnique({
       where: { email },
+      omit: { passwordHash: false, email: false },
     });
   }
 
@@ -70,8 +73,10 @@ export class UsersService {
     avatarUrl?: string;
     name?: string;
   }) {
+    // Signup/Google paths read the returned user's email for the session/token.
     return this.prisma.user.create({
       data,
+      omit: { email: false },
     });
   }
 
