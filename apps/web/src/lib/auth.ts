@@ -6,6 +6,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+// Constant bcrypt hash used to run a dummy compare on the login path when the
+// user doesn't exist / has no password, so response timing doesn't reveal
+// whether an email is registered (user-enumeration defense).
+const DUMMY_HASH = "$2a$12$CwTycUXWue0Thq9StjUM0uJ8DvXW2Wk9x9y5s1Q2m3n4o5p6q7r8";
+
 /**
  * Generate a unique handle from display name or email
  */
@@ -20,13 +25,12 @@ function generateHandle(input: string): string {
 }
 
 export const authOptions: NextAuthConfig = {
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: PrismaAdapter(prisma as any) as any,
   debug: process.env.NODE_ENV === 'development',
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      allowDangerousEmailAccountLinking: true, // Allow linking Google to existing email accounts
     }),
     CredentialsProvider({
       name: "Email",
@@ -59,7 +63,7 @@ export const authOptions: NextAuthConfig = {
           }
 
           // Hash password
-          const passwordHash = await bcrypt.hash(credentials.password as string, 10);
+          const passwordHash = await bcrypt.hash(credentials.password as string, 12);
 
           // Create user
           const handle = generateHandle(credentials.displayName as string);
@@ -70,6 +74,8 @@ export const authOptions: NextAuthConfig = {
               handle,
               passwordHash,
             },
+            // Owner's own signup — email is needed for the returned session.
+            omit: { email: false },
           });
 
           return {
@@ -80,12 +86,17 @@ export const authOptions: NextAuthConfig = {
           };
         }
 
-        // Login
+        // Login. Read passwordHash + email for the authenticated owner (both are
+        // globally omitted by default).
         const user = await prisma.user.findUnique({
           where: { email },
+          omit: { email: false, passwordHash: false },
         });
 
         if (!user || !user.passwordHash) {
+          // Run a dummy compare so a missing/passwordless user takes the same
+          // time as a wrong password (constant-time user-enumeration defense).
+          await bcrypt.compare(credentials.password as string, DUMMY_HASH);
           throw new Error("Invalid email or password");
         }
 

@@ -13,12 +13,11 @@ import {
 } from '@nestjs/common';
 import { MusicService } from './music.service';
 import { ConnectLastFmDto } from './dto/connect-lastfm.dto';
-
-// Placeholder for JWT Auth Guard - implement based on your auth setup
-// For now, we'll create a simple guard interface
-// import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Public } from '../auth/public.decorator';
 
 @Controller('music')
+@UseGuards(JwtAuthGuard)
 export class MusicController {
   constructor(private readonly musicService: MusicService) {}
 
@@ -28,22 +27,12 @@ export class MusicController {
    * Protected route - requires authentication
    */
   @Post('lastfm/connect')
-  // @UseGuards(JwtAuthGuard) // Uncomment when auth is implemented
   @HttpCode(HttpStatus.OK)
   async connectLastFm(
     @Body() connectDto: ConnectLastFmDto,
     @Request() req: any,
   ) {
-    // When JWT auth is implemented, get userId from req.user.id
-    // For now, accept userId from body for testing
-    const userId = req.user?.id || req.body.userId;
-
-    if (!userId) {
-      return {
-        success: false,
-        message: 'User ID is required. Authentication not yet implemented.',
-      };
-    }
+    const userId = req.user.id;
 
     return this.musicService.connectLastFm(
       userId,
@@ -58,21 +47,12 @@ export class MusicController {
    * Protected route - requires authentication
    */
   @Delete(':service/disconnect')
-  // @UseGuards(JwtAuthGuard) // Uncomment when auth is implemented
   @HttpCode(HttpStatus.OK)
   async disconnectService(
     @Param('service') service: string,
     @Request() req: any,
   ) {
-    // When JWT auth is implemented, get userId from req.user.id
-    const userId = req.user?.id || req.body.userId;
-
-    if (!userId) {
-      return {
-        success: false,
-        message: 'User ID is required. Authentication not yet implemented.',
-      };
-    }
+    const userId = req.user.id;
 
     return this.musicService.disconnectService(userId, service);
   }
@@ -83,17 +63,8 @@ export class MusicController {
    * Protected route - requires authentication
    */
   @Get('connections')
-  // @UseGuards(JwtAuthGuard) // Uncomment when auth is implemented
   async getConnections(@Request() req: any) {
-    // When JWT auth is implemented, get userId from req.user.id
-    const userId = req.user?.id || req.query.userId;
-
-    if (!userId) {
-      return {
-        connections: [],
-        message: 'User ID is required. Authentication not yet implemented.',
-      };
-    }
+    const userId = req.user.id;
 
     return this.musicService.getConnections(userId);
   }
@@ -103,6 +74,7 @@ export class MusicController {
    * Search for tracks using iTunes API
    * Public route
    */
+  @Public()
   @Get('search/tracks')
   async searchTracks(
     @Query('q') query: string,
@@ -125,6 +97,7 @@ export class MusicController {
    * Search for albums using iTunes API
    * Public route
    */
+  @Public()
   @Get('search/albums')
   async searchAlbums(
     @Query('q') query: string,
@@ -147,6 +120,7 @@ export class MusicController {
    * Get all tracks from a specific album
    * Public route
    */
+  @Public()
   @Get('albums/:id/tracks')
   async getAlbumTracks(@Param('id') albumId: string) {
     return this.musicService.getAlbumTracks(albumId);

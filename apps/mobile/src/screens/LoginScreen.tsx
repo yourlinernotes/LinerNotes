@@ -82,26 +82,23 @@ export function LoginScreen() {
     try {
       setIsLoading(true);
 
-      console.log('Google auth response:', JSON.stringify(authentication, null, 2));
-
-      // expo-auth-session provides an idToken if configured correctly
-      // Use the ID token for backend authentication
-      const idToken = authentication?.idToken || authentication?.accessToken;
+      // Only send the ID token to the backend. The web backend is being updated
+      // to reject raw access tokens, so we never fall back to accessToken here.
+      const idToken = authentication?.idToken;
 
       if (!idToken) {
-        throw new Error('No ID token or access token received from Google');
+        throw new Error('No ID token received from Google');
       }
 
-      console.log('Sending token to backend...');
-      const isAccessToken = !authentication?.idToken;
-      console.log('Token type:', isAccessToken ? 'Access token' : 'ID token');
-      console.log('Token (first 20 chars):', idToken.substring(0, 20));
+      if (__DEV__) {
+        console.log('Sending Google ID token to backend...');
+      }
 
-      await loginWithGoogle(idToken, isAccessToken);
-
-      console.log('Login successful!');
+      await loginWithGoogle(idToken);
     } catch (error: any) {
-      console.error('Google auth error:', error);
+      if (__DEV__) {
+        console.error('Google auth error:', error?.message ?? error);
+      }
       Alert.alert(
         'Authentication Error',
         error.message || 'Failed to authenticate with Google. Please try again.'

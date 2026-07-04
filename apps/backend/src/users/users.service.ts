@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -95,6 +95,10 @@ export class UsersService {
     } catch (error) {
       if (error.code === 'P2025') {
         throw new NotFoundException(`User with id "${id}" not found`);
+      }
+      if (error.code === 'P2002') {
+        // Unique constraint violation (e.g. handle already taken).
+        throw new ConflictException('That handle is already taken');
       }
       throw error;
     }

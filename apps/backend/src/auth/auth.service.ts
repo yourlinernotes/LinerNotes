@@ -36,7 +36,7 @@ export class AuthService {
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     // Create user
     const user = await this.usersService.create({
@@ -84,9 +84,17 @@ export class AuthService {
     };
   }
 
+  // Pre-computed bcrypt hash of a random string, used to spend comparable time
+  // when no user (or no password) is found so login timing does not reveal
+  // whether an account exists (user enumeration mitigation).
+  private static readonly DUMMY_HASH =
+    '$2a$12$e2wALTTTr1TRfFDNsgCLX.6vBG03P1ZVdGO2wuzm2OUKovXZAuVGK';
+
   async validateUser(email: string, password: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user || !user.passwordHash) {
+      // Run a dummy comparison so the response time matches the happy path.
+      await bcrypt.compare(password, AuthService.DUMMY_HASH);
       return null;
     }
 
@@ -153,7 +161,8 @@ export class AuthService {
         token,
       };
     } catch (error) {
-      console.error('Google login error:', error);
+      // Log only the message to avoid dumping the ID token / verifier internals.
+      console.error('Google login error:', error?.message ?? 'unknown error');
       throw new UnauthorizedException('Failed to authenticate with Google');
     }
   }

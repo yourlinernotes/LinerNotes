@@ -5,7 +5,9 @@ import { sign } from 'jsonwebtoken';
 
 // For mobile, ID tokens may originate from the iOS, Android, or web client.
 // google-auth-library accepts an array of valid audiences, so we accept any
-// configured mobile client ID. Access tokens are validated separately below.
+// configured mobile client ID. Only cryptographically verified ID tokens are
+// accepted — raw access tokens are NOT trusted (they can be minted for any
+// app and their /userinfo email is not proof of intended audience).
 const mobileAudiences = [
   process.env.GOOGLE_IOS_CLIENT_ID,
   process.env.GOOGLE_ANDROID_CLIENT_ID,
@@ -20,18 +22,15 @@ const googleClient = new OAuth2Client(mobileAudiences[0]);
  */
 export async function POST(req: NextRequest) {
   try {
-    const { idToken, accessToken } = await req.json();
-    const token = idToken || accessToken;
+    const { idToken } = await req.json();
 
     console.log('[Mobile Google Auth] Request received:', {
       hasIdToken: !!idToken,
-      hasAccessToken: !!accessToken,
-      tokenPreview: token?.substring(0, 50),
     });
 
-    if (!token) {
+    if (!idToken) {
       return NextResponse.json(
-        { error: 'ID token or access token is required' },
+        { error: 'ID token is required' },
         { status: 400 }
       );
     }
@@ -40,10 +39,11 @@ export async function POST(req: NextRequest) {
     let name: string | undefined;
     let picture: string | undefined;
 
-    // Try to verify as ID token first
+    // Only accept a cryptographically verified Google ID token. No access-token
+    // fallback — an access token's /userinfo email is not proof of audience.
     try {
       const ticket = await googleClient.verifyIdToken({
-        idToken: token,
+        idToken,
         audience: mobileAudiences,
       });
 
@@ -56,41 +56,20 @@ export async function POST(req: NextRequest) {
       name = payload.name;
       picture = payload.picture;
     } catch (idTokenError) {
-      // If ID token verification fails, try using it as an access token
-      console.log('ID token verification failed, trying as access token:', idTokenError);
-
-      try {
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!userInfoResponse.ok) {
-          throw new Error('Failed to fetch user info with access token');
-        }
-
-        const userInfo = await userInfoResponse.json();
-        if (!userInfo.email) {
-          throw new Error('No email in user info');
-        }
-
-        email = userInfo.email;
-        name = userInfo.name;
-        picture = userInfo.picture;
-      } catch (accessTokenError) {
-        console.error('Both ID token and access token verification failed:', {
-          idTokenError,
-          accessTokenError,
-        });
-        return NextResponse.json(
-          { error: 'Invalid Google token' },
-          { status: 401 }
-        );
-      }
+      console.error('ID token verification failed:', {
+        code: (idTokenError as Error)?.message ? 'verify_failed' : 'unknown',
+      });
+      return NextResponse.json(
+        { error: 'Invalid Google token' },
+        { status: 401 }
+      );
     }
 
-    // Find or create user
+    // Find or create user. Owner's own email is needed for the returned session
+    // + JWT (email is globally omitted by default).
     let user = await prisma.user.findUnique({
       where: { email },
+      omit: { email: false },
     });
 
     if (!user) {
@@ -107,6 +86,7 @@ export async function POST(req: NextRequest) {
           handle,
           image: picture,
         },
+        omit: { email: false },
       });
     }
 

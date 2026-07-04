@@ -6,10 +6,14 @@
 
 import axios, { AxiosInstance } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 const LASTFM_API_KEY = 'f558803f6e340f1288504471025e60aa'; // Hardcoded for now to avoid React Native env issues
 const LASTFM_API_URL = 'https://ws.audioscrobbler.com/2.0/';
-const LASTFM_SESSION_KEY = '@linernotes:lastfm_session';
+// The Last.fm session key is a credential — store it in the encrypted keystore.
+// SecureStore keys allow only [A-Za-z0-9._-], so this uses its own safe key.
+const LASTFM_SESSION_SECURE_KEY = 'linernotes_lastfm_session';
+// Username is non-sensitive display data — plain AsyncStorage is fine.
 const LASTFM_USERNAME_KEY = '@linernotes:lastfm_username';
 
 /** Last.fm returns image arrays as [{ size, '#text' }]. */
@@ -82,7 +86,7 @@ class LastFmService {
    * Initialize Last.fm session
    */
   async initialize() {
-    this.sessionKey = await AsyncStorage.getItem(LASTFM_SESSION_KEY);
+    this.sessionKey = await SecureStore.getItemAsync(LASTFM_SESSION_SECURE_KEY);
     this.username = await AsyncStorage.getItem(LASTFM_USERNAME_KEY);
   }
 
@@ -91,7 +95,7 @@ class LastFmService {
    */
   async setSessionKey(sessionKey: string) {
     this.sessionKey = sessionKey;
-    await AsyncStorage.setItem(LASTFM_SESSION_KEY, sessionKey);
+    await SecureStore.setItemAsync(LASTFM_SESSION_SECURE_KEY, sessionKey);
   }
 
   /**
@@ -126,7 +130,7 @@ class LastFmService {
   async clearSession() {
     this.sessionKey = null;
     this.username = null;
-    await AsyncStorage.removeItem(LASTFM_SESSION_KEY);
+    await SecureStore.deleteItemAsync(LASTFM_SESSION_SECURE_KEY);
     await AsyncStorage.removeItem(LASTFM_USERNAME_KEY);
   }
 

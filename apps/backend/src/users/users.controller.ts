@@ -9,28 +9,27 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Public } from '../auth/public.decorator';
 
 @Controller('api/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Public()
   @Get(':handle')
   async getUserByHandle(@Param('handle') handle: string) {
     return this.usersService.findByHandle(handle);
   }
 
-  // Protected route - requires JWT guard (to be implemented)
-  // @UseGuards(JwtAuthGuard)
+  // Protected route - JWT guard populates req.user
+  @UseGuards(JwtAuthGuard)
   @Patch('me')
   async updateCurrentUser(
-    @Request() req: any, // Replace with proper Request type with user
+    @Request() req: any,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    // Assuming req.user.id is populated by JWT guard
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new Error('User not authenticated');
-    }
+    const userId = req.user.id;
     return this.usersService.update(userId, updateUserDto);
   }
 }

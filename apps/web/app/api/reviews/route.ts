@@ -3,10 +3,21 @@ import { getAuthSession } from "@/lib/auth-helpers";
 import { canViewPrivateUser } from "@/lib/privacy";
 import { prisma } from "@/lib/prisma";
 
+// Defense-in-depth: only ever serialize non-sensitive author fields (the global
+// Prisma omit already strips email/passwordHash, this makes the shape explicit).
+const USER_SELECT = {
+  id: true,
+  handle: true,
+  displayName: true,
+  avatarUrl: true,
+  image: true,
+  visibility: true,
+} as const;
+
 const FEED_INCLUDE = {
-  user: true,
+  user: { select: USER_SELECT },
   likes: true,
-  reposts: { include: { user: true } },
+  reposts: { include: { user: { select: USER_SELECT } } },
   notes: { orderBy: { createdAt: "asc" as const } },
   _count: { select: { likes: true, reposts: true } },
 } as const;
@@ -172,10 +183,10 @@ export async function GET(request: NextRequest) {
         include: {
           review: {
             include: {
-              user: true,
+              user: { select: USER_SELECT },
               likes: true,
               reposts: {
-                include: { user: true },
+                include: { user: { select: USER_SELECT } },
               },
               notes: {
                 orderBy: { createdAt: 'asc' },
@@ -230,10 +241,10 @@ export async function GET(request: NextRequest) {
         include: {
           review: {
             include: {
-              user: true,
+              user: { select: USER_SELECT },
               likes: true,
               reposts: {
-                include: { user: true },
+                include: { user: { select: USER_SELECT } },
               },
               notes: {
                 orderBy: { createdAt: 'asc' },
@@ -282,7 +293,7 @@ export async function GET(request: NextRequest) {
       const reviews = await prisma.review.findMany({
         where: { userId, albumReviewId: null }, // exclude per-track reviews within an album
         include: {
-          user: true,
+          user: { select: USER_SELECT },
           likes: true,
           reposts: true,
           notes: {
@@ -338,7 +349,7 @@ export async function GET(request: NextRequest) {
     const reviews = await prisma.review.findMany({
       where: { userId: currentUserId, albumReviewId: null }, // exclude per-track reviews within an album
       include: {
-        user: true,
+        user: { select: USER_SELECT },
         likes: true,
         reposts: true,
         notes: {
@@ -468,7 +479,7 @@ export async function POST(request: NextRequest) {
         } : undefined,
       },
       include: {
-        user: true,
+        user: { select: USER_SELECT },
         notes: true,
         _count: {
           select: { likes: true, reposts: true },

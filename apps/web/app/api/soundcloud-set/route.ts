@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { resolveSoundCloudSet } from "@/lib/soundcloud";
 
+// SSRF guard: this endpoint only reads SoundCloud set/track links.
+function isSoundCloudUrl(value: string): boolean {
+  try {
+    const h = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+    return h === "soundcloud.com" || h.endsWith(".soundcloud.com");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * GET /api/soundcloud-set?url=<soundcloud set or track url>
  *
@@ -19,7 +29,7 @@ export async function GET(request: Request) {
     );
 
   try {
-    if (!url) return ok(null);
+    if (!url || !isSoundCloudUrl(url)) return ok(null);
     return ok(await resolveSoundCloudSet(url));
   } catch (error) {
     console.error("[soundcloud-set] error:", error);

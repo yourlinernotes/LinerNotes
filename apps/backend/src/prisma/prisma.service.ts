@@ -20,9 +20,14 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
     const adapter = new PrismaPg(this.pool);
 
+    const isProduction = process.env.NODE_ENV === 'production';
+
     this.prisma = new PrismaClient({
       adapter,
-      log: ['query', 'info', 'warn', 'error'],
+      // Avoid verbose query/info logging (which can leak parameters) in prod.
+      log: isProduction
+        ? ['warn', 'error']
+        : ['query', 'info', 'warn', 'error'],
     });
   }
 
@@ -32,8 +37,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('Prisma client connected successfully');
     } catch (error) {
       this.logger.error(`Failed to connect to database: ${error.message}`);
-      // Don't throw - allow app to continue starting
-      this.logger.warn('Continuing without database connection...');
+      // Fail fast: a backend that cannot reach its database must not start.
+      throw error;
     }
   }
 

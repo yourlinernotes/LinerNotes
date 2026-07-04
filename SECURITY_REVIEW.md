@@ -13,6 +13,26 @@
 
 ---
 
+## ✅ Remediation status — 2026-07-03
+
+All findings below were **fixed** in this pass (web + mobile + backend), except items explicitly listed as deferred. Every app typechecks clean (`tsc --noEmit` exit 0) and the fixes were independently adversarially re-reviewed (no critical regressions; login / email-lookups / backend guard verified intact).
+
+**Fixed — Web:** C1 (global Prisma `omit` + explicit owner-only opt-ins + scoped author selects), C2 (debug route+page deleted), C3 (access-token fallback removed), H1 (img SSRF: allowlist + private-IP block + **IP-pinned connection** closing DNS-rebinding + no-follow), H2/H3 (session-bound OAuth callbacks + Spotify `state` nonce + Last.fm `returnTo` guard), H4 (JWT alg pinned), H5 (constant-time login), M1 (dangerous account-linking removed), M3 (suggestions visibility filter), M4 (SoundCloud SSRF allowlist), L1 (bcrypt 12).
+
+**Fixed — Mobile (both apps):** H6 (tokens + Last.fm session → `expo-secure-store`; logout clears), H7 (sensitive logging removed/`__DEV__`-gated), and the access-token path removed (ID-token only). `expo-secure-store` added + installed in v2.
+
+**Fixed — Backend:** BC1 (music IDOR — global `APP_GUARD` + `@Public()` opt-outs, `req.user.id` only), BH1 (secret fallback removed, fail-fast), BH2 (alg pinned + iss/aud), BH3 (friends `User` select scoped), BH4 (`temp-user-id` removed + guards), BM1 (guard + P2002→409), BM2 (constant-time login), BM3 (logging/fail-fast), BL1 (helmet), BL2 (bcrypt 12).
+
+**⚠️ Deferred / needs you (not code-fixable by me):**
+- **Rotate these credentials** (they sat in working-tree `.env*` — never committed, but rotate to be safe): `LASTFM_API_SECRET`, `SPOTIFY_TOTP_SECRET`, and the backend `JWT_SECRET`. Do this in the Last.fm / Spotify / your secrets dashboards.
+- **Backend deploy status** — confirm whether `apps/backend` is actually deployed. If it's legacy/dead, delete it instead of maintaining the hardening. The new **iss/aud** claims will reject any tokens issued before this change (forced re-login) — stage it if the backend is live.
+- **Cover Art Archive images** — `coverartarchive.org` 307-redirects to `us.archive.org`, and the proxy now refuses redirects → those covers 502 (the `<img onError>` palette fallback still fires). **Verify cover loading in staging;** pre-resolve those URLs if needed.
+- **Deferred code follow-ups:** mobile PKCE/auth-code rewrite (only ID-token-only done); App B LoginScreen `TODO` to wire the ID token; signup "email already exists" message still enumerable (web + backend); optional Prisma `omit` parity on the backend client.
+
+Everything above is documented in detail below.
+
+---
+
 ## Critical
 
 ### C1 — `passwordHash` and `email` leaked in public API responses

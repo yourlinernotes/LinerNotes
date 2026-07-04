@@ -13,13 +13,14 @@ import {
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Public } from '../auth/public.decorator';
 
 @Controller('api/reviews')
+@UseGuards(JwtAuthGuard)
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
-  // Protected route - requires JWT guard (to be implemented)
-  // @UseGuards(JwtAuthGuard)
   @Post()
   async create(
     @Request() req: any,
@@ -32,6 +33,7 @@ export class ReviewsController {
     return this.reviewsService.create(userId, createReviewDto);
   }
 
+  @Public()
   @Get('feed')
   async getFeed(
     @Query('cursor') cursor?: string,
@@ -56,6 +58,7 @@ export class ReviewsController {
     return this.reviewsService.getSavedReviews(userId, cursor, limitNum);
   }
 
+  @Public()
   @Get('user/:userId')
   async getUserReviews(
     @Param('userId') userId: string,
@@ -66,6 +69,7 @@ export class ReviewsController {
     return this.reviewsService.getUserReviews(userId, cursor, limitNum);
   }
 
+  @Public()
   @Get(':id')
   async getReview(@Param('id') id: string, @Request() req: any) {
     const currentUserId = req.user?.id;

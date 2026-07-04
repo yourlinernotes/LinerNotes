@@ -31,11 +31,16 @@ export async function getAuthSession(): Promise<Session | null> {
     if (authHeader?.startsWith("Bearer ")) {
       const payload = verify(
         authHeader.slice(7),
-        process.env.NEXTAUTH_SECRET as string
+        process.env.NEXTAUTH_SECRET as string,
+        { algorithms: ["HS256"] }
       ) as { sub?: string };
 
       if (payload.sub) {
-        const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+        // Owner's own session — read email (globally omitted by default).
+        const user = await prisma.user.findUnique({
+          where: { id: payload.sub },
+          omit: { email: false },
+        });
         if (user) {
           return {
             user: {

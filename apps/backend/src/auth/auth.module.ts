@@ -5,15 +5,19 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from '../users/users.module';
+import { getJwtSecret, JWT_ISSUER, JWT_AUDIENCE } from './jwt.constants';
 
 @Module({
   imports: [
     UsersModule,
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production',
+      secret: getJwtSecret(),
       signOptions: {
         expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+        algorithm: 'HS256',
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE,
       },
     }),
   ],

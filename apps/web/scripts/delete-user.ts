@@ -9,6 +9,7 @@ async function deleteUser(handleOrEmail: string) {
           { email: handleOrEmail },
         ],
       },
+      omit: { email: false }, // admin script needs to display the email
     });
 
     if (!user) {

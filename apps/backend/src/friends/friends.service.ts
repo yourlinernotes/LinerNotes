@@ -2,6 +2,16 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { FriendshipStatus } from '@prisma/client';
 
+// Only expose safe, public-facing user fields when embedding users in
+// friendship payloads (never the full User record, which includes email /
+// passwordHash).
+const PUBLIC_USER_SELECT = {
+  id: true,
+  handle: true,
+  displayName: true,
+  avatarUrl: true,
+} as const;
+
 @Injectable()
 export class FriendsService {
   constructor(private prisma: PrismaService) {}
@@ -48,8 +58,8 @@ export class FriendsService {
             addresseeId,
           },
           include: {
-            requester: true,
-            addressee: true,
+            requester: { select: PUBLIC_USER_SELECT },
+            addressee: { select: PUBLIC_USER_SELECT },
           },
         });
       }
@@ -63,9 +73,9 @@ export class FriendsService {
         status: FriendshipStatus.PENDING,
       },
       include: {
-        requester: true,
-        addressee: true,
-      },
+            requester: { select: PUBLIC_USER_SELECT },
+            addressee: { select: PUBLIC_USER_SELECT },
+          },
     });
   }
 
@@ -73,9 +83,9 @@ export class FriendsService {
     const friendship = await this.prisma.friendship.findUnique({
       where: { id: friendshipId },
       include: {
-        requester: true,
-        addressee: true,
-      },
+            requester: { select: PUBLIC_USER_SELECT },
+            addressee: { select: PUBLIC_USER_SELECT },
+          },
     });
 
     if (!friendship) {
@@ -98,9 +108,9 @@ export class FriendsService {
       where: { id: friendshipId },
       data: { status: newStatus },
       include: {
-        requester: true,
-        addressee: true,
-      },
+            requester: { select: PUBLIC_USER_SELECT },
+            addressee: { select: PUBLIC_USER_SELECT },
+          },
     });
   }
 
@@ -114,9 +124,9 @@ export class FriendsService {
         status: FriendshipStatus.ACCEPTED,
       },
       include: {
-        requester: true,
-        addressee: true,
-      },
+            requester: { select: PUBLIC_USER_SELECT },
+            addressee: { select: PUBLIC_USER_SELECT },
+          },
       orderBy: {
         updatedAt: 'desc',
       },
@@ -138,7 +148,7 @@ export class FriendsService {
         status: FriendshipStatus.PENDING,
       },
       include: {
-        requester: true,
+        requester: { select: PUBLIC_USER_SELECT },
       },
       orderBy: {
         createdAt: 'desc',
@@ -152,7 +162,7 @@ export class FriendsService {
         status: FriendshipStatus.PENDING,
       },
       include: {
-        addressee: true,
+        addressee: { select: PUBLIC_USER_SELECT },
       },
       orderBy: {
         createdAt: 'desc',

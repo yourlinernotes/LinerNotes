@@ -2,6 +2,19 @@ import { NextResponse } from "next/server";
 import { resolveSoundCloud, type SoundCloudResult } from "@/lib/soundcloud";
 import { resolvePreview } from "@/lib/deezer";
 
+// SSRF guard: only resolve URLs from platforms we actually support, so a caller
+// can't point the server-side resolver at an arbitrary/internal host.
+const ALLOWED_URL_HOSTS = ["soundcloud.com", "open.spotify.com"];
+function allowedSourceUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const h = new URL(value).hostname.toLowerCase().replace(/^www\./, "");
+    return ALLOWED_URL_HOSTS.some((host) => h === host || h.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * GET /api/soundcloud-link?url=&id=&platform=&type=
  *
@@ -14,7 +27,9 @@ import { resolvePreview } from "@/lib/deezer";
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const sourceUrl = (searchParams.get("url") || "").trim() || undefined;
+  const rawSourceUrl = (searchParams.get("url") || "").trim() || undefined;
+  // Drop any url whose host isn't on the allowlist (still allow id/platform/track resolution paths).
+  const sourceUrl = allowedSourceUrl(rawSourceUrl) ? rawSourceUrl : undefined;
   const id = (searchParams.get("id") || "").trim() || undefined;
   const platform = (searchParams.get("platform") || "").trim() || undefined;
   const type = searchParams.get("type") === "album" ? "album" : "song";

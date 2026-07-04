@@ -157,7 +157,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
     try {
       setIsSaving(true);
-      console.log('Saving profile with payload:', JSON.stringify(payload, null, 2));
+      if (__DEV__) {
+        console.log('Saving profile...');
+      }
 
       // Update user profile on backend
       await api.updateUser(payload);
@@ -168,8 +170,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       // Move to Last.fm connection step
       setStep(2);
     } catch (error: any) {
-      console.error('Failed to save profile:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      if (__DEV__) {
+        console.error('Failed to save profile:', error?.message ?? error);
+      }
 
       // Parse the error to provide a user-friendly message
       const errorMessage = error.message || 'Unknown error';

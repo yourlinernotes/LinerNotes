@@ -6,6 +6,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import type {
   User,
   Review,
@@ -39,8 +40,14 @@ export interface SoundCloudResult {
   trackId: string;
 }
 
-/** AsyncStorage keys for persisted auth state */
-const TOKEN_STORAGE_KEY = '@linernotes:auth_token';
+/**
+ * Storage keys for persisted auth state.
+ * The auth token is a sensitive credential and is stored in the OS keystore via
+ * expo-secure-store (encrypted at rest). SecureStore keys may only contain
+ * [A-Za-z0-9._-], so it uses its own key (no `@`/`:`). Non-sensitive cache
+ * (display user, onboarding flag) stays in AsyncStorage.
+ */
+const TOKEN_SECURE_KEY = 'linernotes_auth_token';
 const USER_STORAGE_KEY = '@linernotes:user_data';
 const ONBOARDED_STORAGE_KEY = '@linernotes:onboarded';
 
@@ -64,11 +71,12 @@ class APIClient {
 
   setAuthToken(token: string | null) {
     this.authToken = token;
-    // Persist (fire-and-forget) so the session survives app restarts.
+    // Persist (fire-and-forget) to the encrypted keystore so the session
+    // survives app restarts without leaving the token in plaintext storage.
     if (token) {
-      AsyncStorage.setItem(TOKEN_STORAGE_KEY, token).catch(() => {});
+      SecureStore.setItemAsync(TOKEN_SECURE_KEY, token).catch(() => {});
     } else {
-      AsyncStorage.removeItem(TOKEN_STORAGE_KEY).catch(() => {});
+      SecureStore.deleteItemAsync(TOKEN_SECURE_KEY).catch(() => {});
     }
   }
 
@@ -78,7 +86,7 @@ class APIClient {
    */
   async getUserData(): Promise<User | null> {
     const [token, userJson] = await Promise.all([
-      AsyncStorage.getItem(TOKEN_STORAGE_KEY),
+      SecureStore.getItemAsync(TOKEN_SECURE_KEY),
       AsyncStorage.getItem(USER_STORAGE_KEY),
     ]);
     if (token) {
@@ -95,7 +103,10 @@ class APIClient {
   /** Clear all persisted auth state (token + cached user). */
   async clearAuth(): Promise<void> {
     this.authToken = null;
-    await AsyncStorage.multiRemove([TOKEN_STORAGE_KEY, USER_STORAGE_KEY]);
+    await Promise.all([
+      SecureStore.deleteItemAsync(TOKEN_SECURE_KEY),
+      AsyncStorage.removeItem(USER_STORAGE_KEY),
+    ]);
   }
 
   /** Whether this device has completed onboarding (local flag). */
@@ -127,7 +138,11 @@ class APIClient {
       requestHeaders['Authorization'] = `Bearer ${this.authToken}`;
     }
 
-    console.log(`[API] ${method} ${url}`, body ? JSON.stringify(body, null, 2) : '');
+    // Log the request line only in dev — never log bodies (they can contain
+    // passwords, tokens, sp_dc cookies, or other credentials).
+    if (__DEV__) {
+      console.log(`[API] ${method} ${url}`);
+    }
 
     const response = await fetch(url, {
       method,
@@ -137,8 +152,10 @@ class APIClient {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[API] ${method} ${url} failed with ${response.status}`);
-      console.error(`[API] Response body:`, errorText);
+      if (__DEV__) {
+        // Status only — the response body may echo submitted credentials.
+        console.error(`[API] ${method} ${url} failed with ${response.status}`);
+      }
 
       let errorMessage = `HTTP ${response.status}`;
       try {

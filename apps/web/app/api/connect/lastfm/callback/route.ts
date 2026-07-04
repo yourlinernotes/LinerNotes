@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthSession } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+
+/**
+ * Only allow same-site relative redirect targets (must start with a single "/"
+ * and not "//"), to prevent open-redirect via the returnTo param.
+ */
+function safeReturnTo(value: string | null): string {
+  if (value && /^\/(?!\/)/.test(value)) return value;
+  return "/profile";
+}
 
 /**
  * Generate Last.fm API signature
@@ -19,10 +29,19 @@ function generateSignature(params: Record<string, string>, secret: string): stri
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const token = searchParams.get("token");
-  const userId = searchParams.get("userId");
-  const returnTo = searchParams.get("returnTo") || "/profile";
+  const returnTo = safeReturnTo(searchParams.get("returnTo"));
 
-  if (!token || !userId) {
+  // Attribute the connection to the authenticated session user only — never to
+  // a userId taken from the query string (connection-injection).
+  const session = await getAuthSession();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.redirect(
+      `${process.env.NEXTAUTH_URL}/login?error=unauthenticated`
+    );
+  }
+
+  if (!token) {
     return NextResponse.redirect(
       `${process.env.NEXTAUTH_URL}${returnTo}?error=invalid_callback`
     );

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAuthSession } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { SPOTIFY_STATE_COOKIE } from "../route";
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
@@ -11,30 +13,46 @@ const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
-  const state = searchParams.get("state"); // userId
+  const state = searchParams.get("state"); // single-use CSRF nonce
   const error = searchParams.get("error");
+
+  // The connection is always attributed to the authenticated session user —
+  // NEVER to a userId derived from the query string (connection-injection).
+  const session = await getAuthSession();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.redirect(
+      `${process.env.NEXTAUTH_URL}/login?error=unauthenticated`
+    );
+  }
+
+  // Verify the state nonce against the httpOnly cookie set at connect-initiation.
+  const expectedState = request.cookies.get(SPOTIFY_STATE_COOKIE)?.value;
+
+  const clearState = (res: NextResponse) => {
+    res.cookies.delete(SPOTIFY_STATE_COOKIE);
+    return res;
+  };
 
   // Check for user denial
   if (error) {
-    return NextResponse.redirect(
+    return clearState(NextResponse.redirect(
       `${process.env.NEXTAUTH_URL}/profile?error=spotify_denied`
-    );
+    ));
   }
 
-  if (!code || !state) {
-    return NextResponse.redirect(
+  if (!code || !state || !expectedState || state !== expectedState) {
+    return clearState(NextResponse.redirect(
       `${process.env.NEXTAUTH_URL}/profile?error=invalid_callback`
-    );
+    ));
   }
-
-  const userId = state;
 
   // Check environment variables
   if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
     console.error("Missing Spotify credentials");
-    return NextResponse.redirect(
+    return clearState(NextResponse.redirect(
       `${process.env.NEXTAUTH_URL}/profile?error=missing_credentials`
-    );
+    ));
   }
 
   try {
@@ -109,13 +127,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect back to profile with success
-    return NextResponse.redirect(
+    return clearState(NextResponse.redirect(
       `${process.env.NEXTAUTH_URL}/profile?spotify_connected=true`
-    );
+    ));
   } catch (error) {
     console.error("Spotify callback error:", error);
-    return NextResponse.redirect(
+    return clearState(NextResponse.redirect(
       `${process.env.NEXTAUTH_URL}/profile?error=spotify_connection_failed`
-    );
+    ));
   }
 }

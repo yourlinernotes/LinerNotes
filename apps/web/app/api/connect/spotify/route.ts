@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { requireAuth } from "@/lib/auth-helpers";
+
+export const SPOTIFY_STATE_COOKIE = "spotify_oauth_state";
 
 const SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize";
 const SCOPES = [
@@ -26,8 +29,10 @@ export async function POST() {
       );
     }
 
-    // Use user ID as state for CSRF protection
-    const state = user.id;
+    // Single-use random state nonce for CSRF protection. Stored in an httpOnly
+    // cookie and verified in the callback. The user is bound via the session,
+    // NOT via state (state must not be attacker-controllable to inject a userId).
+    const state = crypto.randomBytes(32).toString("hex");
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -39,7 +44,15 @@ export async function POST() {
 
     const authUrl = `${SPOTIFY_AUTH_URL}?${params.toString()}`;
 
-    return NextResponse.json({ authUrl });
+    const response = NextResponse.json({ authUrl });
+    response.cookies.set(SPOTIFY_STATE_COOKIE, state, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax", // survives the top-level redirect back from Spotify
+      path: "/",
+      maxAge: 600, // 10 minutes
+    });
+    return response;
   } catch (error) {
     console.error("Spotify connect error:", error);
     if (error instanceof Error && error.message === "Unauthorized") {

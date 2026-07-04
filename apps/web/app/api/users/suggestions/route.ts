@@ -31,6 +31,7 @@ export async function GET(request: Request) {
       where: {
         id: excludeIds.length ? { notIn: excludeIds } : undefined,
         handle: { not: null },
+        visibility: "PUBLIC", // never suggest PRIVATE accounts
         reviews: { some: {} }, // only people who've actually posted
       },
       select: {
