@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LinerNotes — Physical-media direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..900;1,9..144,400..800&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#efe6d2; --paper2:#e6dabf; --ink:#211915; --ink-soft:#5a5040;
+    --rust:#a8402a; --rust-deep:#7c2c1c; --olive:#5c6b52; --gold:#a3844f;
+    --bg:#17110d; --bg2:#211915;
+    --serif:'Fraunces',serif; --sans:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--body);background:var(--bg);color:var(--paper);overflow-x:hidden}
+  /* procedural paper/film grain overlay (our own — not a downloaded texture) */
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9;opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+
+  .wrap{max-width:1140px;margin:0 auto;padding:0 26px}
+
+  /* ---- nav ---- */
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0;border-bottom:1px solid rgba(239,230,210,.12)}
+  .brand{font-family:var(--sans);font-weight:700;font-size:20px;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+  .brand .disc{width:16px;height:16px;border-radius:50%;background:conic-gradient(from 0deg,#c98,#a8402a,#5c6b52,#a3844f,#c98);position:relative}
+  .brand .disc::after{content:"";position:absolute;inset:5.5px;border-radius:50%;background:var(--bg);box-shadow:0 0 0 1px rgba(239,230,210,.4)}
+  .navlinks{display:flex;gap:26px;font-family:var(--mono);font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:rgba(239,230,210,.7)}
+  .join{font-family:var(--sans);font-weight:600;font-size:13px;background:var(--rust);color:var(--paper);padding:9px 16px;border-radius:3px;text-transform:uppercase;letter-spacing:.04em;box-shadow:0 2px 0 var(--rust-deep)}
+
+  /* ---- hero ---- */
+  .hero{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;padding:64px 0 40px}
+  @media(max-width:860px){.hero{grid-template-columns:1fr;gap:36px}}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:10px;margin-bottom:20px}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--gold)}
+  h1.head{font-family:var(--serif);font-optical-sizing:auto;font-weight:600;font-size:clamp(42px,5.6vw,68px);line-height:.98;letter-spacing:-.02em}
+  h1.head em{font-style:italic;font-weight:500;color:var(--rust)}
+  h1.head .sans{font-family:var(--sans);font-weight:700;font-style:normal;color:var(--paper)}
+  .sub{font-family:var(--body);font-size:16px;line-height:1.6;color:rgba(239,230,210,.72);max-width:440px;margin:22px 0 28px}
+  .cta{display:flex;gap:12px;align-items:center}
+  .btn{font-family:var(--sans);font-weight:600;font-size:14px;padding:13px 22px;border-radius:4px;cursor:pointer;text-transform:uppercase;letter-spacing:.03em}
+  .btn.fill{background:var(--rust);color:var(--paper);border:none;box-shadow:0 3px 0 var(--rust-deep)}
+  .btn.ghost{background:transparent;color:var(--paper);border:1px solid rgba(239,230,210,.28)}
+
+  /* ---- the spinning CD (built from album art) ---- */
+  .stage{position:relative;display:flex;justify-content:center;align-items:center;min-height:400px}
+  .cd{width:320px;height:320px;border-radius:50%;position:relative;
+    animation:spin 9s linear infinite;
+    box-shadow:0 30px 70px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.4);}
+  .cd .art{position:absolute;inset:0;border-radius:50%;
+    background:radial-gradient(circle at 34% 30%, #e8a24f, #a8402a 42%, #5c1f14 78%);}
+  /* concentric data tracks */
+  .cd .tracks{position:absolute;inset:0;border-radius:50%;
+    background:repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.05) 0 1px, transparent 1px 3px);}
+  /* iridescent CD sheen */
+  .cd .sheen{position:absolute;inset:0;border-radius:50%;mix-blend-mode:screen;opacity:.5;
+    background:conic-gradient(from 210deg, transparent, rgba(120,200,255,.35) 8%, transparent 18%, rgba(255,180,220,.3) 34%, transparent 44%, rgba(150,255,190,.25) 66%, transparent 76%);}
+  .cd .hub{position:absolute;inset:38%;border-radius:50%;background:rgba(239,230,210,.14);box-shadow:inset 0 0 0 1px rgba(239,230,210,.3)}
+  .cd .hole{position:absolute;inset:45%;border-radius:50%;background:var(--bg);box-shadow:0 0 0 3px rgba(0,0,0,.4)}
+  .stage .caption{position:absolute;bottom:6px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:rgba(239,230,210,.55)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.cd{animation:none}}
+
+  /* ---- the NOTE CARD (paper material, liner-note framing — NOT a thermal receipt) ---- */
+  .shelf{padding:30px 0 90px}
+  .shelf .label{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(239,230,210,.55);margin-bottom:18px;display:flex;justify-content:space-between}
+  .note{width:360px;background:var(--paper);color:var(--ink);border-radius:5px;padding:20px;position:relative;
+    box-shadow:0 26px 50px -22px rgba(0,0,0,.75), 0 2px 0 rgba(0,0,0,.25);transform:rotate(-1.2deg)}
+  .note::before{content:"";position:absolute;inset:0;border-radius:5px;pointer-events:none;opacity:.5;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)' opacity='0.5'/></svg>")}
+  .note .nhead{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);border-bottom:1.5px solid var(--ink);padding-bottom:9px}
+  .note .row{display:flex;gap:13px;margin:14px 0}
+  .note .cover{width:74px;height:74px;flex:0 0 74px;border-radius:3px;border:1px solid rgba(33,25,21,.35);
+    background:radial-gradient(circle at 34% 30%, #e8a24f, #a8402a 46%, #5c1f14);box-shadow:0 4px 10px -4px rgba(0,0,0,.4)}
+  .note .t{font-family:var(--sans);font-weight:700;font-size:20px;line-height:1.05;letter-spacing:-.01em}
+  .note .a{font-family:var(--body);font-weight:500;font-size:13px;color:var(--ink-soft);margin-top:3px}
+  .note .rate{font-family:var(--mono);font-weight:600;color:var(--rust);font-size:13px;margin-top:8px;letter-spacing:1px}
+  .note .take{font-family:var(--serif);font-optical-sizing:auto;font-weight:500;font-size:18px;font-style:italic;line-height:1.4;margin:6px 0 2px}
+  .note .moment{font-family:var(--mono);font-size:11px;color:var(--ink-soft);border-left:2px solid var(--rust);padding-left:9px;margin:12px 0}
+  .note .stamps{display:flex;gap:7px;margin:14px 0 4px;flex-wrap:wrap}
+  .note .st{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;padding:5px 9px;border:1.2px solid var(--ink);border-radius:2px}
+  .note .st.on{background:var(--olive);color:var(--paper);border-color:var(--olive)}
+  .note .nfoot{font-family:var(--mono);font-size:9px;letter-spacing:.05em;color:var(--ink-soft);margin-top:14px;border-top:1px solid rgba(33,25,21,.3);padding-top:8px;display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div class="brand"><span class="disc"></span>LinerNotes</div>
+      <div class="navlinks"><span>Feed</span><span>Friends</span><span>The Wall</span></div>
+      <div class="join">Join the beta</div>
+    </nav>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">A diary of the felt · in-the-moment</div>
+        <h1 class="head">The moment a <em>song</em><br>hits you, <span class="sans">kept</span><br>while you're <em>still in it</em></h1>
+        <p class="sub">Not a star-rating graveyard. Log the exact second it landed, in the sleeve it deserves — then press it to the friends you'd actually tell.</p>
+        <div class="cta"><button class="btn fill">Join the beta</button><button class="btn ghost">See a pressing</button></div>
+      </div>
+      <div class="stage">
+        <div class="cd"><div class="art"></div><div class="tracks"></div><div class="sheen"></div><div class="hub"></div><div class="hole"></div></div>
+        <div class="caption">— now spinning · in rainbows —</div>
+      </div>
+    </section>
+
+    <section class="shelf">
+      <div class="label"><span>A pressing from the feed</span><span>LN-0417</span></div>
+      <div class="note">
+        <div class="nhead"><span>LinerNotes · Side A</span><span>Fri 02:14</span></div>
+        <div class="row">
+          <div class="cover"></div>
+          <div>
+            <div class="t">In Rainbows</div>
+            <div class="a">Radiohead · XL · 2007</div>
+            <div class="rate">★★★★☆ 4.0</div>
+          </div>
+        </div>
+        <div class="take">"the moment it opens up —"</div>
+        <div class="moment">02:14 · everything just lands at once, 2am on a night bus home</div>
+        <div class="stamps"><span class="st on">Standout</span><span class="st">Loved</span><span class="st">Skip</span></div>
+        <div class="nfoot"><span>PRESSED BY @ANUSHA</span><span>NO. 0417</span></div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

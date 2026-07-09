@@ -1,0 +1,51 @@
+name: Keep Warm
+
+# Pings the composer's song-resolve routes on a short cadence so the Vercel
+# serverless functions stay warm. The composer load test (see the load-composer
+# harness) showed the ONLY real latency cost is cold-start: the first user after
+# an idle period eats a 10-30s cold-start (worst on /api/lyrics and the YT SABR
+# path), while 100 concurrent WARM users resolve with 0 errors and sub-1.5s p95.
+# Sustained real traffic keeps these warm on its own; this just covers the gaps
+# during low-traffic beta hours so no single user hits a cold function.
+#
+# This is separate from api-canary.yml (which VALIDATES integrations daily and
+# fails loudly). Keep-warm is best-effort and never fails the build — a missed
+# ping just means the next real user might pay a cold-start, which is tolerable.
+#
+# Note: GitHub Actions scheduled runs are best-effort and can be delayed several
+# minutes under load. That's fine for warming. If you need a hard sub-minute
+# guarantee, move this to a Vercel Cron (requires Pro for sub-daily cadence).
+
+on:
+  schedule:
+    - cron: "*/10 * * * *" # every 10 minutes
+  workflow_dispatch: {}
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping resolve routes
+        continue-on-error: true # warming is best-effort; never fail the workflow
+        env:
+          BASE: https://beta-linernotes.vercel.app
+          # A canned, reliably-resolvable track just to spin the functions up.
+          TRACK: Redbone
+          ARTIST: Childish Gambino
+        run: |
+          set +e
+          q="track=$(python3 -c "import urllib.parse,os;print(urllib.parse.quote(os.environ['TRACK']))")&artist=$(python3 -c "import urllib.parse,os;print(urllib.parse.quote(os.environ['ARTIST']))")"
+          for path in \
+            "/api/preview?$q" \
+            "/api/lyrics?$q" \
+            "/api/soundcloud-link?$q" \
+            "/api/youtube-audio?$q"; do
+            code=$(curl -s -o /dev/null -w "%{http_code} %{time_total}s" --max-time 20 "$BASE$path")
+            echo "warm $path -> $code"
+          done
+          exit 0

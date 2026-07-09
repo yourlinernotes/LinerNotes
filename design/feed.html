@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LinerNotes — Feed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --disp:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+    --ink:#191c22; --ink2:#697079; --ink3:#9aa0a8; --line:#e7e9ee; --surface:#fff;
+    --bg-top:#fbfcfe; --bg-bot:#eceff5; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--ink);background:linear-gradient(180deg,var(--bg-top),var(--bg-bot));min-height:100vh}
+
+  /* top nav */
+  .nav{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+    padding:14px 26px;background:color-mix(in srgb,var(--bg-top) 82%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .logo{font-family:var(--disp);font-weight:700;font-size:19px;letter-spacing:-.02em}
+  .logo b{color:#e6b450}
+  .nlinks{display:flex;gap:22px;font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+  .nlinks .on{color:var(--ink);font-weight:600}
+  .nav .r{display:flex;align-items:center;gap:14px}
+  .logbtn{font-family:var(--disp);font-weight:600;font-size:13px;color:#fff;background:#191c22;border-radius:999px;padding:9px 16px}
+  .me{width:32px;height:32px;border-radius:50%;background:#eadfa0;border:1px solid #e0cf7a;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;color:#6a4d00}
+
+  .page{max-width:760px;margin:0 auto;padding:28px 20px 90px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+  .h1{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-.025em}
+  .sub{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-top:3px}
+  .tabs{display:flex;gap:6px}
+  .tab{font-family:var(--mono);font-size:12px;padding:7px 13px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);background:#fff;cursor:pointer}
+  .tab.on{background:#191c22;color:#fff;border-color:#191c22}
+
+  .stream{display:flex;flex-direction:column;gap:30px;margin-top:22px}
+
+  /* ---- FeedItem (poster + card + actions) — the locked card ---- */
+  .item{--art:#ffc220;--deep:#6a4d00}
+  .poster{display:flex;align-items:center;gap:11px;padding:0 3px}
+  .avatar{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;
+    background:color-mix(in srgb,var(--art) 16%,#fff);border:1px solid color-mix(in srgb,var(--art) 40%,#fff);color:var(--deep)}
+  .pname{font-size:14.5px;font-weight:600;line-height:1.2}
+  .phandle{font-family:var(--mono);font-size:11.5px;color:var(--ink3)}
+
+  .card{position:relative;display:flex;border-radius:20px;overflow:hidden;background:var(--surface);border:1px solid var(--line);margin-top:12px;
+    box-shadow:0 22px 50px -28px color-mix(in srgb,var(--deep) 55%,transparent),0 3px 10px -6px rgba(20,22,30,.14)}
+  .holo{position:absolute;top:0;left:0;right:0;height:4px;z-index:5;background:linear-gradient(90deg,#c6f4e8,#ffe6bd,#ffcfe8,#d4c6ff,#c2eeff);opacity:.95}
+  .art{width:210px;flex:none;padding:20px 8px 16px 20px;display:flex;flex-direction:column;gap:14px;background:radial-gradient(120% 80% at 20% 0%, color-mix(in srgb,var(--art) 16%,#fff), transparent 70%)}
+  .mount{position:relative;width:182px;height:150px}
+  .mount .cd{position:absolute;right:0;top:50%;transform:translateY(-50%);width:150px;height:150px;z-index:0;filter:drop-shadow(0 10px 16px rgba(60,50,90,.4))}
+  .mount .cover{position:absolute;left:0;top:50%;transform:translateY(-50%);width:150px;height:150px;z-index:1;border-radius:9px;object-fit:cover;box-shadow:0 10px 22px -8px rgba(20,10,0,.5)}
+  .rating{display:flex;align-items:center;gap:6px}
+  .star{width:16px;height:16px;fill:var(--deep)}
+  .star.off{fill:none;stroke:var(--deep);stroke-opacity:.4;stroke-width:1.3}
+  .rnum{font-family:var(--mono);font-size:13px;color:var(--deep);margin-left:2px}
+  .main{flex:1;min-width:0;padding:20px 22px;display:flex;flex-direction:column;gap:11px;justify-content:center}
+  .badge{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+  .title{font-family:var(--disp);font-weight:700;font-size:24px;line-height:1.06;letter-spacing:-.02em}
+  .artist{font-size:13.5px;color:var(--ink2);margin-top:-4px}
+  .take{font-size:18px;line-height:1.4;font-weight:500;margin:3px 0 2px}
+  .moment{display:flex;gap:11px}
+  .spine{width:2.5px;border-radius:2px;flex:none;background:linear-gradient(var(--art),color-mix(in srgb,var(--art) 20%,transparent));box-shadow:0 0 9px color-mix(in srgb,var(--art) 55%,transparent)}
+  .ts{font-family:var(--mono);font-size:12.5px;color:var(--deep)}
+  .ts .lab{opacity:.6}
+  .mtext{font-size:13.5px;line-height:1.4;color:var(--ink2);margin-top:3px}
+  .readfull{align-self:flex-start;font-weight:600;font-size:12.5px;color:var(--deep);margin-top:2px}
+  .strip{width:250px;flex:none;border-left:1px solid var(--line);background:color-mix(in srgb,var(--art) 4%,#fff)}
+  .sh{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line)}
+  .sh .h{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+  .sh .m{font-family:var(--mono);font-size:10px;color:var(--deep)}
+  .trk{display:flex;align-items:center;gap:10px;padding:8.5px 14px;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+  .trk .n{font-family:var(--mono);font-size:10.5px;color:var(--ink3);width:15px}
+  .trk .nm{flex:1;font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trk.dim .nm{color:var(--ink3)}
+  .pill{font-family:var(--mono);font-size:10px;color:var(--deep);background:color-mix(in srgb,var(--art) 16%,#fff);border-radius:999px;padding:2px 7px}
+  .rx{width:16px;height:16px;flex:none}
+  .rx.empty{border-radius:50%;border:1.5px dashed var(--line)}
+  .actions{display:flex;align-items:center;gap:4px;padding:10px 4px 0}
+  .act{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;border:none;background:none;cursor:pointer;font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+  .act svg{width:20px;height:20px}
+  .spacer{flex:1}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <div class="logo">Liner<b>Notes</b></div>
+    <div class="nlinks"><span class="on">Home</span><span>Friends</span><span>Log</span></div>
+    <div class="r"><div class="me">A</div></div>
+  </div>
+
+  <div class="page">
+    <div class="head">
+      <div>
+        <div class="h1">Home</div>
+        <div class="sub">what your people are hearing</div>
+      </div>
+      <div class="tabs"><span class="tab on">Following</span><span class="tab">Discover</span></div>
+    </div>
+
+    <div class="stream" id="stream"></div>
+  </div>
+
+  <script>
+    // one template, real covers + real colours, different voices — the locked card.
+    const CD = "assets/cd-a.png";
+    const STAR = '<svg class="star" viewBox="0 0 20 20"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.07 3.29a1 1 0 00.95.69h3.46c.97 0 1.37 1.24.59 1.81l-2.8 2.03a1 1 0 00-.37 1.12l1.07 3.29c.3.92-.75 1.69-1.54 1.12l-2.8-2.03a1 1 0 00-1.17 0l-2.8 2.03c-.78.57-1.84-.2-1.54-1.12l1.07-3.29a1 1 0 00-.36-1.12l-2.8-2.03c-.79-.57-.38-1.81.59-1.81h3.46a1 1 0 00.95-.69z"/></svg>';
+    const STAROFF = STAR.replace('class="star"','class="star off"');
+    const FLAME='<svg class="rx" viewBox="0 0 24 24"><path d="M12 3c.5 3-1.8 4.2-2.8 5.8C8 10.6 8 12.5 8 13a4 4 0 008 0c0-1.6-.8-3.2-1.6-4 .3 1.2-.4 2-1 2 .6-1.7-.4-3.4-1.4-4.5C11 5.4 12 4.2 12 3z" fill="#f0722e"/></svg>';
+    const LOVE='<svg class="rx" viewBox="0 0 24 24"><path d="M12 20s-7-4.3-7-9.2A3.8 3.8 0 0112 7.6 3.8 3.8 0 0119 10.8C19 15.7 12 20 12 20z" fill="#e07898"/></svg>';
+    const SKIP='<svg class="rx" viewBox="0 0 24 24"><path d="M5 6l7 6-7 6V6zM14 6l5 6-5 6V6z" fill="#9aa0a8" fill-opacity=".85"/></svg>';
+    const stars = (r) => Array.from({length:5},(_,i)=> i< Math.round(r)? STAR:STAROFF).join('') + `<span class="rnum">${r.toFixed(1)}</span>`;
+
+    const DATA = [
+      {who:"Anusha",handle:"anusha",when:"2h",art:"#ffc220",deep:"#6a4d00",cover:"cover-inrainbows.jpg",
+       title:"In Rainbows",artist:"Radiohead · 2007",rating:4.0,
+       take:"the moment it opens up — everything just lands at once.",
+       ts:"2:14",tlab:"Reckoner",mtext:"the way it just floats here — I always wait for it.",moments:3,
+       trk:[["02","Bodysnatchers",FLAME,""],["03","Nude",LOVE,"◇ 2"],["04","Weird Fishes / Arpeggi",LOVE,""],["05","All I Need",'<span class="rx empty"></span>',"",true],["07","Reckoner",FLAME,"◇ 1"],["10","Videotape",SKIP,"",true]],
+       repost:4,like:28},
+      {who:"Theo",handle:"theo",when:"5h",art:"#ff5e0a",deep:"#5c1f00",cover:"cover-blonde.jpg",
+       title:"Blonde",artist:"Frank Ocean · 2016",rating:5.0,
+       take:"cried on the 24 bus lol. self control still gets me every time.",
+       ts:"1:32",tlab:"Self Control",mtext:"the outro. the way everyone comes in at once.",moments:2,
+       trk:[["05","Self Control",LOVE,"◇ 2"],["06","Good Guy",'<span class="rx empty"></span>',"",true],["10","Nights",FLAME,""],["11","Solo (Reprise)",FLAME,""],["16","Godspeed",LOVE,"",]],
+       repost:12,like:91},
+    ];
+
+    const el = document.getElementById('stream');
+    el.innerHTML = DATA.map(d => `
+      <div class="item" style="--art:${d.art};--deep:${d.deep}">
+        <div class="poster">
+          <div class="avatar">${d.who[0]}</div>
+          <div style="flex:1"><div class="pname">${d.who}</div><div class="phandle">@${d.handle} · ${d.when}</div></div>
+        </div>
+        <div class="card">
+          <div class="holo"></div>
+          <div class="art">
+            <div class="mount"><img class="cd" src="${CD}"><img class="cover" src="assets/${d.cover}"></div>
+            <div class="rating"><span style="display:inline-flex;gap:2px">${stars(d.rating)}</span></div>
+          </div>
+          <div class="main">
+            <div class="badge">album review</div>
+            <div><div class="title">${d.title}</div><div class="artist">${d.artist}</div></div>
+            <div class="take">${d.take}</div>
+            <div class="moment"><div class="spine"></div><div><div class="ts">${d.ts} <span class="lab">· ${d.tlab}</span></div><div class="mtext">${d.mtext}</div></div></div>
+            <div class="readfull">Read the full review →</div>
+          </div>
+          <div class="strip">
+            <div class="sh"><span class="h">the ones that stuck</span><span class="m">◇ ${d.moments} moments</span></div>
+            ${d.trk.map(t=>`<div class="trk${t[4]?' dim':''}"><span class="n">${t[0]}</span><span class="nm">${t[1]}</span>${t[3]?`<span class="pill">${t[3]}</span>`:''}${t[2]}</div>`).join('')}
+          </div>
+        </div>
+        <div class="actions">
+          <button class="act"><svg viewBox="0 0 24 24" fill="none"><path d="M4 9V8a3 3 0 013-3h9m1 10v1a3 3 0 01-3 3H8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2l3 3-3 3M10 22l-3-3 3-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>${d.repost}</button>
+          <button class="act"><svg viewBox="0 0 24 24" fill="none"><path d="M6 4h12v17l-6-4-6 4V4z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <div class="spacer"></div>
+          <button class="act"><svg viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.3-7-9.2A3.8 3.8 0 0112 7.6 3.8 3.8 0 0119 10.8C19 15.7 12 20 12 20z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>${d.like}</button>
+        </div>
+      </div>`).join('');
+  </script>
+</body>
+</html>

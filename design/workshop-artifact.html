@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LinerNotes — real covers on real paper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --disp:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+    --ink:#181a20; --ink2:#6b7280; --line:#e6e8ee;
+    --sweep-top:#fcfcfe; --sweep-bot:#eceff4;
+    --paper:#f8f7f3; --paper-edge:#eae8e0; --paper-ink:#23262c; --paper-ink2:#7b7d85;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--ink);background:linear-gradient(180deg,var(--sweep-top),var(--sweep-bot));min-height:100vh;padding:32px 22px 80px}
+  .wrap{max-width:1060px;margin:0 auto}
+  .sec-label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);margin:0 0 16px;display:flex;align-items:center;gap:10px}
+  .sec-label::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* REAL paper substrate: bright near-white base + a WHISPER of real scanned fiber
+     (white wash over the texture keeps it clean, not a yellow wash) */
+  .paper{position:relative;background-color:var(--paper);
+    background-image:linear-gradient(rgba(255,255,255,.62),rgba(255,255,255,.62)),url("assets/paper.png");
+    background-blend-mode:normal,multiply;background-size:auto,300px;
+    box-shadow:0 24px 54px -28px rgba(20,22,28,.28),0 1px 0 rgba(255,255,255,.7) inset;
+    border:1px solid var(--paper-edge)}
+  .paper::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:radial-gradient(120% 90% at 30% 0%,rgba(255,255,255,.5),transparent 55%)}
+
+  /* REAL album art */
+  .cover{border-radius:5px;object-fit:cover;display:block;box-shadow:0 8px 20px -8px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.4) inset;background:#ddd}
+
+  .principle{background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px 18px;font-size:13.5px;line-height:1.6;color:var(--ink);max-width:660px;margin:0 auto 34px}
+  .principle b{font-family:var(--disp)}
+  .principle .mono{font-family:var(--mono);font-size:11.5px;color:var(--ink2);display:block;margin-top:7px}
+
+  /* 01 hero note */
+  .stage{display:flex;justify-content:center;margin-bottom:52px}
+  .note-hero{width:430px;border-radius:9px;padding:24px;position:relative;z-index:1}
+  .note-hero .row{display:flex;gap:18px;align-items:flex-start}
+  .note-hero .cover{width:108px;height:108px}
+  .note-hero .head{flex:1;min-width:0;padding-top:2px}
+  .note-hero .cat{font-family:var(--mono);font-size:11px;color:var(--paper-ink2);letter-spacing:.05em}
+  .note-hero .t{font-family:var(--disp);font-weight:700;font-size:25px;letter-spacing:-.02em;color:var(--paper-ink);line-height:1.03;margin-top:4px}
+  .note-hero .a{font-size:14px;color:var(--paper-ink2);margin-top:3px}
+  .note-hero .stars{color:var(--paper-ink);font-size:16px;letter-spacing:2px;margin-top:11px}
+  .note-hero .take{font-size:17.5px;line-height:1.5;color:var(--paper-ink);margin:18px 0 4px;position:relative;z-index:1}
+  .note-hero .foot{font-family:var(--mono);font-size:11px;color:var(--paper-ink2);letter-spacing:.03em;border-top:1px solid var(--paper-edge);margin-top:18px;padding-top:12px;display:flex;justify-content:space-between;position:relative;z-index:1}
+
+  /* 02 feed */
+  .feed{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:50px}
+  @media(max-width:780px){.feed{grid-template-columns:1fr 1fr}}
+  .fcard{border-radius:9px;padding:16px;position:relative;z-index:1}
+  .fcard .top{display:flex;gap:12px;align-items:flex-start}
+  .fcard .cover{width:64px;height:64px}
+  .fcard .ft{font-family:var(--disp);font-weight:700;font-size:15px;color:var(--paper-ink);line-height:1.05;letter-spacing:-.01em}
+  .fcard .fa{font-size:12px;color:var(--paper-ink2);margin-top:2px}
+  .fcard .fstars{color:var(--paper-ink);font-size:12px;letter-spacing:1px;margin-top:6px}
+  .fcard .take{font-size:15px;line-height:1.42;color:var(--paper-ink);margin:13px 0 12px;position:relative;z-index:1}
+  .fcard .foot{font-family:var(--mono);font-size:10px;color:var(--paper-ink2);display:flex;justify-content:space-between;border-top:1px solid var(--paper-edge);padding-top:9px;position:relative;z-index:1}
+
+  .note{font-family:var(--mono);font-size:11px;color:var(--ink2);line-height:1.7;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:14px 16px;max-width:840px;margin:0 auto}
+  .note b{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="principle">
+      <b>Real assets now:</b> the cards below use a <b>real scanned paper-fiber texture</b> and <b>real album covers</b> (pulled live from the iTunes catalog) — no more gradients or CSS fakes. The paper &amp; material are ours; the covers and words are the user's.
+      <span class="mono">still to generate (needs a Gemini key): the holographic CD-R disc + jewel case, shot as clean product photos</span>
+    </div>
+
+    <!-- 01 -->
+    <div class="sec-label">01 · the note — real cover on real paper</div>
+    <div class="stage">
+      <div class="note-hero paper">
+        <div class="row">
+          <img class="cover" src="assets/cover-inrainbows.jpg" alt="In Rainbows">
+          <div class="head">
+            <div class="cat">LN-0417 · FRI 02:14 AM</div>
+            <div class="t">In Rainbows</div>
+            <div class="a">Radiohead · 2007</div>
+            <div class="stars">★★★★☆</div>
+          </div>
+        </div>
+        <div class="take">the moment it opens up — everything just lands at once. 2am on a night bus and it finally made sense.</div>
+        <div class="foot"><span>MADE BY @ANUSHA</span><span>SHARE ↗</span></div>
+      </div>
+    </div>
+
+    <!-- 02 -->
+    <div class="sec-label">02 · the feed — same paper, real covers, different people</div>
+    <div class="feed">
+      <div class="fcard paper">
+        <div class="top"><img class="cover" src="assets/cover-blonde.jpg" alt="Blonde"><div><div class="ft">Blonde</div><div class="fa">Frank Ocean</div><div class="fstars">★★★★★</div></div></div>
+        <div class="take">cried on the 24 bus lol. self control still gets me.</div>
+        <div class="foot"><span>@theo</span><span>11:40 PM</span></div>
+      </div>
+      <div class="fcard paper">
+        <div class="top"><img class="cover" src="assets/cover-igor.jpg" alt="IGOR"><div><div class="ft">IGOR</div><div class="fa">Tyler, the Creator</div><div class="fstars">★★★★☆</div></div></div>
+        <div class="take">track 4 is unreal. put it on the second i got home.</div>
+        <div class="foot"><span>@maya</span><span>9:02 PM</span></div>
+      </div>
+      <div class="fcard paper">
+        <div class="top"><img class="cover" src="assets/cover-gkmc.jpg" alt="good kid maad city"><div><div class="ft">good kid, m.A.A.d city</div><div class="fa">Kendrick Lamar</div><div class="fstars">★★★★★</div></div></div>
+        <div class="take">sing about me. best closing run in rap.</div>
+        <div class="foot"><span>@cole</span><span>8:15 PM</span></div>
+      </div>
+      <div class="fcard paper">
+        <div class="top"><img class="cover" src="assets/cover-currents.jpg" alt="Currents"><div><div class="ft">Currents</div><div class="fa">Tame Impala</div><div class="fstars">★★★★☆</div></div></div>
+        <div class="take">let it happen — 8 mins i never want to end.</div>
+        <div class="foot"><span>@dev</span><span>6:30 PM</span></div>
+      </div>
+      <div class="fcard paper">
+        <div class="top"><img class="cover" src="assets/cover-sos.jpg" alt="SOS"><div><div class="ft">SOS</div><div class="fa">SZA</div><div class="fstars">★★★★★</div></div></div>
+        <div class="take">nobody gets it. and somehow everybody does.</div>
+        <div class="foot"><span>@kira</span><span>5:12 PM</span></div>
+      </div>
+      <div class="fcard paper">
+        <div class="top"><img class="cover" src="assets/cover-inrainbows.jpg" alt="In Rainbows"><div><div class="ft">In Rainbows</div><div class="fa">Radiohead</div><div class="fstars">★★★★☆</div></div></div>
+        <div class="take">reckoner on repeat. still my favourite ending.</div>
+        <div class="foot"><span>@nora</span><span>3:20 PM</span></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Now real:</b> scanned paper-fiber texture (multiply-blended over a warm paper tone) + real iTunes cover art + the user's words in clean type + mono catalog labels. <b>Next, once you drop in a Gemini API key:</b> I'll generate the rich product-shot assets — a holographic CD-R disc (album art as its printed label) and a jewel case — and build the review/experience page where the note opens and the CD comes out. That's the piece that makes it look truly rich.
+    </div>
+
+  </div>
+</body>
+</html>

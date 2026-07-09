@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LinerNotes — the fresh card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --disp:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+    --ink:#191c22; --ink2:#6c7280; --line:#e7e9ee; --bg-top:#fcfdff; --bg-bot:#eceff5; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--ink);background:linear-gradient(180deg,var(--bg-top),var(--bg-bot));min-height:100vh;padding:34px 22px 80px}
+  .wrap{max-width:1040px;margin:0 auto}
+  .sec{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);margin:0 0 20px;display:flex;gap:10px;align-items:center}
+  .sec::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* CD peeks out the SIDE of the album cover, like it's sliding out of the case */
+  .mount{position:relative;flex:none}
+  .mount .disc{position:absolute;right:0;top:50%;transform:translateY(-50%);border-radius:50%;z-index:0;
+    background:conic-gradient(from 40deg,#c6f4e8,#ffe6bd,#ffcfe8,#d4c6ff,#c2eeff,#cdf7da,#c6f4e8);
+    box-shadow:0 12px 26px -12px rgba(70,60,100,.5)}
+  .mount .disc::before{content:"";position:absolute;inset:7%;border-radius:50%;
+    background:conic-gradient(from 210deg,rgba(255,255,255,.65),transparent 24%,rgba(255,255,255,.4) 56%,transparent 80%,rgba(255,255,255,.65))}
+  .mount .disc::after{content:"";position:absolute;inset:43%;border-radius:50%;background:#fff;box-shadow:inset 0 0 5px rgba(0,0,0,.22)}
+  .mount .cover{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:1;display:block;object-fit:cover;border-radius:8px;
+    box-shadow:0 8px 20px -8px rgba(20,10,0,.5),0 1px 0 rgba(255,255,255,.5) inset}
+
+  /* the card: clearly bounded, glossy, tinted by the album colour */
+  .card{position:relative;border-radius:20px;
+    background:radial-gradient(140% 120% at 84% -12%, color-mix(in srgb,var(--art) 18%,#fff), #fff 64%);
+    box-shadow:0 24px 54px -28px color-mix(in srgb,var(--deep) 60%,transparent),
+               0 3px 12px -7px rgba(20,22,30,.16), 0 1px 0 rgba(255,255,255,.9) inset;
+    border:1px solid var(--line)}
+  .card .strip{position:absolute;top:0;left:0;right:0;height:5px;border-radius:20px 20px 0 0;
+    background:linear-gradient(90deg,#c6f4e8,#ffe6bd,#ffcfe8,#d4c6ff,#c2eeff);opacity:.9}
+
+  /* hero */
+  .hero{width:440px;margin:0 auto 56px;padding:26px}
+  .hero .head{display:flex;gap:20px;align-items:center}
+  .hero .mount{width:170px;height:128px}
+  .hero .mount .disc{width:128px;height:128px}
+  .hero .mount .cover{width:120px;height:120px}
+  .hero .meta{flex:1;min-width:0}
+  .hero .badge{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.05em;
+    color:var(--deep);background:color-mix(in srgb,var(--art) 26%,#fff);border:1px solid color-mix(in srgb,var(--art) 42%,#fff);padding:4px 9px;border-radius:999px}
+  .hero .t{font-family:var(--disp);font-weight:700;font-size:25px;letter-spacing:-.02em;line-height:1.02;margin:9px 0 2px}
+  .hero .a{font-size:13.5px;color:var(--ink2)}
+  .hero .stars{font-size:16px;letter-spacing:2px;margin-top:9px;color:var(--deep)}
+  .hero .take{font-size:17px;line-height:1.5;margin:18px 0 2px}
+  .hero .foot{font-family:var(--mono);font-size:11px;color:var(--ink2);border-top:1px solid var(--line);margin-top:16px;padding-top:13px;display:flex;justify-content:space-between;align-items:center}
+  .hero .share{font-family:var(--disp);font-weight:600;font-size:12px;color:#fff;background:var(--deep);border-radius:999px;padding:7px 15px}
+
+  /* feed */
+  .feed{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:800px){.feed{grid-template-columns:1fr 1fr}}
+  .fc{padding:18px}
+  .fc .head{display:flex;flex-direction:column;align-items:center;text-align:center}
+  .fc .mount{width:136px;height:100px;margin:0 auto 12px}
+  .fc .mount .disc{width:100px;height:100px}
+  .fc .mount .cover{width:96px;height:96px}
+  .fc .t{font-family:var(--disp);font-weight:700;font-size:15.5px;letter-spacing:-.01em;line-height:1.08}
+  .fc .a{font-size:12px;color:var(--ink2);margin-top:1px}
+  .fc .stars{font-size:12px;letter-spacing:1px;color:var(--deep);margin-top:6px}
+  .fc .take{font-size:14px;line-height:1.42;margin:12px 0 12px;text-align:left}
+  .fc .foot{font-family:var(--mono);font-size:10px;color:var(--ink2);border-top:1px solid var(--line);padding-top:9px;display:flex;justify-content:space-between}
+
+  .msg{font-family:var(--mono);font-size:11px;color:var(--ink2);line-height:1.7;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:14px 16px;max-width:860px;margin:26px auto 0}
+  .msg b{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="sec">the fresh card — album cover on a holographic CD · colour from the art · clearly a card</div>
+
+    <!-- HERO -->
+    <div class="card hero" style="--art:#ffc220;--deep:#644800">
+      <div class="strip"></div>
+      <div class="head">
+        <div class="mount"><div class="disc"></div><img class="cover" src="assets/cover-inrainbows.jpg"></div>
+        <div class="meta">
+          <span class="badge">LN-0417 · 2:14 AM</span>
+          <div class="t">In Rainbows</div>
+          <div class="a">Radiohead · 2007</div>
+          <div class="stars">★★★★☆</div>
+        </div>
+      </div>
+      <div class="take">the moment it opens up — everything just lands at once. 2am on a night bus and it finally made sense.</div>
+      <div class="foot"><span>MADE BY @ANUSHA</span><span class="share">Share ↗</span></div>
+    </div>
+
+    <div class="sec">02 · the feed — one card, every cover brings its own colour</div>
+    <div class="feed">
+      <div class="card fc" style="--art:#ff5e0a;--deep:#5c1f00"><div class="strip"></div>
+        <div class="head"><div class="mount"><div class="disc"></div><img class="cover" src="assets/cover-blonde.jpg"></div><div class="t">Blonde</div><div class="a">Frank Ocean</div><div class="stars">★★★★★</div></div>
+        <div class="take">cried on the 24 bus lol. self control still gets me.</div>
+        <div class="foot"><span>@theo</span><span>11:40 PM</span></div>
+      </div>
+      <div class="card fc" style="--art:#0389c4;--deep:#003045"><div class="strip"></div>
+        <div class="head"><div class="mount"><div class="disc"></div><img class="cover" src="assets/cover-igor.jpg"></div><div class="t">IGOR</div><div class="a">Tyler, the Creator</div><div class="stars">★★★★☆</div></div>
+        <div class="take">track 4 is unreal. put it on the second i got home.</div>
+        <div class="foot"><span>@maya</span><span>9:02 PM</span></div>
+      </div>
+      <div class="card fc" style="--art:#a69318;--deep:#3d3505"><div class="strip"></div>
+        <div class="head"><div class="mount"><div class="disc"></div><img class="cover" src="assets/cover-gkmc.jpg"></div><div class="t">good kid, m.A.A.d city</div><div class="a">Kendrick Lamar</div><div class="stars">★★★★★</div></div>
+        <div class="take">sing about me. best closing run in rap.</div>
+        <div class="foot"><span>@cole</span><span>8:15 PM</span></div>
+      </div>
+      <div class="card fc" style="--art:#fa4f36;--deep:#6a0d00"><div class="strip"></div>
+        <div class="head"><div class="mount"><div class="disc"></div><img class="cover" src="assets/cover-currents.jpg"></div><div class="t">Currents</div><div class="a">Tame Impala</div><div class="stars">★★★★☆</div></div>
+        <div class="take">let it happen — 8 mins i never want to end.</div>
+        <div class="foot"><span>@dev</span><span>6:30 PM</span></div>
+      </div>
+      <div class="card fc" style="--art:#1c5175;--deep:#071c2b"><div class="strip"></div>
+        <div class="head"><div class="mount"><div class="disc"></div><img class="cover" src="assets/cover-sos.jpg"></div><div class="t">SOS</div><div class="a">SZA</div><div class="stars">★★★★★</div></div>
+        <div class="take">nobody gets it. and somehow everybody does.</div>
+        <div class="foot"><span>@kira</span><span>5:12 PM</span></div>
+      </div>
+      <div class="card fc" style="--art:#ffc220;--deep:#644800"><div class="strip"></div>
+        <div class="head"><div class="mount"><div class="disc"></div><img class="cover" src="assets/cover-inrainbows.jpg"></div><div class="t">In Rainbows</div><div class="a">Radiohead</div><div class="stars">★★★★☆</div></div>
+        <div class="take">reckoner on repeat. still my favourite ending.</div>
+        <div class="foot"><span>@nora</span><span>3:20 PM</span></div>
+      </div>
+    </div>
+
+    <div class="msg">
+      <b>Fixed the broken layout:</b> one cover (not two), mounted on a holographic CD so a thin iridescent halo rings it — no overlap, each card clearly bounded. Real covers; the tint, halo and stars use the <b>real colour extracted from each cover</b>. Holographic is still CSS foil (a real CD-R photo needs a billing-enabled key / stock asset).
+    </div>
+  </div>
+</body>
+</html>

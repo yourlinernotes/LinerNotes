@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LinerNotes — Palette Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --disp:'Bricolage Grotesque',sans-serif; --body:'Hanken Grotesk',sans-serif; --mono:'Space Mono',monospace; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);background:#050506;color:#e8e8ea;padding:32px 24px 80px;}
+  h1.page{font-family:var(--disp);font-weight:800;font-size:30px;letter-spacing:-.02em;margin-bottom:6px}
+  p.sub{font-family:var(--mono);font-size:12px;color:#8a8a92;margin-bottom:28px;text-transform:uppercase;letter-spacing:.08em}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;max-width:1280px;margin:0 auto}
+  @media(max-width:1000px){.grid{grid-template-columns:1fr}}
+
+  /* ---- palette scopes ---- */
+  .opt{border-radius:18px;overflow:hidden;background:var(--bg);border:1px solid var(--line);}
+  .opt .hd{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .opt .name{font-family:var(--disp);font-weight:800;font-size:20px;color:var(--fg);letter-spacing:-.01em}
+  .opt .tag{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+  .swatches{display:flex;flex-wrap:wrap;gap:6px;padding:12px 18px}
+  .sw{width:34px;height:34px;border-radius:8px;border:1px solid rgba(255,255,255,.08);position:relative}
+  .sw span{position:absolute;bottom:-15px;left:0;font-family:var(--mono);font-size:8px;color:var(--muted);white-space:nowrap}
+  .swatches{padding-bottom:26px}
+
+  /* ---- the review card (bold, music-forward) ---- */
+  .card{margin:14px;border-radius:16px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+  .art{aspect-ratio:1/1;position:relative;background:var(--art)}
+  .art .band{position:absolute;left:0;right:0;bottom:0;height:46%;background:linear-gradient(to top, var(--artband), transparent)}
+  .art .stamp{position:absolute;top:12px;left:12px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:#fff;background:rgba(0,0,0,.42);backdrop-filter:blur(6px);padding:4px 8px;border-radius:999px}
+  .body{padding:16px 16px 18px}
+  .ttl{font-family:var(--disp);font-weight:800;font-size:27px;line-height:.98;letter-spacing:-.02em;color:var(--fg);text-transform:uppercase}
+  .artist{font-family:var(--body);font-weight:600;font-size:14px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:8px}
+  .stars{color:var(--accent);font-size:15px;letter-spacing:2px}
+  .quote{font-family:var(--body);font-weight:500;font-size:15px;line-height:1.5;color:var(--fg);opacity:.92;margin:14px 0;border-left:3px solid var(--accent);padding-left:12px}
+  .meta{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .reacts{display:flex;gap:8px;margin:14px 0 16px}
+  .rx{font-family:var(--mono);font-size:11px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);display:flex;align-items:center;gap:6px;color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .cta{display:flex;gap:10px}
+  .btn{flex:1;font-family:var(--body);font-weight:700;font-size:14px;padding:12px;border-radius:12px;text-align:center;border:none;cursor:pointer}
+  .btn.primary{background:var(--accent);color:var(--onAccent)}
+  .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+</style>
+</head>
+<body>
+  <h1 class="page">LinerNotes — signature palette options</h1>
+  <p class="sub">bold &amp; music-forward · bricolage / hanken / space mono · react &amp; pick one</p>
+
+  <div class="grid">
+
+    <!-- OPTION A: NEON NOIR (cool near-black + electric violet) -->
+    <div class="opt" style="
+      --bg:#0C0C10; --surface:#16151C; --elevated:#1F1D28; --fg:#F5F3F7; --muted:#9A96A6;
+      --line:rgba(255,255,255,.08); --accent:#7C5CFF; --onAccent:#0B0B12;
+      --art:linear-gradient(135deg,#4b2e83,#7c5cff 60%,#c39bff); --artband:#1a0f3a;">
+      <div class="hd"><div class="name">A · Neon Noir</div><div class="tag">cool near-black + electric violet</div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#0C0C10"><span>bg</span></div>
+        <div class="sw" style="background:#16151C"><span>surface</span></div>
+        <div class="sw" style="background:#1F1D28"><span>elev</span></div>
+        <div class="sw" style="background:#F5F3F7"><span>text</span></div>
+        <div class="sw" style="background:#9A96A6"><span>muted</span></div>
+        <div class="sw" style="background:#7C5CFF"><span>accent</span></div>
+        <div class="sw" style="background:#FF7A3D"><span>fire</span></div>
+        <div class="sw" style="background:#FF6FA5"><span>love</span></div>
+        <div class="sw" style="background:#6E6E7A"><span>skip</span></div>
+      </div>
+      <div class="card">
+        <div class="art"><div class="stamp">FRI · 2:14 AM</div><div class="band"></div></div>
+        <div class="body">
+          <div class="ttl">In Rainbows</div>
+          <div class="artist">Radiohead <span class="stars">★★★★☆</span></div>
+          <div class="quote">the moment it opens up — everything just lands at once</div>
+          <div class="reacts">
+            <div class="rx"><span class="dot" style="background:#FF7A3D"></span>standout</div>
+            <div class="rx"><span class="dot" style="background:#FF6FA5"></span>loved</div>
+            <div class="rx"><span class="dot" style="background:#6E6E7A"></span>skip</div>
+          </div>
+          <div class="cta"><button class="btn primary">Log your own</button><button class="btn ghost">Share</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION B: SIGNAL (true OLED black + acid lime) -->
+    <div class="opt" style="
+      --bg:#08090A; --surface:#121316; --elevated:#1B1D21; --fg:#F2F4F3; --muted:#8E9490;
+      --line:rgba(255,255,255,.09); --accent:#C7F24E; --onAccent:#0A0C05;
+      --art:linear-gradient(135deg,#123b2a,#1f7a4d 55%,#8fe6b0); --artband:#06170f;">
+      <div class="hd"><div class="name">B · Signal</div><div class="tag">true OLED black + acid lime</div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#08090A"><span>bg</span></div>
+        <div class="sw" style="background:#121316"><span>surface</span></div>
+        <div class="sw" style="background:#1B1D21"><span>elev</span></div>
+        <div class="sw" style="background:#F2F4F3"><span>text</span></div>
+        <div class="sw" style="background:#8E9490"><span>muted</span></div>
+        <div class="sw" style="background:#C7F24E"><span>accent</span></div>
+        <div class="sw" style="background:#FF6A3D"><span>fire</span></div>
+        <div class="sw" style="background:#FF77A9"><span>love</span></div>
+        <div class="sw" style="background:#6C7270"><span>skip</span></div>
+      </div>
+      <div class="card">
+        <div class="art"><div class="stamp">FRI · 2:14 AM</div><div class="band"></div></div>
+        <div class="body">
+          <div class="ttl">In Rainbows</div>
+          <div class="artist">Radiohead <span class="stars">★★★★☆</span></div>
+          <div class="quote">the moment it opens up — everything just lands at once</div>
+          <div class="reacts">
+            <div class="rx"><span class="dot" style="background:#FF6A3D"></span>standout</div>
+            <div class="rx"><span class="dot" style="background:#FF77A9"></span>loved</div>
+            <div class="rx"><span class="dot" style="background:#6C7270"></span>skip</div>
+          </div>
+          <div class="cta"><button class="btn primary">Log your own</button><button class="btn ghost">Share</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION C: CINEMA (deep ink-blue + electric azure) -->
+    <div class="opt" style="
+      --bg:#0A0E16; --surface:#131826; --elevated:#1B2233; --fg:#EDEFF4; --muted:#8892A6;
+      --line:rgba(140,160,200,.14); --accent:#3DA5FF; --onAccent:#04101E;
+      --art:linear-gradient(135deg,#0f2f4a,#2a6ea8 55%,#8ec6f0); --artband:#071522;">
+      <div class="hd"><div class="name">C · Cinema</div><div class="tag">deep ink-blue + electric azure</div></div>
+      <div class="swatches">
+        <div class="sw" style="background:#0A0E16"><span>bg</span></div>
+        <div class="sw" style="background:#131826"><span>surface</span></div>
+        <div class="sw" style="background:#1B2233"><span>elev</span></div>
+        <div class="sw" style="background:#EDEFF4"><span>text</span></div>
+        <div class="sw" style="background:#8892A6"><span>muted</span></div>
+        <div class="sw" style="background:#3DA5FF"><span>accent</span></div>
+        <div class="sw" style="background:#FF8348"><span>fire</span></div>
+        <div class="sw" style="background:#FF6FA5"><span>love</span></div>
+        <div class="sw" style="background:#5D6575"><span>skip</span></div>
+      </div>
+      <div class="card">
+        <div class="art"><div class="stamp">FRI · 2:14 AM</div><div class="band"></div></div>
+        <div class="body">
+          <div class="ttl">In Rainbows</div>
+          <div class="artist">Radiohead <span class="stars">★★★★☆</span></div>
+          <div class="quote">the moment it opens up — everything just lands at once</div>
+          <div class="reacts">
+            <div class="rx"><span class="dot" style="background:#FF8348"></span>standout</div>
+            <div class="rx"><span class="dot" style="background:#FF6FA5"></span>loved</div>
+            <div class="rx"><span class="dot" style="background:#5D6575"></span>skip</div>
+          </div>
+          <div class="cta"><button class="btn primary">Log your own</button><button class="btn ghost">Share</button></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

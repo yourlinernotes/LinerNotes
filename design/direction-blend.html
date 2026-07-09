@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LinerNotes — North Star (blend)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sans:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace; --serif:'Fraunces',serif;
+    /* bright chrome */
+    --bg:#f3f4f6; --bg-2:#e8eaee; --ink:#16151a; --ink-soft:#6b6b75; --line:#dfe1e6; --cta:#141317;
+    /* warm paper island */
+    --paper:#efe6d2; --paper-edge:#dccdad; --pink:#211915; --p-ink-soft:#6a6154; --rust:#a8402a; --olive:#5c6b52;
+    /* holographic */
+    --holo:linear-gradient(100deg,#ff9ecb 0%,#b8a9ff 26%,#8fd0ff 48%,#9af5c8 70%,#ffd79a 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--ink);
+    background:radial-gradient(120% 90% at 50% -20%, #ffffff, var(--bg) 42%, var(--bg-2) 100%);
+    min-height:100vh;overflow-x:hidden}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 26px}
+
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .brand{font-family:var(--sans);font-weight:700;font-size:20px;letter-spacing:-.02em}
+  .brand .holo{background:var(--holo);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .navlinks{display:flex;gap:26px;font-family:var(--mono);font-size:12px;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-soft)}
+  .join{font-family:var(--sans);font-weight:600;font-size:13px;background:var(--cta);color:#fff;padding:10px 17px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em}
+
+  .hero{display:grid;grid-template-columns:1.02fr .98fr;gap:36px;align-items:center;padding:52px 0 40px}
+  @media(max-width:880px){.hero{grid-template-columns:1fr;gap:30px}}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-soft);display:flex;gap:10px;align-items:center;margin-bottom:20px}
+  .eyebrow::before{content:"";width:24px;height:1px;background:var(--ink-soft)}
+  h1{font-family:var(--sans);font-weight:700;font-size:clamp(40px,5.4vw,62px);line-height:1.0;letter-spacing:-.03em}
+  h1 .holo{background:var(--holo);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-family:var(--body);font-size:16px;line-height:1.6;color:var(--ink-soft);max-width:430px;margin:22px 0 26px}
+  .cta{display:flex;gap:12px;align-items:center}
+  .btn{font-family:var(--sans);font-weight:600;font-size:14px;padding:13px 22px;border-radius:999px;cursor:pointer;text-transform:uppercase;letter-spacing:.03em;border:none}
+  .btn.fill{background:var(--cta);color:#fff}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .stats{display:flex;gap:26px;margin-top:30px}
+  .stat b{font-family:var(--sans);font-weight:700;font-size:19px;display:block}
+  .stat span{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+
+  /* product-shot stage */
+  .stage{position:relative;display:flex;justify-content:center;align-items:center;min-height:430px}
+  .object{position:relative;width:250px;height:250px}
+  .cover{position:absolute;inset:0;border-radius:8px;z-index:2;
+    background:radial-gradient(circle at 34% 28%, #f4b25c, #a8402a 46%, #4f1b12 84%);
+    box-shadow:0 34px 60px -20px rgba(60,40,30,.45), 0 2px 3px rgba(0,0,0,.15);}
+  .cover::after{content:"";position:absolute;left:0;right:0;top:100%;height:60%;border-radius:8px;transform:scaleY(-1);opacity:.14;
+    background:radial-gradient(circle at 34% 28%, #f4b25c, #a8402a 46%, #4f1b12 84%);
+    -webkit-mask-image:linear-gradient(#000,transparent 70%);mask-image:linear-gradient(#000,transparent 70%)}
+  .disc{position:absolute;top:0;right:-70px;width:236px;height:236px;border-radius:50%;z-index:1;
+    background:var(--holo);animation:spin 12s linear infinite;box-shadow:0 24px 44px -18px rgba(60,40,60,.4)}
+  .disc::before{content:"";position:absolute;inset:0;border-radius:50%;background:repeating-radial-gradient(circle,rgba(255,255,255,.28) 0 1px,transparent 1px 3px)}
+  .disc::after{content:"";position:absolute;inset:44%;border-radius:50%;background:var(--bg);box-shadow:0 0 0 5px rgba(255,255,255,.6)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.disc{animation:none}}
+
+  /* warm PAPER note-card, clipped onto the product (the soul) */
+  .note{position:absolute;right:-6px;bottom:6px;width:238px;background:var(--paper);color:var(--pink);border-radius:6px;padding:15px;z-index:3;
+    box-shadow:0 24px 44px -18px rgba(50,35,25,.5);border:1px solid var(--paper-edge);transform:rotate(2deg)}
+  .note::before{content:"";position:absolute;inset:0;border-radius:6px;pointer-events:none;opacity:.4;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>")}
+  .note .nh{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--p-ink-soft);display:flex;justify-content:space-between;border-bottom:1.5px solid var(--pink);padding-bottom:7px}
+  .note .rt{font-family:var(--mono);font-weight:600;color:var(--rust);font-size:12px;margin-top:11px;letter-spacing:1px}
+  .note .take{font-family:var(--serif);font-style:italic;font-weight:500;font-size:16px;line-height:1.36;margin:5px 0 3px}
+  .note .mo{font-family:var(--mono);font-size:9.5px;color:var(--p-ink-soft);border-left:2px solid var(--rust);padding-left:8px;margin:9px 0}
+  .note .stamps{display:flex;gap:5px;margin-top:10px}
+  .note .st{font-family:var(--mono);font-size:8px;text-transform:uppercase;letter-spacing:.04em;padding:4px 7px;border:1.1px solid var(--pink);border-radius:2px}
+  .note .st.on{background:var(--olive);color:var(--paper);border-color:var(--olive)}
+
+  .foot{font-family:var(--mono);font-size:10px;color:var(--ink-soft);text-align:center;padding:26px 0 40px;letter-spacing:.05em}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div class="brand">Liner<span class="holo">Notes</span></div>
+      <div class="navlinks"><span>Feed</span><span>Friends</span><span>Log</span></div>
+      <div class="join">Join the beta</div>
+    </nav>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">In-the-moment music journal</div>
+        <h1>Keep the song<br>while you're<br><span class="holo">still in it.</span></h1>
+        <p class="sub">Log the exact second it landed — the rating, the moment, the feeling — in the sleeve it deserves. Then pass it to the friends you'd actually tell.</p>
+        <div class="cta"><button class="btn fill">Start logging</button><button class="btn ghost">See the feed</button></div>
+        <div class="stats">
+          <div class="stat"><b>2:14</b><span>the exact second</span></div>
+          <div class="stat"><b>★★★★☆</b><span>no ceremony</span></div>
+          <div class="stat"><b>1-tap</b><span>share a note</span></div>
+        </div>
+      </div>
+      <div class="stage">
+        <div class="object">
+          <div class="disc"></div>
+          <div class="cover"></div>
+          <div class="note">
+            <div class="nh"><span>Your note · 02:14</span><span>XL · 2007</span></div>
+            <div class="rt">★★★★☆ 4.0</div>
+            <div class="take">"the moment it opens up —"</div>
+            <div class="mo">2am on a night bus home</div>
+            <div class="stamps"><span class="st on">Standout</span><span class="st">Loved</span><span class="st">Skip</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="foot">bright product-shoot chrome · warm paper note-card soul · holographic + album-derived color · space grotesk / inter / ibm plex mono · fraunces serif only on the note</div>
+</body>
+</html>

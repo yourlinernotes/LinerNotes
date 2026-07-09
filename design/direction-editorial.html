@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LinerNotes — Editorial / Print Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --disp:'Bricolage Grotesque',sans-serif; --body:'Hanken Grotesk',sans-serif; --mono:'Space Mono',monospace; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);background:#3a3a3c;color:#eee;padding:30px 22px 80px}
+  .lead{max-width:1180px;margin:0 auto 24px}
+  h1.page{font-family:var(--disp);font-weight:800;font-size:28px;letter-spacing:-.02em;color:#fff}
+  p.note{font-family:var(--mono);font-size:11.5px;color:#b9b9bd;margin-top:6px;line-height:1.6;text-transform:uppercase;letter-spacing:.05em}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1180px;margin:0 auto}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .panel-label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#c9c9cd;margin-bottom:8px}
+
+  /* halftone dot texture */
+  .halftone{background-image:radial-gradient(currentColor 0.9px, transparent 0.9px);background-size:5px 5px}
+
+  /* ============ A · THE PRESSING (paper / newsprint, flat ink, one spot) ============ */
+  .pressing{
+    --paper:#ece5d6; --paper2:#e3dccb; --ink:#17140f; --ink2:#5c554a;
+    --spot:#e2402a; --rule:#17140f;
+    background:var(--paper); color:var(--ink); border-radius:4px; padding:22px;
+    position:relative; font-family:var(--body);
+  }
+  .pressing .crop{position:absolute;width:14px;height:14px;border:1.5px solid var(--ink)}
+  .pressing .c1{top:9px;left:9px;border-right:none;border-bottom:none}
+  .pressing .c2{top:9px;right:9px;border-left:none;border-bottom:none}
+  .pressing .c3{bottom:9px;left:9px;border-right:none;border-top:none}
+  .pressing .c4{bottom:9px;right:9px;border-left:none;border-top:none}
+  .masthead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:8px}
+  .masthead .wm{font-family:var(--disp);font-weight:800;font-size:19px;letter-spacing:-.02em;text-transform:uppercase}
+  .masthead .cat{font-family:var(--mono);font-size:11px;letter-spacing:.08em}
+  .plate{margin:16px 0 0;border:1.5px solid var(--ink);padding:7px;background:var(--paper2)}
+  .plate .img{aspect-ratio:1/1;background:#c9482f;position:relative;color:#a5371f}
+  .plate .img .ht{position:absolute;inset:0;opacity:.28;color:#7c2817}
+  .plate .cap{font-family:var(--mono);font-size:10px;letter-spacing:.06em;margin-top:6px;display:flex;justify-content:space-between}
+  .ttl{font-family:var(--disp);font-weight:800;font-size:34px;line-height:.92;letter-spacing:-.025em;text-transform:uppercase;margin:16px 0 2px}
+  .byline{font-family:var(--body);font-weight:600;font-size:14px;color:var(--ink2);display:flex;justify-content:space-between;align-items:center}
+  .rate{font-family:var(--mono);font-weight:700;color:var(--spot);letter-spacing:1px}
+  .rule{height:1px;background:var(--rule);opacity:.35;margin:14px 0}
+  .pull{font-family:var(--body);font-weight:500;font-size:16px;line-height:1.5;margin:2px 0 4px}
+  .pull b{color:var(--spot)}
+  .stampsrow{display:flex;gap:8px;margin:14px 0 16px;flex-wrap:wrap}
+  .stamp{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;border:1.2px solid var(--ink);padding:5px 9px;transform:rotate(-1.5deg)}
+  .stamp.on{background:var(--spot);color:var(--paper);border-color:var(--spot)}
+  .actions{display:flex;gap:10px}
+  .abtn{font-family:var(--disp);font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:.02em;padding:11px 14px;flex:1;text-align:center;cursor:pointer;border:1.5px solid var(--ink)}
+  .abtn.fill{background:var(--ink);color:var(--paper)}
+  .foot{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:var(--ink2);margin-top:14px;border-top:1px solid var(--ink);padding-top:7px;display:flex;justify-content:space-between}
+
+  /* ============ B · THE INSERT (flat black field + cream booklet card, no gradients) ============ */
+  .insertwrap{background:#100e0b;border-radius:4px;padding:26px 22px}
+  .insert{
+    --paper:#efe8d8; --ink:#161208; --ink2:#5a5245; --spot:#1f6f5c; /* deep ink-green spot */
+    background:var(--paper); color:var(--ink); padding:18px; position:relative;
+    box-shadow:0 20px 50px -20px rgba(0,0,0,.8); font-family:var(--body);
+  }
+  .insert .perf{position:absolute;top:0;bottom:0;left:-1px;width:10px;background-image:radial-gradient(circle, #100e0b 2px, transparent 2px);background-size:10px 12px;background-position:left center}
+  .insert .top{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+  .insert .frame{margin:12px 0;display:flex;gap:14px}
+  .insert .cover{width:96px;height:96px;flex:0 0 96px;background:#1f6f5c;border:1.5px solid var(--ink);position:relative}
+  .insert .cover .ht{position:absolute;inset:0;opacity:.3;color:#0e3a30}
+  .insert .meta{flex:1;min-width:0}
+  .insert .t{font-family:var(--disp);font-weight:800;font-size:26px;line-height:.94;letter-spacing:-.02em;text-transform:uppercase}
+  .insert .a{font-weight:600;font-size:13px;color:var(--ink2);margin-top:4px}
+  .insert .s{font-family:var(--mono);font-weight:700;color:var(--spot);font-size:13px;margin-top:8px;letter-spacing:1px}
+  .insert .q{font-size:15px;line-height:1.5;font-weight:500;border-top:1.5px solid var(--ink);padding-top:12px;margin-top:4px}
+  .insert .tags{display:flex;gap:7px;margin:13px 0 15px;flex-wrap:wrap}
+  .insert .tg{font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px;border:1.2px solid var(--ink)}
+  .insert .tg.on{background:var(--spot);color:var(--paper);border-color:var(--spot)}
+  .insert .cta{display:flex;gap:9px}
+  .insert .b{flex:1;text-align:center;font-family:var(--disp);font-weight:700;text-transform:uppercase;font-size:13px;padding:10px;cursor:pointer;border:1.5px solid var(--ink)}
+  .insert .b.fill{background:var(--ink);color:var(--paper)}
+</style>
+</head>
+<body>
+  <div class="lead">
+    <h1 class="page">LinerNotes — editorial / print direction</h1>
+    <p class="note">the differentiator: airbuds &amp; musicboard are BOTH dark-ui + glowing gradients + rounded blobs.<br>this leaves that space entirely — printed record-sleeve / liner-booklet. flat ink, no gradients, catalog numbers, bold condensed type. album art = a framed printed plate.</p>
+  </div>
+
+  <div class="grid">
+    <!-- A -->
+    <div>
+      <div class="panel-label">A · The Pressing — newsprint paper, red spot ink</div>
+      <div class="pressing halftone" style="color:#ece5d6">
+        <span style="color:#17140f">
+        <div class="crop c1"></div><div class="crop c2"></div><div class="crop c3"></div><div class="crop c4"></div>
+        <div class="masthead"><div class="wm">LinerNotes</div><div class="cat">LN-0417 · FRI 02:14</div></div>
+        <div class="plate">
+          <div class="img"><div class="ht halftone"></div></div>
+          <div class="cap"><span>IN RAINBOWS / RADIOHEAD</span><span>XL RECORDINGS · 2007</span></div>
+        </div>
+        <div class="ttl">In Rainbows</div>
+        <div class="byline"><span>Radiohead</span><span class="rate">★★★★☆ · 4.0</span></div>
+        <div class="rule"></div>
+        <div class="pull">"the moment it <b>opens up</b> — everything just lands at once, 2am on a night bus"</div>
+        <div class="stampsrow">
+          <span class="stamp on">STANDOUT</span>
+          <span class="stamp">LOVED</span>
+          <span class="stamp">SKIP</span>
+        </div>
+        <div class="actions"><div class="abtn fill">Log your own</div><div class="abtn">Share</div></div>
+        <div class="foot"><span>ISSUE №0417</span><span>PRESSED BY @ANUSHA</span></div>
+        </span>
+      </div>
+    </div>
+
+    <!-- B -->
+    <div>
+      <div class="panel-label">B · The Insert — flat black field + cream booklet card, green spot</div>
+      <div class="insertwrap">
+        <div class="insert">
+          <div class="perf"></div>
+          <div class="top"><span>LINERNOTES · SIDE A</span><span>LN-0417 · 02:14</span></div>
+          <div class="frame">
+            <div class="cover"><div class="ht halftone" style="color:#0e3a30"></div></div>
+            <div class="meta">
+              <div class="t">In Rainbows</div>
+              <div class="a">Radiohead · XL · 2007</div>
+              <div class="s">★★★★☆ 4.0</div>
+            </div>
+          </div>
+          <div class="q">"the moment it opens up — everything just lands at once"</div>
+          <div class="tags"><span class="tg on">STANDOUT</span><span class="tg">LOVED</span><span class="tg">SKIP</span></div>
+          <div class="cta"><div class="b fill">Log your own</div><div class="b">Share</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

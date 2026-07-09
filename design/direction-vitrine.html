@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>LinerNotes — Vitrine vs Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --serif:'Fraunces',serif; --sans:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+    --paper:#efe6d2; --paper-edge:#d9ccae; --ink:#211915; --ink-soft:#6a6154; --rust:#a8402a; --olive:#5c6b52;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);background:#2c2b29;color:#eee;padding:26px 20px 70px}
+  .head{max-width:1200px;margin:0 auto 22px}
+  .head h1{font-family:var(--sans);font-weight:700;font-size:24px;letter-spacing:-.01em;color:#fff}
+  .head p{font-family:var(--mono);font-size:11.5px;color:#b6b4b0;margin-top:6px;text-transform:uppercase;letter-spacing:.06em}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;max-width:1200px;margin:0 auto}
+  @media(max-width:940px){.cols{grid-template-columns:1fr}}
+  .cap{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:9px;color:#c9c7c2}
+
+  /* ===== shared gallery layout ===== */
+  .gallery{border-radius:6px;overflow:hidden;position:relative;padding:34px 30px 30px;min-height:620px}
+  .plaque{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;display:flex;justify-content:space-between;opacity:.75}
+  .stage{display:flex;flex-direction:column;align-items:center;padding:26px 0 8px;position:relative}
+  /* album object: cover with a CD sliding out */
+  .object{position:relative;width:210px;height:210px;margin-bottom:30px}
+  .cover{position:absolute;inset:0;border-radius:4px;z-index:2;
+    background:radial-gradient(circle at 34% 28%, #f0aa54, #a8402a 46%, #4f1b12 82%);
+    box-shadow:0 30px 46px -18px rgba(0,0,0,.6), 0 2px 0 rgba(255,255,255,.05) inset;}
+  .disc{position:absolute;top:6px;left:78px;width:198px;height:198px;border-radius:50%;z-index:1;
+    background:conic-gradient(from 200deg,#3a3550,#6a5a8a,#8a9ab0,#b0a0c0,#9a8ab0,#6a7a90,#3a3550);
+    animation:spin 11s linear infinite;box-shadow:0 24px 40px -16px rgba(0,0,0,.6)}
+  .disc::before{content:"";position:absolute;inset:0;border-radius:50%;
+    background:repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.06) 0 1px, transparent 1px 3px)}
+  .disc::after{content:"";position:absolute;inset:42%;border-radius:50%;background:inherit;box-shadow:0 0 0 6px rgba(0,0,0,.25)}
+  .dischole{position:absolute;top:6px;left:78px;width:198px;height:198px;z-index:1;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .dischole span{width:20px;height:20px;border-radius:50%;background:var(--wall);box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.disc{animation:none}}
+  /* grounded soft shadow under object */
+  .shadow{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:220px;height:26px;border-radius:50%;
+    background:radial-gradient(ellipse, rgba(0,0,0,.5), transparent 70%);filter:blur(3px);z-index:0}
+
+  /* the warm paper note-card = lit exhibit label (identical in both themes) */
+  .note{width:330px;max-width:100%;background:var(--paper);color:var(--ink);border-radius:5px;padding:18px;position:relative;
+    box-shadow:0 30px 60px -24px rgba(0,0,0,.7);border:1px solid var(--paper-edge)}
+  .note::before{content:"";position:absolute;inset:0;border-radius:5px;pointer-events:none;opacity:.45;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>")}
+  .note .nh{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);display:flex;justify-content:space-between;border-bottom:1.5px solid var(--ink);padding-bottom:8px}
+  .note h2{font-family:var(--sans);font-weight:700;font-size:22px;letter-spacing:-.01em;margin-top:13px;line-height:1}
+  .note .by{font-family:var(--body);font-size:12.5px;color:var(--ink-soft);margin-top:3px}
+  .note .rt{font-family:var(--mono);font-weight:600;color:var(--rust);font-size:12.5px;margin-top:9px;letter-spacing:1px}
+  .note .take{font-family:var(--serif);font-style:italic;font-weight:500;font-size:17px;line-height:1.38;margin:11px 0 2px}
+  .note .mo{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);border-left:2px solid var(--rust);padding-left:9px;margin:10px 0}
+  .note .stamps{display:flex;gap:6px;margin-top:12px}
+  .note .st{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.04em;padding:4px 8px;border:1.1px solid var(--ink);border-radius:2px}
+  .note .st.on{background:var(--olive);color:var(--paper);border-color:var(--olive)}
+
+  /* ===== THEME A · DARK VITRINE ===== */
+  .vitrine{--wall:#100f0d;background:#100f0d;
+    background-image:radial-gradient(120% 60% at 50% -10%, rgba(255,240,214,.14), transparent 60%);color:#efe6d2}
+  .vitrine .plaque{color:#c9bfa8}
+
+  /* ===== THEME B · LIGHT ARCHIVE ===== */
+  .archive{--wall:#ece4d3;background:#ece4d3;
+    background-image:radial-gradient(120% 60% at 50% -10%, rgba(255,255,255,.7), transparent 60%);color:#2a2118}
+  .archive .plaque{color:#6a6154}
+  .archive .cover{box-shadow:0 24px 40px -16px rgba(80,50,30,.4)}
+  .archive .shadow{background:radial-gradient(ellipse, rgba(90,60,35,.32), transparent 70%)}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>LinerNotes — same screen, two lightings</h1>
+    <p>museum = curation + lighting + space, not white walls · warm paper note-card = the lit exhibit label · color comes from the art + holo, chrome stays neutral</p>
+  </div>
+
+  <div class="cols">
+    <!-- DARK VITRINE -->
+    <div>
+      <div class="cap">Default · after-hours vitrine</div>
+      <div class="gallery vitrine">
+        <div class="plaque"><span>LinerNotes</span><span>Pressing №0417 · Side A</span></div>
+        <div class="stage">
+          <div class="object">
+            <div class="shadow"></div>
+            <div class="disc"></div><div class="dischole"><span></span></div>
+            <div class="cover"></div>
+          </div>
+          <div class="note">
+            <div class="nh"><span>Logged · Fri 02:14</span><span>XL · 2007</span></div>
+            <h2>In Rainbows</h2>
+            <div class="by">Radiohead</div>
+            <div class="rt">★★★★☆ 4.0</div>
+            <div class="take">"the moment it opens up — everything just lands at once"</div>
+            <div class="mo">02:14 · 2am on a night bus home</div>
+            <div class="stamps"><span class="st on">Standout</span><span class="st">Loved</span><span class="st">Skip</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIGHT ARCHIVE -->
+    <div>
+      <div class="cap">Companion · daytime archive</div>
+      <div class="gallery archive">
+        <div class="plaque"><span>LinerNotes</span><span>Pressing №0417 · Side A</span></div>
+        <div class="stage">
+          <div class="object">
+            <div class="shadow"></div>
+            <div class="disc"></div><div class="dischole"><span></span></div>
+            <div class="cover"></div>
+          </div>
+          <div class="note">
+            <div class="nh"><span>Logged · Fri 02:14</span><span>XL · 2007</span></div>
+            <h2>In Rainbows</h2>
+            <div class="by">Radiohead</div>
+            <div class="rt">★★★★☆ 4.0</div>
+            <div class="take">"the moment it opens up — everything just lands at once"</div>
+            <div class="mo">02:14 · 2am on a night bus home</div>
+            <div class="stamps"><span class="st on">Standout</span><span class="st">Loved</span><span class="st">Skip</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LinerNotes — feed card, reskinned (all elements kept)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{ --disp:'Space Grotesk',sans-serif; --body:'Inter',sans-serif; --mono:'IBM Plex Mono',monospace;
+    --ink:#191c22; --ink2:#697079; --ink3:#9aa0a8; --line:#e7e9ee; --surface:#fff;
+    --bg-top:#fbfcfe; --bg-bot:#eceff5;
+    --flame:#f0722e; --love:#e07898; --skip:#9aa0a8; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--body);color:var(--ink);background:linear-gradient(180deg,var(--bg-top),var(--bg-bot));min-height:100vh;padding:34px 20px 90px}
+  .col{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:34px}
+
+  /* poster header */
+  .poster{display:flex;align-items:center;gap:11px;padding:0 3px}
+  .avatar{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;
+    font-family:var(--body);font-weight:600;font-size:15px;background:color-mix(in srgb,var(--art) 16%,#fff);
+    border:1px solid color-mix(in srgb,var(--art) 40%,#fff);color:var(--deep)}
+  .pname{font-size:14.5px;font-weight:600;line-height:1.2}
+  .phandle{font-family:var(--mono);font-size:11.5px;color:var(--ink3);letter-spacing:.02em}
+
+  /* the card */
+  .card{position:relative;display:flex;border-radius:20px;overflow:hidden;background:var(--surface);
+    border:1px solid var(--line);
+    box-shadow:0 22px 50px -28px color-mix(in srgb,var(--deep) 55%,transparent),0 3px 10px -6px rgba(20,22,30,.14)}
+  .holo{position:absolute;top:0;left:0;right:0;height:4px;z-index:5;
+    background:linear-gradient(90deg,#c6f4e8,#ffe6bd,#ffcfe8,#d4c6ff,#c2eeff);opacity:.95}
+
+  /* left: art column */
+  .art{width:210px;flex:none;padding:20px 8px 16px 20px;display:flex;flex-direction:column;gap:14px;
+    background:radial-gradient(120% 80% at 20% 0%, color-mix(in srgb,var(--art) 16%,#fff), transparent 70%)}
+  .mount{position:relative;width:182px;height:150px}
+  .mount .cd{position:absolute;right:0;top:50%;transform:translateY(-50%);width:150px;height:150px;z-index:0;
+    filter:drop-shadow(0 10px 16px rgba(60,50,90,.4))}
+  .mount .cover{position:absolute;left:0;top:50%;transform:translateY(-50%);width:150px;height:150px;z-index:1;
+    border-radius:9px;object-fit:cover;box-shadow:0 10px 22px -8px rgba(20,10,0,.5),0 1px 0 rgba(255,255,255,.5) inset}
+  .rating{display:flex;align-items:center;gap:6px;padding-left:2px}
+  .stars{display:inline-flex;gap:2px}
+  .star{width:16px;height:16px;fill:var(--deep)}
+  .star.off{fill:none;stroke:var(--deep);stroke-opacity:.4;stroke-width:1.3}
+  .rnum{font-family:var(--mono);font-size:13px;color:var(--deep);margin-left:2px}
+
+  /* middle */
+  .main{flex:1;min-width:0;padding:20px 22px;display:flex;flex-direction:column;gap:11px;justify-content:center}
+  .badge{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+  .title{font-family:var(--disp);font-weight:700;font-size:24px;line-height:1.06;letter-spacing:-.02em}
+  .artist{font-size:13.5px;color:var(--ink2);margin-top:-4px}
+  .take{font-size:18px;line-height:1.4;font-weight:500;color:var(--ink);margin:3px 0 2px}
+  /* the MOMENT — signature timestamp spine */
+  .moment{display:flex;gap:11px;align-items:stretch}
+  .moment .spine{width:2.5px;border-radius:2px;flex:none;background:linear-gradient(var(--art),color-mix(in srgb,var(--art) 20%,transparent));box-shadow:0 0 9px color-mix(in srgb,var(--art) 55%,transparent)}
+  .moment .ts{font-family:var(--mono);font-size:12.5px;color:var(--deep)}
+  .moment .ts .lab{opacity:.6}
+  .moment .mtext{font-size:13.5px;line-height:1.4;color:var(--ink2);margin-top:3px}
+  .readfull{align-self:flex-start;font-family:var(--body);font-weight:600;font-size:12.5px;color:var(--deep);display:inline-flex;gap:6px;align-items:center;margin-top:2px}
+
+  /* right: track strip */
+  .strip{width:250px;flex:none;border-left:1px solid var(--line);background:color-mix(in srgb,var(--art) 4%,#fff)}
+  .strip .sh{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line)}
+  .strip .sh .h{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+  .strip .sh .m{font-family:var(--mono);font-size:10px;color:var(--deep);display:inline-flex;gap:4px;align-items:center}
+  .trk{display:flex;align-items:center;gap:10px;padding:8.5px 14px;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+  .trk .n{font-family:var(--mono);font-size:10.5px;color:var(--ink3);width:15px}
+  .trk .nm{flex:1;font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trk.dim .nm{color:var(--ink3)}
+  .trk .pill{font-family:var(--mono);font-size:10px;color:var(--deep);background:color-mix(in srgb,var(--art) 16%,#fff);border-radius:999px;padding:2px 7px;display:inline-flex;gap:3px;align-items:center}
+  .rx{width:16px;height:16px;flex:none}
+  .rx.empty{border-radius:50%;border:1.5px dashed var(--line)}
+
+  /* actions */
+  .actions{display:flex;align-items:center;gap:4px;padding:0 4px}
+  .act{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:10px;border:none;background:none;cursor:pointer;
+    font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+  .act svg{width:20px;height:20px}
+  .spacer{flex:1}
+
+  .note{font-family:var(--mono);font-size:11px;color:var(--ink2);line-height:1.7;background:#fff;border:1px dashed var(--line);border-radius:12px;padding:14px 16px}
+  .note b{color:var(--ink)}
+</style>
+</head>
+<body>
+  <div class="col" style="--art:#ffc220;--deep:#6a4d00">
+
+    <div class="note">Reskin of the real <b>FeedItem</b> — every element kept: poster header · art with the <b>real holographic CD</b> peeking out · rating · badge · title · artist · the take · the signature <b>moment (timestamp spine)</b> · the <b>track strip</b> (the ones that stuck) · <b>repost / save / like</b>. New skin: bright &amp; glossy, Space Grotesk / Inter / IBM Plex Mono, colour + accents pulled from the cover. Real CD (Wikimedia CC), real iTunes cover.</div>
+
+    <!-- FEED ITEM -->
+    <div>
+      <div class="poster">
+        <div class="avatar">A</div>
+        <div style="flex:1">
+          <div class="pname">Anusha</div>
+          <div class="phandle">@anusha · 2h</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="holo"></div>
+
+        <!-- art -->
+        <div class="art">
+          <div class="mount">
+            <img class="cd" src="assets/cd-a.png" alt="">
+            <img class="cover" src="assets/cover-inrainbows.jpg" alt="In Rainbows">
+          </div>
+          <div class="rating">
+            <span class="stars">
+              <svg class="star" viewBox="0 0 20 20"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.07 3.29a1 1 0 00.95.69h3.46c.97 0 1.37 1.24.59 1.81l-2.8 2.03a1 1 0 00-.37 1.12l1.07 3.29c.3.92-.75 1.69-1.54 1.12l-2.8-2.03a1 1 0 00-1.17 0l-2.8 2.03c-.78.57-1.84-.2-1.54-1.12l1.07-3.29a1 1 0 00-.36-1.12l-2.8-2.03c-.79-.57-.38-1.81.59-1.81h3.46a1 1 0 00.95-.69z"/></svg>
+              <svg class="star" viewBox="0 0 20 20"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.07 3.29a1 1 0 00.95.69h3.46c.97 0 1.37 1.24.59 1.81l-2.8 2.03a1 1 0 00-.37 1.12l1.07 3.29c.3.92-.75 1.69-1.54 1.12l-2.8-2.03a1 1 0 00-1.17 0l-2.8 2.03c-.78.57-1.84-.2-1.54-1.12l1.07-3.29a1 1 0 00-.36-1.12l-2.8-2.03c-.79-.57-.38-1.81.59-1.81h3.46a1 1 0 00.95-.69z"/></svg>
+              <svg class="star" viewBox="0 0 20 20"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.07 3.29a1 1 0 00.95.69h3.46c.97 0 1.37 1.24.59 1.81l-2.8 2.03a1 1 0 00-.37 1.12l1.07 3.29c.3.92-.75 1.69-1.54 1.12l-2.8-2.03a1 1 0 00-1.17 0l-2.8 2.03c-.78.57-1.84-.2-1.54-1.12l1.07-3.29a1 1 0 00-.36-1.12l-2.8-2.03c-.79-.57-.38-1.81.59-1.81h3.46a1 1 0 00.95-.69z"/></svg>
+              <svg class="star" viewBox="0 0 20 20"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.07 3.29a1 1 0 00.95.69h3.46c.97 0 1.37 1.24.59 1.81l-2.8 2.03a1 1 0 00-.37 1.12l1.07 3.29c.3.92-.75 1.69-1.54 1.12l-2.8-2.03a1 1 0 00-1.17 0l-2.8 2.03c-.78.57-1.84-.2-1.54-1.12l1.07-3.29a1 1 0 00-.36-1.12l-2.8-2.03c-.79-.57-.38-1.81.59-1.81h3.46a1 1 0 00.95-.69z"/></svg>
+              <svg class="star off" viewBox="0 0 20 20"><path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.07 3.29a1 1 0 00.95.69h3.46c.97 0 1.37 1.24.59 1.81l-2.8 2.03a1 1 0 00-.37 1.12l1.07 3.29c.3.92-.75 1.69-1.54 1.12l-2.8-2.03a1 1 0 00-1.17 0l-2.8 2.03c-.78.57-1.84-.2-1.54-1.12l1.07-3.29a1 1 0 00-.36-1.12l-2.8-2.03c-.79-.57-.38-1.81.59-1.81h3.46a1 1 0 00.95-.69z"/></svg>
+            </span>
+            <span class="rnum">4.0</span>
+          </div>
+        </div>
+
+        <!-- middle -->
+        <div class="main">
+          <div class="badge">album review</div>
+          <div>
+            <div class="title">In Rainbows</div>
+            <div class="artist">Radiohead · 2007</div>
+          </div>
+          <div class="take">the moment it opens up — everything just lands at once.</div>
+          <div class="moment">
+            <div class="spine"></div>
+            <div>
+              <div class="ts">2:14 <span class="lab">· Reckoner</span></div>
+              <div class="mtext">the way it just floats here — I always wait for it.</div>
+            </div>
+          </div>
+          <div class="readfull">Read the full review →</div>
+        </div>
+
+        <!-- track strip -->
+        <div class="strip">
+          <div class="sh"><span class="h">the ones that stuck</span><span class="m">◇ 3 moments</span></div>
+          <div class="trk"><span class="n">02</span><span class="nm">Bodysnatchers</span>
+            <svg class="rx" viewBox="0 0 24 24"><path d="M12 3c.5 3-1.8 4.2-2.8 5.8C8 10.6 8 12.5 8 13a4 4 0 008 0c0-1.6-.8-3.2-1.6-4 .3 1.2-.4 2-1 2 .6-1.7-.4-3.4-1.4-4.5C11 5.4 12 4.2 12 3z" fill="#f0722e"/></svg>
+          </div>
+          <div class="trk"><span class="n">03</span><span class="nm">Nude</span>
+            <span class="pill">◇ 2</span>
+            <svg class="rx" viewBox="0 0 24 24"><path d="M12 20s-7-4.3-7-9.2A3.8 3.8 0 0112 7.6 3.8 3.8 0 0119 10.8C19 15.7 12 20 12 20z" fill="#e07898"/></svg>
+          </div>
+          <div class="trk"><span class="n">04</span><span class="nm">Weird Fishes / Arpeggi</span>
+            <svg class="rx" viewBox="0 0 24 24"><path d="M12 20s-7-4.3-7-9.2A3.8 3.8 0 0112 7.6 3.8 3.8 0 0119 10.8C19 15.7 12 20 12 20z" fill="#e07898"/></svg>
+          </div>
+          <div class="trk dim"><span class="n">05</span><span class="nm">All I Need</span>
+            <span class="rx empty"></span>
+          </div>
+          <div class="trk"><span class="n">07</span><span class="nm">Reckoner</span>
+            <span class="pill">◇ 1</span>
+            <svg class="rx" viewBox="0 0 24 24"><path d="M12 3c.5 3-1.8 4.2-2.8 5.8C8 10.6 8 12.5 8 13a4 4 0 008 0c0-1.6-.8-3.2-1.6-4 .3 1.2-.4 2-1 2 .6-1.7-.4-3.4-1.4-4.5C11 5.4 12 4.2 12 3z" fill="#f0722e"/></svg>
+          </div>
+          <div class="trk dim"><span class="n">10</span><span class="nm">Videotape</span>
+            <svg class="rx" viewBox="0 0 24 24"><path d="M5 6l7 6-7 6V6zM14 6l5 6-5 6V6z" fill="#9aa0a8" fill-opacity=".85"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- actions -->
+      <div class="actions" style="margin-top:12px">
+        <button class="act"><svg viewBox="0 0 24 24" fill="none"><path d="M4 9V8a3 3 0 013-3h9m1 10v1a3 3 0 01-3 3H8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 2l3 3-3 3M10 22l-3-3 3-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>4</button>
+        <button class="act"><svg viewBox="0 0 24 24" fill="none"><path d="M6 4h12v17l-6-4-6 4V4z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="spacer"></div>
+        <button class="act"><svg viewBox="0 0 24 24" fill="none"><path d="M12 20s-7-4.3-7-9.2A3.8 3.8 0 0112 7.6 3.8 3.8 0 0119 10.8C19 15.7 12 20 12 20z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>28</button>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
