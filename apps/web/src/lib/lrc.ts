@@ -37,3 +37,11 @@ export function activeLineIndex(lines: LyricLine[], positionMs: number): number 
   }
   return ans;
 }
+
+// What's playing at a given timestamp — the active lyric line, or "music" for
+// an instrumental stretch (no synced line, or a blank/♪ line).
+export function momentLabelAt(lines: LyricLine[], seconds: number): string {
+  const idx = activeLineIndex(lines, seconds * 1000);
+  const text = idx >= 0 ? lines[idx].text.trim() : "";
+  return text || "music";
+}

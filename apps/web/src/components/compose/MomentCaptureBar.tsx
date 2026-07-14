@@ -37,10 +37,16 @@ export function MomentCaptureBar({
   track,
   artist,
   onMark,
+  onManualMark,
+  onLyricsChange,
 }: {
   track: string;
   artist: string;
-  onMark: (seconds: number, lyric?: string) => void;
+  /** A moment captured with a known timestamp (lyric tap). */
+  onMark: (seconds: number) => void;
+  /** Request a blank, manually-timed moment (the mark button). */
+  onManualMark: () => void;
+  onLyricsChange?: (lyrics: LyricLine[]) => void;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scTrackId, setScTrackId] = useState<string | null>(null);
@@ -81,6 +87,7 @@ export function MomentCaptureBar({
     setPreviewUrl(null);
     setYtStreamUrl(null);
     setLyrics([]);
+    onLyricsChange?.([]);
     ytTriedRef.current = false;
     durationSecRef.current = undefined;
     (async () => {
@@ -106,8 +113,11 @@ export function MomentCaptureBar({
         if (durationSec) q.set("duration", String(durationSec));
         const r = await fetch(`/api/lyrics?${q}`);
         const d = r.ok ? await r.json() : null;
-        if (!cancelled && d?.lyrics?.syncedLyrics)
-          setLyrics(parseLrc(d.lyrics.syncedLyrics));
+        if (!cancelled && d?.lyrics?.syncedLyrics) {
+          const parsed = parseLrc(d.lyrics.syncedLyrics);
+          setLyrics(parsed);
+          onLyricsChange?.(parsed);
+        }
       } catch { /* no lyrics */ }
 
       // Try to resolve the full SoundCloud track (Odesli first, then api-v2 search).
@@ -262,8 +272,8 @@ export function MomentCaptureBar({
             </span>
           </div>
         </div>
-        <button type="button" onClick={() => onMark(Math.round(positionMs / 1000))} style={S.markBtn}>
-          ＋ mark @ {fmt(positionMs)}
+        <button type="button" onClick={onManualMark} style={S.markBtn}>
+          ＋ mark a moment
         </button>
       </div>
 
@@ -288,7 +298,7 @@ export function MomentCaptureBar({
                 ref={isActive ? activeRef : undefined}
                 onClick={() => {
                   if (synced) seek(ln.timeMs);
-                  onMark(Math.round(ln.timeMs / 1000), ln.text || undefined);
+                  onMark(Math.round(ln.timeMs / 1000));
                 }}
                 style={{
                   ...S.lyricLine,
