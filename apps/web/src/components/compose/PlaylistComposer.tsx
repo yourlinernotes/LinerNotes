@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import type { Track } from "@/lib/types";
 import { TrackSearch } from "./TrackSearch";
 import { searchTracks } from "@/lib/api";
-import { LNArt } from "@/components/ln/atoms";
+import { LNArt, LNIcon } from "@/components/ln/atoms";
 import { paletteFromString } from "@/lib/palette";
 import { ModeTabs } from "./composer-ui";
 
@@ -37,6 +37,11 @@ export function PlaylistComposer() {
   const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
   const [noteText, setNoteText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const searchSectionRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const gold = "var(--ln-accent)";
   const canPost = title.trim() && tracks.length > 0;
@@ -54,12 +59,43 @@ export function PlaylistComposer() {
     setTracks(tracks.filter((_, i) => i !== index));
   };
 
-  const handleMoveTrack = (index: number, direction: "up" | "down") => {
-    const newTracks = [...tracks];
-    const newIndex = direction === "up" ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= tracks.length) return;
-    [newTracks[index], newTracks[newIndex]] = [newTracks[newIndex], newTracks[index]];
-    setTracks(newTracks);
+  const goToAddTracks = () => {
+    searchSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    searchSectionRef.current?.querySelector("input")?.focus();
+  };
+
+  // Drag reorder — draggable lives only on the grip handle, so a press-and-hold
+  // anywhere else on the row (the note text, etc.) doesn't start a drag. The
+  // handle drags the whole row into view via setDragImage.
+  const handleDragStart = (index: number) => (e: React.DragEvent) => {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    const row = rowRefs.current[index];
+    if (row) {
+      const r = row.getBoundingClientRect();
+      e.dataTransfer.setDragImage(row, e.clientX - r.left, e.clientY - r.top);
+    }
+  };
+  const handleDragOver = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverIndex !== index) setDragOverIndex(index);
+  };
+  const handleDrop = (index: number) => (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverIndex(null);
+    if (dragIndex === null || dragIndex === index) return;
+    setTracks((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIndex, 1);
+      next.splice(index, 0, moved);
+      return next;
+    });
+    setDragIndex(null);
+  };
+  const handleDragEnd = () => {
+    setDragIndex(null);
+    setDragOverIndex(null);
   };
 
   const handleSaveNote = () => {
@@ -160,7 +196,7 @@ export function PlaylistComposer() {
       </div>
 
       {/* Track Search */}
-      <div>
+      <div ref={searchSectionRef}>
         <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.08em", color: gold, textTransform: "uppercase", marginBottom: 10 }}>
           Add tracks ({tracks.length})
         </div>
@@ -170,11 +206,37 @@ export function PlaylistComposer() {
       {/* Track List */}
       {tracks.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.08em", color: gold, textTransform: "uppercase" }}>
-            Your playlist
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.08em", color: gold, textTransform: "uppercase" }}>
+              Your playlist
+            </div>
+            <button
+              type="button"
+              onClick={goToAddTracks}
+              aria-label="Add more tracks"
+              title="Add more tracks"
+              style={{ width: 20, height: 20, borderRadius: "50%", background: "none", border: `1px solid ${gold}`, color: gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, lineHeight: 1, fontSize: 13 }}
+            >
+              +
+            </button>
           </div>
           {tracks.map((track, index) => (
-            <div key={`${track.trackId}-${index}`} style={{ display: "flex", gap: 12, padding: 12, borderRadius: 12, background: "var(--ln-surface)", border: "1px solid rgba(var(--ln-line-rgb),0.08)" }}>
+            <div
+              key={`${track.trackId}-${index}`}
+              ref={(el) => { rowRefs.current[index] = el; }}
+              onDragOver={handleDragOver(index)}
+              onDrop={handleDrop(index)}
+              style={{
+                display: "flex",
+                gap: 12,
+                padding: 12,
+                borderRadius: 12,
+                background: "var(--ln-surface)",
+                border: dragOverIndex === index && dragIndex !== null && dragIndex !== index ? `1px solid ${gold}` : "1px solid rgba(var(--ln-line-rgb),0.08)",
+                opacity: dragIndex === index ? 0.4 : 1,
+                transition: "opacity 0.15s, border-color 0.15s",
+              }}
+            >
               {/* Order Number */}
               <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: "50%", background: gold, color: "#1a0a04", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--ln-mono)", fontSize: 14, fontWeight: 700 }}>
                 {index + 1}
@@ -221,17 +283,22 @@ export function PlaylistComposer() {
 
               {/* Actions */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                <button type="button" onClick={() => handleMoveTrack(index, "up")} disabled={index === 0} style={{ padding: "6px 10px", borderRadius: 6, background: "rgba(var(--ln-fg-rgb),0.06)", color: "var(--ln-fg)", border: "1px solid rgba(var(--ln-fg-rgb),0.12)", cursor: index === 0 ? "default" : "pointer", opacity: index === 0 ? 0.3 : 1, fontSize: 18 }} title="Move up">
-                  ↑
+                <div
+                  draggable
+                  onDragStart={handleDragStart(index)}
+                  onDragEnd={handleDragEnd}
+                  role="button"
+                  aria-label="Drag to reorder"
+                  title="Press and drag to reorder"
+                  style={{ padding: "6px 10px", borderRadius: 6, background: "rgba(var(--ln-fg-rgb),0.06)", border: "1px solid rgba(var(--ln-fg-rgb),0.12)", cursor: "grab", display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  <LNIcon name="drag" size={16} color="rgba(var(--ln-fg-rgb),0.7)" />
+                </div>
+                <button type="button" onClick={() => editingNoteIndex === index ? handleSaveNote() : handleEditNote(index)} style={{ padding: "6px 10px", borderRadius: 6, background: "rgba(var(--ln-fg-rgb),0.06)", color: "var(--ln-fg)", border: "1px solid rgba(var(--ln-fg-rgb),0.12)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Add note">
+                  <LNIcon name="pen" size={16} color="var(--ln-fg)" />
                 </button>
-                <button type="button" onClick={() => handleMoveTrack(index, "down")} disabled={index === tracks.length - 1} style={{ padding: "6px 10px", borderRadius: 6, background: "rgba(var(--ln-fg-rgb),0.06)", color: "var(--ln-fg)", border: "1px solid rgba(var(--ln-fg-rgb),0.12)", cursor: index === tracks.length - 1 ? "default" : "pointer", opacity: index === tracks.length - 1 ? 0.3 : 1, fontSize: 18 }} title="Move down">
-                  ↓
-                </button>
-                <button type="button" onClick={() => editingNoteIndex === index ? handleSaveNote() : handleEditNote(index)} style={{ padding: "6px 10px", borderRadius: 6, background: "rgba(var(--ln-fg-rgb),0.06)", color: "var(--ln-fg)", border: "1px solid rgba(var(--ln-fg-rgb),0.12)", cursor: "pointer", fontSize: 12 }} title="Add note">
-                  📝
-                </button>
-                <button type="button" onClick={() => handleRemoveTrack(index)} style={{ padding: "6px 10px", borderRadius: 6, background: "rgba(220,38,38,0.1)", color: "#ef4444", border: "1px solid rgba(220,38,38,0.3)", cursor: "pointer", fontSize: 16 }} title="Remove">
-                  ×
+                <button type="button" onClick={() => handleRemoveTrack(index)} style={{ padding: "6px 10px", borderRadius: 6, background: "rgba(220,38,38,0.1)", color: "#ef4444", border: "1px solid rgba(220,38,38,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Remove">
+                  <LNIcon name="trash" size={16} color="#ef4444" />
                 </button>
               </div>
             </div>
