@@ -38,6 +38,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
   const [showTracks, setShowTracks] = useState(true);
   const [trackReactions, setTrackReactions] = useState<TrackReaction[]>([]);
   const [lyricsByTrack, setLyricsByTrack] = useState<Record<string, LyricLine[]>>({});
+  const [durationByTrack, setDurationByTrack] = useState<Record<string, number | null>>({});
   const [openTrack, setOpenTrack] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingTracks, setLoadingTracks] = useState(false);
@@ -92,6 +93,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
     setAlbumTake("");
     setTrackReactions([]);
     setLyricsByTrack({});
+    setDurationByTrack({});
     setOpenTrack(null);
     setCaptionIdx(0);
   };
@@ -298,6 +300,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                               track={tr.track.name}
                               artist={tr.track.artist || selectedAlbum.artist}
                               onLyricsChange={(ls) => setLyricsByTrack((s) => ({ ...s, [tr.track.trackId]: ls }))}
+                              onDurationChange={(d) => setDurationByTrack((s) => ({ ...s, [tr.track.trackId]: d }))}
                               onMark={(seconds) =>
                                 upd(i, {
                                   notes: [...tr.notes, { seconds, note: "" }].sort(
@@ -310,6 +313,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                             <MomentsEditor
                               moments={tr.notes}
                               lyrics={lyricsByTrack[tr.track.trackId] || []}
+                              maxSeconds={durationByTrack[tr.track.trackId] ?? null}
                               onAdd={() => upd(i, { notes: [...tr.notes, { seconds: null, note: "" }] })}
                               onChange={(idx, patch) => upd(i, { notes: tr.notes.map((n, j) => (j === idx ? { ...n, ...patch } : n)) })}
                               onRemove={(idx) => upd(i, { notes: tr.notes.filter((_, j) => j !== idx) })}

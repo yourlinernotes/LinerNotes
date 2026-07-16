@@ -79,12 +79,15 @@ export type DraftMoment = { seconds: number | null; note: string };
 export function MomentsEditor({
   moments,
   lyrics,
+  maxSeconds,
   onAdd,
   onChange,
   onRemove,
 }: {
   moments: DraftMoment[];
   lyrics: LyricLine[];
+  /** Song length, once known — caps manually-entered timestamps. */
+  maxSeconds?: number | null;
   onAdd: () => void;
   onChange: (idx: number, patch: Partial<DraftMoment>) => void;
   onRemove: (idx: number) => void;
@@ -100,14 +103,16 @@ export function MomentsEditor({
             onChange(idx, { seconds: null });
             return;
           }
-          onChange(idx, { seconds: (parseInt(nextMm || "0", 10) || 0) * 60 + (parseInt(nextSs || "0", 10) || 0) });
+          let secs = (parseInt(nextMm || "0", 10) || 0) * 60 + (parseInt(nextSs || "0", 10) || 0);
+          if (maxSeconds != null) secs = Math.min(secs, Math.max(0, Math.floor(maxSeconds)));
+          onChange(idx, { seconds: secs });
         };
         return (
           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "rgba(var(--ln-fg-rgb),0.05)", border: "1px solid rgba(var(--ln-fg-rgb),0.08)", flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
               <input
                 value={mmStr}
-                onChange={(e) => setTime(e.target.value.replace(/\D/g, "").slice(0, 2), ssStr)}
+                onChange={(e) => setTime(e.target.value.replace(/\D/g, "").slice(-2), ssStr)}
                 placeholder="m"
                 inputMode="numeric"
                 style={{ ...cmpInput, width: 30, padding: "6px 0", textAlign: "center", fontFamily: "var(--ln-mono)", fontSize: 12 }}
@@ -115,7 +120,7 @@ export function MomentsEditor({
               <span style={{ fontFamily: "var(--ln-mono)", fontSize: 13, color: GOLD }}>:</span>
               <input
                 value={ssStr}
-                onChange={(e) => setTime(mmStr, e.target.value.replace(/\D/g, "").slice(0, 2))}
+                onChange={(e) => setTime(mmStr, e.target.value.replace(/\D/g, "").slice(-2))}
                 placeholder="ss"
                 inputMode="numeric"
                 style={{ ...cmpInput, width: 30, padding: "6px 0", textAlign: "center", fontFamily: "var(--ln-mono)", fontSize: 12 }}
