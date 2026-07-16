@@ -39,6 +39,7 @@ export function MomentCaptureBar({
   onMark,
   onManualMark,
   onLyricsChange,
+  onDurationChange,
 }: {
   track: string;
   artist: string;
@@ -47,6 +48,8 @@ export function MomentCaptureBar({
   /** Request a blank, manually-timed moment (the mark button). */
   onManualMark: () => void;
   onLyricsChange?: (lyrics: LyricLine[]) => void;
+  /** The song's real full length, once known — not the 30s preview clip. */
+  onDurationChange?: (durationSec: number | null) => void;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scTrackId, setScTrackId] = useState<string | null>(null);
@@ -76,6 +79,10 @@ export function MomentCaptureBar({
       const r = await fetch(`/api/youtube-audio?${q}`);
       const d = r.ok ? await r.json() : null;
       if (d?.youtube?.streamUrl) setYtStreamUrl(d.youtube.streamUrl);
+      if (d?.youtube?.durationSec && !durationSecRef.current) {
+        durationSecRef.current = d.youtube.durationSec;
+        onDurationChange?.(d.youtube.durationSec);
+      }
     } catch { /* preview fallback still applies */ }
   }, [track, artist]);
 
@@ -88,6 +95,7 @@ export function MomentCaptureBar({
     setYtStreamUrl(null);
     setLyrics([]);
     onLyricsChange?.([]);
+    onDurationChange?.(null);
     ytTriedRef.current = false;
     durationSecRef.current = undefined;
     (async () => {
@@ -104,6 +112,7 @@ export function MomentCaptureBar({
             sourceUrl = preview.sourceUrl || null;
             durationSec = preview.durationSec || undefined;
             durationSecRef.current = durationSec;
+            if (durationSec) onDurationChange?.(durationSec);
           }
         }
       } catch { /* ignore */ }

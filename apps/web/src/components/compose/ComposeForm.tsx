@@ -30,6 +30,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
   const [showMoments, setShowMoments] = useState(false);
   const [moments, setMoments] = useState<DraftMoment[]>([]);
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
+  const [durationSec, setDurationSec] = useState<number | null>(null);
   const [captionIdx, setCaptionIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
@@ -114,6 +115,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
       setLine("");
       setMoments([]);
       setLyrics([]);
+      setDurationSec(null);
       setCaptionIdx(0);
       setShowLine(false);
       setShowMoments(false);
@@ -200,6 +202,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
                   track={track.name}
                   artist={track.artist}
                   onLyricsChange={setLyrics}
+                  onDurationChange={setDurationSec}
                   onMark={(seconds) =>
                     setMoments((a) =>
                       [...a, { seconds, note: "" }].sort((x, y) => (x.seconds ?? Infinity) - (y.seconds ?? Infinity)),
@@ -210,6 +213,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
                 <MomentsEditor
                   moments={moments}
                   lyrics={lyrics}
+                  maxSeconds={durationSec}
                   onAdd={() => setMoments((a) => [...a, { seconds: null, note: "" }])}
                   onChange={(idx, patch) => setMoments((a) => a.map((m, i) => (i === idx ? { ...m, ...patch } : m)))}
                   onRemove={(idx) => setMoments((a) => a.filter((_, i) => i !== idx))}
