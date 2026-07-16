@@ -193,13 +193,18 @@ export function LNIcon({
       </svg>
     );
   if (name === "pen")
-    // A fountain-pen nib — the classic kite silhouette, slit down the
-    // middle, breather hole where the shoulders meet the slit.
+    // A fountain-pen nib, diagonal — diamond body top-right, flared nib
+    // tapering to a point bottom-left, breather hole punched through.
     return (
-      <svg {...common} fill={filled ? color : "none"}>
-        <path d="M12 3.5L18.5 9.5 12 21 5.5 9.5z" stroke={color} strokeWidth={sw} strokeLinejoin="round" />
-        <path d="M12 9.5V21" stroke={color} strokeWidth={sw} strokeLinecap="round" />
-        <circle cx="12" cy="9.5" r="1.3" fill={color} />
+      <svg {...common} fill="none">
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          fill={color}
+          d="M17 2L21.5 6.5 17 11 12.5 6.5Z
+             M13.5 8.5C9.5 9.5 6 11.5 4 15 2.8 17.2 2.3 19.5 2 22 4.8 19.8 7.8 17 10.2 13.8 12 11.3 13 9.8 13.5 8.5Z
+             M7.6 14.6a1.3 1.3 0 102.5-.7 1.3 1.3 0 00-2.5.7Z"
+        />
       </svg>
     );
   if (name === "trash")

@@ -206,7 +206,7 @@ export function PlaylistComposer() {
       {/* Track List */}
       {tracks.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.08em", color: gold, textTransform: "uppercase" }}>
               Your playlist
             </div>
@@ -215,7 +215,7 @@ export function PlaylistComposer() {
               onClick={goToAddTracks}
               aria-label="Add more tracks"
               title="Add more tracks"
-              style={{ width: 20, height: 20, borderRadius: "50%", background: "none", border: `1px solid ${gold}`, color: gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, lineHeight: 1, fontSize: 13 }}
+              style={{ width: 28, height: 24, borderRadius: 7, background: gold, border: "none", color: "#1a0a04", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, lineHeight: 1, fontSize: 16, fontWeight: 700 }}
             >
               +
             </button>
