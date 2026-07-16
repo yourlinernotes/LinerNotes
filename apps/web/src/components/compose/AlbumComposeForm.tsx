@@ -9,6 +9,7 @@ import { LNArt, LNReact, LN_REACT, LNIcon } from "@/components/ln/atoms";
 import { LNWCard } from "@/components/ln/cards";
 import { paletteFromString } from "@/lib/palette";
 import type { ReviewVM, TrackVM } from "@/lib/view-adapter";
+import { momentLabelAt, type LyricLine } from "@/lib/lrc";
 
 interface AlbumComposeFormProps {
   onSubmit?: (albumReview: Partial<AlbumReview>) => Promise<void>;
@@ -16,7 +17,7 @@ interface AlbumComposeFormProps {
   searchAPI?: (query: string) => Promise<Album[]>;
 }
 
-interface TrackNote { seconds: number; label: string; note?: string }
+interface TrackNote { seconds: number | null; note: string }
 interface TrackReaction {
   track: Track;
   trackNumber: number;
@@ -36,6 +37,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
   const [captionIdx, setCaptionIdx] = useState(0);
   const [showTracks, setShowTracks] = useState(true);
   const [trackReactions, setTrackReactions] = useState<TrackReaction[]>([]);
+  const [lyricsByTrack, setLyricsByTrack] = useState<Record<string, LyricLine[]>>({});
   const [openTrack, setOpenTrack] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingTracks, setLoadingTracks] = useState(false);
@@ -72,7 +74,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
 
   const upd = (i: number, patch: Partial<TrackReaction>) =>
     setTrackReactions((arr) => arr.map((t, j) => (j === i ? { ...t, ...patch } : t)));
-  const isIncluded = (tr: TrackReaction) => !!(tr.reaction || tr.notes.length || tr.take);
+  const isIncluded = (tr: TrackReaction) => !!(tr.reaction || tr.notes.some((n) => n.seconds != null) || tr.take);
   const includedCount = trackReactions.filter(isIncluded).length;
 
   const takeLines = albumTake.split("\n").map((s) => s.trim()).filter(Boolean);
@@ -89,6 +91,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
     setOverallRating(0);
     setAlbumTake("");
     setTrackReactions([]);
+    setLyricsByTrack({});
     setOpenTrack(null);
     setCaptionIdx(0);
   };
@@ -99,7 +102,9 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
       n: tr.trackNumber,
       name: tr.track.name,
       reaction: tr.reaction,
-      moments: tr.notes.map((n) => ({ sec: n.seconds, label: n.label || "moment", note: n.note || "" })),
+      moments: tr.notes
+        .filter((n): n is { seconds: number; note: string } => n.seconds != null)
+        .map((n) => ({ sec: n.seconds, label: momentLabelAt(lyricsByTrack[tr.track.trackId] || [], n.seconds), note: n.note || "" })),
       review: tr.take || undefined,
     }));
     return {
@@ -156,8 +161,8 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
           reaction: tr.reaction || undefined,
           trackNumber: tr.trackNumber,
           notes: tr.notes
-            .filter((n) => n.label || n.note)
-            .map((n) => ({ seconds: n.seconds, label: n.label || "moment", note: n.note || undefined })),
+            .filter((n): n is { seconds: number; note: string } => n.seconds != null)
+            .map((n) => ({ seconds: n.seconds, label: momentLabelAt(lyricsByTrack[tr.track.trackId] || [], n.seconds), note: n.note || undefined })),
         })),
       };
 
@@ -261,7 +266,7 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                   <div style={{ padding: "9px 14px", fontFamily: "var(--ln-mono)", fontSize: 10, letterSpacing: "0.06em", color: "rgba(var(--ln-fg-rgb),0.5)", textTransform: "uppercase", borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.08)" }}>tap a track to react · bookmark a note</div>
                   {trackReactions.map((tr, i) => {
                     const open = openTrack === i;
-                    const mc = tr.notes.length;
+                    const mc = tr.notes.filter((n) => n.seconds != null).length;
                     const included = isIncluded(tr);
                     return (
                       <div key={tr.track.trackId} style={{ borderBottom: "1px solid rgba(var(--ln-fg-rgb),0.06)" }}>
@@ -292,15 +297,22 @@ export function AlbumComposeForm({ onSubmit, onSuccess, searchAPI }: AlbumCompos
                             <MomentCaptureBar
                               track={tr.track.name}
                               artist={tr.track.artist || selectedAlbum.artist}
-                              onMark={(seconds, lyric) =>
-                                upd(i, { notes: [...tr.notes, { seconds, label: "moment", note: lyric || "" }].sort((a, b) => a.seconds - b.seconds) })
+                              onLyricsChange={(ls) => setLyricsByTrack((s) => ({ ...s, [tr.track.trackId]: ls }))}
+                              onMark={(seconds) =>
+                                upd(i, {
+                                  notes: [...tr.notes, { seconds, note: "" }].sort(
+                                    (a, b) => (a.seconds ?? Infinity) - (b.seconds ?? Infinity),
+                                  ),
+                                })
                               }
+                              onManualMark={() => upd(i, { notes: [...tr.notes, { seconds: null, note: "" }] })}
                             />
                             <MomentsEditor
-                              moments={tr.notes.map((n) => ({ seconds: n.seconds, label: n.label || "moment", note: n.note || "" }))}
-                              onAdd={(m) => upd(i, { notes: [...tr.notes, { seconds: m.seconds, label: m.label || "moment", note: m.note }].sort((a, b) => a.seconds - b.seconds) })}
+                              moments={tr.notes}
+                              lyrics={lyricsByTrack[tr.track.trackId] || []}
+                              onAdd={() => upd(i, { notes: [...tr.notes, { seconds: null, note: "" }] })}
+                              onChange={(idx, patch) => upd(i, { notes: tr.notes.map((n, j) => (j === idx ? { ...n, ...patch } : n)) })}
                               onRemove={(idx) => upd(i, { notes: tr.notes.filter((_, j) => j !== idx) })}
-                              onEdit={(idx, patch) => upd(i, { notes: tr.notes.map((n, j) => (j === idx ? { ...n, ...patch } : n)) })}
                             />
                           </div>
                         )}

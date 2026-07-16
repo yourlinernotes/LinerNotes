@@ -11,6 +11,7 @@ import { MomentCaptureBar } from "./MomentCaptureBar";
 import { LNWCard } from "@/components/ln/cards";
 import { paletteFromString } from "@/lib/palette";
 import type { ReviewVM } from "@/lib/view-adapter";
+import { momentLabelAt, type LyricLine } from "@/lib/lrc";
 
 interface ComposeFormProps {
   onSubmit?: (review: Partial<Review>) => Promise<void>;
@@ -28,6 +29,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
   const [line, setLine] = useState("");
   const [showMoments, setShowMoments] = useState(false);
   const [moments, setMoments] = useState<DraftMoment[]>([]);
+  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [captionIdx, setCaptionIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
@@ -58,13 +60,15 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
       rating,
       take: take || undefined,
       body: undefined,
-      notes: moments.map((m) => ({ sec: m.seconds, label: m.label || "moment", note: m.note })),
+      notes: moments
+        .filter((m): m is { seconds: number; note: string } => m.seconds != null)
+        .map((m) => ({ sec: m.seconds, label: momentLabelAt(lyrics, m.seconds), note: m.note })),
       via: null,
       likeCount: 0,
       repostCount: 0,
       at: "",
     };
-  }, [track, rating, take, moments]);
+  }, [track, rating, take, moments, lyrics]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +93,12 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
         previewUrl: track.previewUrl,
         rating,
         take: take || undefined,
-        notes: moments.length > 0 ? moments.map((m) => ({ seconds: m.seconds, label: m.label || "moment", note: m.note || undefined })) : undefined,
+        notes: (() => {
+          const complete = moments.filter((m): m is { seconds: number; note: string } => m.seconds != null);
+          return complete.length > 0
+            ? complete.map((m) => ({ seconds: m.seconds, label: momentLabelAt(lyrics, m.seconds), note: m.note || undefined }))
+            : undefined;
+        })(),
       };
 
       if (onSubmit) {
@@ -104,6 +113,7 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
       setRating(0);
       setLine("");
       setMoments([]);
+      setLyrics([]);
       setCaptionIdx(0);
       setShowLine(false);
       setShowMoments(false);
@@ -189,17 +199,20 @@ export function ComposeForm({ onSubmit, onSuccess, searchAPI, initialTrack, init
                 <MomentCaptureBar
                   track={track.name}
                   artist={track.artist}
-                  onMark={(seconds, lyric) =>
+                  onLyricsChange={setLyrics}
+                  onMark={(seconds) =>
                     setMoments((a) =>
-                      [...a, { seconds, label: "moment", note: lyric || "" }].sort((x, y) => x.seconds - y.seconds),
+                      [...a, { seconds, note: "" }].sort((x, y) => (x.seconds ?? Infinity) - (y.seconds ?? Infinity)),
                     )
                   }
+                  onManualMark={() => setMoments((a) => [...a, { seconds: null, note: "" }])}
                 />
                 <MomentsEditor
                   moments={moments}
-                  onAdd={(m) => setMoments((a) => [...a, m].sort((x, y) => x.seconds - y.seconds))}
+                  lyrics={lyrics}
+                  onAdd={() => setMoments((a) => [...a, { seconds: null, note: "" }])}
+                  onChange={(idx, patch) => setMoments((a) => a.map((m, i) => (i === idx ? { ...m, ...patch } : m)))}
                   onRemove={(idx) => setMoments((a) => a.filter((_, i) => i !== idx))}
-                  onEdit={(idx, patch) => setMoments((a) => a.map((m, i) => (i === idx ? { ...m, ...patch } : m)))}
                 />
               </div>
             )}
