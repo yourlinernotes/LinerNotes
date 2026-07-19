@@ -117,7 +117,10 @@ export type IconName =
   | "play"
   | "edit"
   | "share"
-  | "back";
+  | "back"
+  | "pen"
+  | "trash"
+  | "drag";
 
 export function LNIcon({
   name,
@@ -187,6 +190,39 @@ export function LNIcon({
     return (
       <svg {...common} fill={color}>
         <path d="M7 5l12 7-12 7V5z" />
+      </svg>
+    );
+  if (name === "pen")
+    // A fountain-pen nib, diagonal — diamond body top-right, flared nib
+    // tapering to a point bottom-left, breather hole punched through.
+    return (
+      <svg {...common} fill="none">
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          fill={color}
+          d="M17 2L21.5 6.5 17 11 12.5 6.5Z
+             M13.5 8.5C9.5 9.5 6 11.5 4 15 2.8 17.2 2.3 19.5 2 22 4.8 19.8 7.8 17 10.2 13.8 12 11.3 13 9.8 13.5 8.5Z
+             M7.6 14.6a1.3 1.3 0 102.5-.7 1.3 1.3 0 00-2.5.7Z"
+        />
+      </svg>
+    );
+  if (name === "trash")
+    return (
+      <svg {...common} fill="none">
+        <path d="M4 7h16" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+        <path d="M9 7V4.5A1.5 1.5 0 0110.5 3h3A1.5 1.5 0 0115 4.5V7" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M6.5 7l1 12.5A1.5 1.5 0 009 21h6a1.5 1.5 0 001.5-1.5L17.5 7" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 10.5v7M14 10.5v7" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+      </svg>
+    );
+  if (name === "drag")
+    // Six-dot grip — the press-and-hold handle for drag reordering.
+    return (
+      <svg {...common} fill="none">
+        {[9, 15].map((cx) =>
+          [6, 12, 18].map((cy) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={1.6} fill={color} />)
+        )}
       </svg>
     );
   return null;
