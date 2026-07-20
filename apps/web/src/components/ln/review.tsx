@@ -447,10 +447,9 @@ export function ImmersiveReview({
               </div>
             )}
 
-            {!vm.body && !vm.take && (
-              <div style={{ marginTop: 30, display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ width: 30, height: 1, background: `${gold}99` }} />
-                <span style={{ fontFamily: "var(--ln-body)", fontSize: 17, color: muted(0.72) }}>A quiet rating. Sometimes the stars say it.</span>
+            {!vm.body && !vm.take && vm.rating > 0 && (
+              <div style={{ marginTop: 34 }}>
+                <LNStars rating={vm.rating} size={44} color={gold} />
               </div>
             )}
 
