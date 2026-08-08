@@ -194,8 +194,8 @@ function makeDiscEnv() {
   a.fillStyle = g; a.fillRect(0, 0, w, h);
   a.fillStyle = "rgba(255,255,255,0.9)";
   a.fillRect(0, 30, w, 26); a.fillRect(0, 96, w, 18); a.fillRect(0, 150, w, 30);
-  a.fillStyle = "rgba(40,42,46,0.55)";
-  a.fillRect(0, 208, w, 48);
+  a.fillStyle = "rgba(255,255,255,0.75)";
+  a.fillRect(0, 214, w, 30); // bright low band too — no dark phases anywhere in the sweep
   const t = new THREE.CanvasTexture(c);
   t.mapping = THREE.EquirectangularReflectionMapping;
   t.colorSpace = THREE.SRGBColorSpace;
@@ -707,6 +707,8 @@ export default function CDCaseViewer({
       <directionalLight position={[2.6, 2.6, 3.2]} intensity={light.keyIntensity} />
       <directionalLight position={[-3, 1, -2]} intensity={0.7} />
       <directionalLight position={[light.frontX, light.frontY, 3]} intensity={light.frontIntensity} />
+      {/* small side accent: a glint that travels across the disc as it spins */}
+      <pointLight position={[-0.45, 0.12, 0.3]} intensity={0.6} distance={1.5} decay={2} />
       <Suspense fallback={null}>
         {isLight ? (
           <Environment resolution={256}>
