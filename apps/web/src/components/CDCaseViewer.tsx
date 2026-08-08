@@ -3,7 +3,7 @@
 //  A) coverMode="disc": art on the disc, closed clear case; review-click -> small spin beat
 //  B) coverMode="pane": art on the front pane, reflective disc; review-click -> disc peeks out
 //  Player) playerOpen: lid swings open on the spine hinge, disc spins continuously
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, Environment, Lightformer, OrbitControls, useTexture, Center, MeshReflectorMaterial } from "@react-three/drei";
 import { Suspense, useRef, useMemo, useEffect } from "react";
 import { useControls } from "leva";
@@ -183,28 +183,6 @@ function makeHubMap() {
   return t;
 }
 
-// private environment for the silver disc: bright studio strips — the disc keeps
-// its mirror-silver at every rotation, independent of the scene's dark-card rig
-function makeDiscEnv() {
-  const w = 512, h = 256;
-  const c = document.createElement("canvas"); c.width = w; c.height = h;
-  const a = c.getContext("2d")!;
-  // varied but floored: bright streaks over MID-grey zones (never near-black) —
-  // the tonal movement is what reads as "CD", the grey floor is what prevents dark phases
-  const g = a.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, "#f2f4f6"); g.addColorStop(0.35, "#9aa0a7"); g.addColorStop(0.62, "#c7ccd2");
-  g.addColorStop(0.82, "#6d737a"); g.addColorStop(1, "#a7adb4");
-  a.fillStyle = g; a.fillRect(0, 0, w, h);
-  a.fillStyle = "rgba(255,255,255,0.95)";
-  a.fillRect(0, 26, w, 20); a.fillRect(0, 118, w, 14); a.fillRect(0, 168, w, 24);
-  a.fillStyle = "rgba(90,95,102,0.6)";
-  a.fillRect(0, 74, w, 16); a.fillRect(0, 210, w, 18);
-  const t = new THREE.CanvasTexture(c);
-  t.mapping = THREE.EquirectangularReflectionMapping;
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
 // underside (data side): fully reflective — NO rim/ring structure, just mirror + track scratches
 function makeUndersideMap() {
   const size = 1024, cx = size / 2;
@@ -249,14 +227,6 @@ type Props = {
 function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode, rating }: Required<Props> & { tuning: Tuning; extrasMode: string; rating: number }) {
   const { scene } = useGLTF("/cd_case.glb?v=3");
   const cover = useTexture(albumArt);
-  const gl = useThree((st) => st.gl);
-  // PMREM-process the disc's private env once (raw equirects aren't valid material envMaps)
-  const discEnv = useMemo(() => {
-    const pmrem = new THREE.PMREMGenerator(gl);
-    const tex = pmrem.fromEquirectangular(makeDiscEnv()).texture;
-    pmrem.dispose();
-    return tex;
-  }, [gl]);
 
   const discRef = useRef<THREE.Object3D | null>(null);   // the "scaled_cd" GROUP (multi-material disc)
   const discMeshes = useRef<THREE.Mesh[]>([]);           // its primitive sub-meshes
@@ -489,7 +459,6 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         const m = new THREE.MeshPhysicalMaterial({
           map: makeUndersideMap(), metalness: 1, roughness: 0.2, envMapIntensity: 1.9,
           iridescence: 0.25, iridescenceIOR: 1.7,
-          envMap: discEnv, // private bright PMREM env: silver at every rotation
         });
         (m as unknown as { anisotropy: number }).anisotropy = 0.9;
         m.onBeforeCompile = (shader) => {
@@ -717,6 +686,9 @@ export default function CDCaseViewer({
         {isLight ? (
           <Environment resolution={256}>
             {/* white softboxes for the premium streaks... */}
+            {/* dim camera-side backfill: floors the disc's mirror at silver without
+                sheeting the glass (the old bright version was the milk) */}
+            <Lightformer intensity={0.75} position={[0, 1, 4.5]} scale={[10, 7, 1]} />
             {/* museum toplight: reflects on the case TOP, not the front pane — art stays clear */}
             <Lightformer intensity={4} position={[0, 4, 0.6]} rotation-x={Math.PI / 2.4} scale={[5, 2.6, 1]} />
             <Lightformer intensity={1.2} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[12, 12, 1]} />
