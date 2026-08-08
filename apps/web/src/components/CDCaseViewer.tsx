@@ -614,12 +614,13 @@ export default function CDCaseViewer({
       dpr={[1, 2]}
       gl={{ alpha: false }}
       onCreated={({ gl }) => {
-        gl.setClearColor(bg);
         // full-res transmission buffer: crisp view through the lid, no rim shimmer
         if ("transmissionResolutionScale" in gl) (gl as unknown as { transmissionResolutionScale: number }).transmissionResolutionScale = 1.0;
       }}
     >
-      <fog attach="fog" args={[bg, 0.5, 1.15]} />
+      {/* declarative background: re-themes live (a one-time clearColor went stale on toggle) */}
+      <color attach="background" args={[bg]} />
+      <fog attach="fog" args={[isLight ? floorCol : bg, 0.5, 1.15]} />
       <ambientLight intensity={light.ambient} />
       <directionalLight position={[2.6, 2.6, 3.2]} intensity={light.keyIntensity} />
       <directionalLight position={[-3, 1, -2]} intensity={0.7} />
@@ -632,14 +633,14 @@ export default function CDCaseViewer({
           <planeGeometry args={[3, 3]} />
           <MeshReflectorMaterial
             blur={isLight ? [520, 220] : [floor.floorBlur, floor.floorBlur / 3]}
-            resolution={1024}
+            resolution={2048}
             mixBlur={1}
             mixStrength={isLight ? 13 : floor.mixStrength}
             mirror={isLight ? 0.32 : floor.mirror}
             roughness={1}
-            depthScale={0}
-            minDepthThreshold={0}
-            maxDepthThreshold={1}
+            depthScale={isLight ? 0.6 : 1.2}
+            minDepthThreshold={0.4}
+            maxDepthThreshold={1.4}
             color={isLight ? floorCol : bg}
             metalness={isLight ? 0 : 0.5}
           />
