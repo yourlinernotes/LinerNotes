@@ -209,7 +209,7 @@ function makeUndersideMap() {
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
   artEnv: number; artClearcoat: number;
-  glassEnv: number; glassSmudge: number; glassRough: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
+  glassEnv: number; glassSmudge: number; glassRough: number; glassClearcoat: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
 };
 
@@ -562,7 +562,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
     for (const g of glassMats.current) {
       g.envMapIntensity = t.glassEnv;
       g.color.set(t.glassTint); // faint grey on light surfaces: form without opacity
-      if (g.transmission > 0) { g.clearcoatRoughness = t.glassSmudge; g.roughness = t.glassRough; }
+      if (g.transmission > 0) { g.clearcoatRoughness = t.glassSmudge; g.roughness = t.glassRough; g.clearcoat = t.glassClearcoat; }
       else g.opacity = t.baseOpacity; // the opacity-glass base
     }
     // idle sway: slow museum-turntable drift around the yaw
@@ -617,6 +617,7 @@ export default function CDCaseViewer({
     glassEnv: { value: 2.2, min: 0, max: 5, step: 0.1 },
     glassSmudge: { value: 1.0, min: 0, max: 2, step: 0.05 },
     glassRough: { value: 0.0, min: 0, max: 0.3, step: 0.005 },
+    glassClearcoat: { value: 0.45, min: 0, max: 1, step: 0.05 },
     baseOpacity: { value: 0.28, min: 0.05, max: 0.8, step: 0.01 },
     baseRealGlass: true,
   });
@@ -683,11 +684,14 @@ export default function CDCaseViewer({
         {isLight ? (
           <Environment resolution={256}>
             {/* white softboxes for the premium streaks... */}
-            <Lightformer intensity={1.6} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[12, 12, 1]} />
-            <Lightformer intensity={2.2} position={[0, 0.6, 4.5]} scale={[7, 5, 1]} />
-            <Lightformer intensity={5} position={[0, 2.5, 2.5]} scale={[3.5, 1.8, 1]} />
-            <Lightformer intensity={3} position={[-3.5, 1.2, 0.5]} rotation-y={Math.PI / 2.6} scale={[2.4, 2, 1]} />
-            <Lightformer intensity={2} position={[3.5, 0.8, 1]} rotation-y={-Math.PI / 2.6} scale={[1.8, 1.6, 1]} />
+            {/* museum toplight: reflects on the case TOP, not the front pane — art stays clear */}
+            <Lightformer intensity={4} position={[0, 4, 0.6]} rotation-x={Math.PI / 2.4} scale={[5, 2.6, 1]} />
+            <Lightformer intensity={1.2} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[12, 12, 1]} />
+            {/* backlight: rims the silhouette through the glass edges */}
+            <Lightformer intensity={2} position={[0, 1.2, -4]} scale={[5, 4, 1]} />
+            {/* side boxes dimmed: glints, not veils */}
+            <Lightformer intensity={2} position={[-3.5, 1.2, 0.5]} rotation-y={Math.PI / 2.6} scale={[2.4, 2, 1]} />
+            <Lightformer intensity={1.4} position={[3.5, 0.8, 1]} rotation-y={-Math.PI / 2.6} scale={[1.8, 1.6, 1]} />
             {/* ...everything else stays BLACK: the dark-card reflections that
                 define clear glass against a white page */}
           </Environment>
