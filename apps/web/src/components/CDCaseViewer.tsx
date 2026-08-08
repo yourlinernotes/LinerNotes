@@ -4,7 +4,7 @@
 //  B) coverMode="pane": art on the front pane, reflective disc; review-click -> disc peeks out
 //  Player) playerOpen: lid swings open on the spine hinge, disc spins continuously
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, Environment, Lightformer, OrbitControls, useTexture, Center, ContactShadows, MeshReflectorMaterial } from "@react-three/drei";
+import { useGLTF, Environment, Lightformer, OrbitControls, useTexture, Center, MeshReflectorMaterial } from "@react-three/drei";
 import { Suspense, useRef, useMemo, useEffect } from "react";
 import { useControls } from "leva";
 import * as THREE from "three";
@@ -134,6 +134,21 @@ function makeObiMap(rating: number, accent: string = "#c0392b") {
   return t;
 }
 
+// hand-made shadow blob: radial gradient on a small plane — no render passes,
+// no depth capture, cannot draw outside its own ellipse (drei ContactShadows
+// painted its whole patch grey in this scene; this cannot)
+function makeShadowBlob() {
+  const size = 256, c = document.createElement("canvas"); c.width = c.height = size;
+  const a = c.getContext("2d")!;
+  const g = a.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "rgba(0,0,0,0.6)");
+  g.addColorStop(0.55, "rgba(0,0,0,0.22)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  a.fillStyle = g; a.fillRect(0, 0, size, size);
+  const t = new THREE.CanvasTexture(c);
+  return t;
+}
+
 // clear hub: concentric moulding rings on a light base — presence without opacity
 function makeHubMap() {
   const size = 512, cx = size / 2;
@@ -179,7 +194,7 @@ function makeUndersideMap() {
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
   artEnv: number; artClearcoat: number;
-  glassEnv: number; glassSmudge: number; glassRough: number; baseOpacity: number; baseRealGlass: boolean;
+  glassEnv: number; glassSmudge: number; glassRough: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
 };
 
@@ -531,6 +546,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
     }
     for (const g of glassMats.current) {
       g.envMapIntensity = t.glassEnv;
+      g.color.set(t.glassTint); // faint grey on light surfaces: form without opacity
       if (g.transmission > 0) { g.clearcoatRoughness = t.glassSmudge; g.roughness = t.glassRough; }
       else g.opacity = t.baseOpacity; // the opacity-glass base
     }
@@ -621,7 +637,8 @@ export default function CDCaseViewer({
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }, [bg, joinTone]);
-  const tuning: Tuning = { ...disc, ...art, ...glass, exposure: light.exposure };
+  const shadowBlob = useMemo(() => makeShadowBlob(), []);
+  const tuning: Tuning = { ...disc, ...art, ...glass, exposure: light.exposure, glassTint: isLight ? "#e9ecef" : "#ffffff" };
   return (
     <Canvas
       camera={{ position: [0.015, 0.012, 0.36], fov: 35 }}
@@ -643,6 +660,7 @@ export default function CDCaseViewer({
           <Environment resolution={256}>
             {/* white softboxes for the premium streaks... */}
             <Lightformer intensity={1.6} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[12, 12, 1]} />
+            <Lightformer intensity={2.2} position={[0, 0.6, 4.5]} scale={[7, 5, 1]} />
             <Lightformer intensity={5} position={[0, 2.5, 2.5]} scale={[3.5, 1.8, 1]} />
             <Lightformer intensity={3} position={[-3.5, 1.2, 0.5]} rotation-y={Math.PI / 2.6} scale={[2.4, 2, 1]} />
             <Lightformer intensity={2} position={[3.5, 0.8, 1]} rotation-y={-Math.PI / 2.6} scale={[1.8, 1.6, 1]} />
@@ -662,13 +680,8 @@ export default function CDCaseViewer({
           </mesh>
         )}
         {/* dark: glossy mirrored countertop; light: matte seamless, shadow does the grounding */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.066, 0]}>
+        {!isLight && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.066, 0]}>
           <planeGeometry args={[6, 6]} />
-          {isLight ? (
-            /* white void: the reflector's black-clearing buffer can't sit on white —
-               shadow does the grounding (backlog: custom white-clearing mirror pass) */
-            <meshStandardMaterial color="#ffffff" roughness={0.95} metalness={0} envMapIntensity={0.4} />
-          ) : (
           <MeshReflectorMaterial
             blur={[floor.floorBlur, floor.floorBlur / 3]}
             resolution={2048}
@@ -682,9 +695,11 @@ export default function CDCaseViewer({
             color={bg}
             metalness={0}
           />
-          )}
+        </mesh>}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0652, 0.01]} scale={[0.34, 0.16, 1]}>
+          <planeGeometry args={[1, 1]} />
+          <meshBasicMaterial map={shadowBlob} transparent opacity={isLight ? 0.85 : 0.55} depthWrite={false} toneMapped={false} />
         </mesh>
-        <ContactShadows position={[0, -0.0655, 0]} opacity={isLight ? 0.5 : 0.3} scale={1.6} blur={0.9} far={0.12} />
         {walls && <group>
         {/* museum niche walls (vitrine mode) */}
         <mesh position={[0, 0.23, -0.28]}>
