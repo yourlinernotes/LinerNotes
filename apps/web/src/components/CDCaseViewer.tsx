@@ -4,7 +4,7 @@
 //  B) coverMode="pane": art on the front pane, reflective disc; review-click -> disc peeks out
 //  Player) playerOpen: lid swings open on the spine hinge, disc spins continuously
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, Environment, OrbitControls, useTexture, Center, ContactShadows, MeshReflectorMaterial } from "@react-three/drei";
+import { useGLTF, Environment, Lightformer, OrbitControls, useTexture, Center, ContactShadows, MeshReflectorMaterial } from "@react-three/drei";
 import { Suspense, useRef, useMemo, useEffect } from "react";
 import { useControls } from "leva";
 import * as THREE from "three";
@@ -602,11 +602,25 @@ export default function CDCaseViewer({
     rating: { value: 4.5, min: 0, max: 5, step: 0.5 },
   });
   const floor = useControls("floor (iPod ad)", {
-    mirror: { value: 0.6, min: 0, max: 1, step: 0.05 },
-    floorBlur: { value: 260, min: 0, max: 600, step: 10 },
+    mirror: { value: 0.5, min: 0, max: 1, step: 0.05 },
+    floorBlur: { value: 420, min: 0, max: 800, step: 10 },
     mixStrength: { value: 65, min: 0, max: 120, step: 1 },
     floorColor: "#0b0b0e",
+    fogShade: { value: 0.62, min: 0.3, max: 1.2, step: 0.02 }, // join darkness at the sweep base
   });
+  const joinTone = isLight ? shade(bg, 0.9) : shade(bg, floor.fogShade);
+  const backdropTex = useMemo(() => {
+    const c = document.createElement("canvas"); c.width = 4; c.height = 512;
+    const x = c.getContext("2d")!;
+    const g = x.createLinearGradient(0, 512, 0, 0); // bottom -> top
+    g.addColorStop(0, joinTone);      // meets the floor
+    g.addColorStop(0.42, bg);         // melts into the surface colour
+    g.addColorStop(1, bg);
+    x.fillStyle = g; x.fillRect(0, 0, 4, 512);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }, [bg, joinTone]);
   const tuning: Tuning = { ...disc, ...art, ...glass, exposure: light.exposure };
   return (
     <Canvas
@@ -620,17 +634,33 @@ export default function CDCaseViewer({
     >
       {/* declarative background: re-themes live (a one-time clearColor went stale on toggle) */}
       <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[isLight ? floorCol : bg, 0.5, 1.15]} />
       <ambientLight intensity={light.ambient} />
       <directionalLight position={[2.6, 2.6, 3.2]} intensity={light.keyIntensity} />
       <directionalLight position={[-3, 1, -2]} intensity={0.7} />
       <directionalLight position={[light.frontX, light.frontY, 3]} intensity={light.frontIntensity} />
       <Suspense fallback={null}>
-        <Environment preset="studio" />
+        {isLight ? (
+          <Environment resolution={256}>
+            {/* white softboxes for the premium streaks... */}
+            <Lightformer intensity={5} position={[0, 2.5, 2.5]} scale={[3.5, 1.8, 1]} />
+            <Lightformer intensity={3} position={[-3.5, 1.2, 0.5]} rotation-y={Math.PI / 2.6} scale={[2.4, 2, 1]} />
+            <Lightformer intensity={2} position={[3.5, 0.8, 1]} rotation-y={-Math.PI / 2.6} scale={[1.8, 1.6, 1]} />
+            {/* ...everything else stays BLACK: the dark-card reflections that
+                define clear glass against a white page */}
+          </Environment>
+        ) : (
+          <Environment preset="studio" />
+        )}
         <Case albumArt={albumArt} coverMode={coverMode} playerOpen={playerOpen} reviewBeat={reviewBeat} tuning={tuning} extrasMode={stickerCtl.extrasMode} rating={stickerCtl.rating} />
+        {/* studio sweep backdrop: gradient from join-tone up to the surface colour.
+            Hides the floor's far edge by occlusion — no fog, so the case stays crisp. */}
+        <mesh position={[0, 1.51, -0.62]}>
+          <planeGeometry args={[8, 3.2]} />
+          <meshBasicMaterial map={backdropTex} toneMapped={false} />
+        </mesh>
         {/* dark: glossy mirrored countertop; light: matte seamless, shadow does the grounding */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.066, 0]}>
-          <planeGeometry args={[3, 3]} />
+          <planeGeometry args={[6, 6]} />
           <MeshReflectorMaterial
             blur={isLight ? [520, 220] : [floor.floorBlur, floor.floorBlur / 3]}
             resolution={2048}
@@ -642,7 +672,7 @@ export default function CDCaseViewer({
             minDepthThreshold={0.4}
             maxDepthThreshold={1.4}
             color={isLight ? floorCol : bg}
-            metalness={isLight ? 0 : 0.5}
+            metalness={0}
           />
         </mesh>
         <ContactShadows position={[0, -0.0655, 0]} opacity={isLight ? 0.8 : 0.4} scale={0.5} blur={isLight ? 1.9 : 2.4} far={0.15} />
