@@ -8,6 +8,7 @@ import { useGLTF, Environment, Lightformer, OrbitControls, useTexture, Center, M
 import { Suspense, useRef, useMemo, useEffect } from "react";
 import { useControls } from "leva";
 import * as THREE from "three";
+import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 
 // ---- procedural texture kit: photoreal = layered imperfection ----------------
 function makeDiscMaps() {
@@ -131,6 +132,20 @@ function makeObiMap(rating: number, accent: string = "#c0392b") {
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+
+// fade mask for the light-mode mirror: transparent near the case, white outward
+function makeMirrorFade() {
+  const c = document.createElement("canvas"); c.width = 4; c.height = 512;
+  const a = c.getContext("2d")!;
+  const g = a.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.40, "rgba(255,255,255,0)");
+  g.addColorStop(0.60, "rgba(255,255,255,0)");
+  g.addColorStop(1, "rgba(255,255,255,1)");
+  a.fillStyle = g; a.fillRect(0, 0, 4, 512);
+  const t = new THREE.CanvasTexture(c);
   return t;
 }
 
@@ -638,7 +653,16 @@ export default function CDCaseViewer({
     return t;
   }, [bg, joinTone]);
   const shadowBlob = useMemo(() => makeShadowBlob(), []);
-  const tuning: Tuning = { ...disc, ...art, ...glass, exposure: light.exposure, glassTint: isLight ? "#e9ecef" : "#ffffff" };
+  const mirrorFade = useMemo(() => makeMirrorFade(), []);
+  const lightMirror = useMemo(() => {
+    const m = new Reflector(new THREE.PlaneGeometry(6, 6), {
+      clipBias: 0.003, textureWidth: 1024, textureHeight: 1024, color: 0xffffff,
+    });
+    m.rotation.x = -Math.PI / 2;
+    m.position.y = -0.066;
+    return m;
+  }, []);
+  const tuning: Tuning = { ...disc, ...art, ...glass, exposure: light.exposure, glassTint: "#ffffff" };
   return (
     <Canvas
       camera={{ position: [0.015, 0.012, 0.36], fov: 35 }}
@@ -680,6 +704,17 @@ export default function CDCaseViewer({
           </mesh>
         )}
         {/* dark: glossy mirrored countertop; light: matte seamless, shadow does the grounding */}
+        {isLight && (
+          <group>
+            {/* true mirror: reflects the scene incl. the white void (no black buffer) */}
+            <primitive object={lightMirror} />
+            {/* white fade: reflection lives near the case, melts to void outward */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0645, 0]}>
+              <planeGeometry args={[6, 6]} />
+              <meshBasicMaterial map={mirrorFade} transparent toneMapped={false} depthWrite={false} />
+            </mesh>
+          </group>
+        )}
         {!isLight && <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.066, 0]}>
           <planeGeometry args={[6, 6]} />
           <MeshReflectorMaterial
@@ -698,7 +733,7 @@ export default function CDCaseViewer({
         </mesh>}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0652, 0.01]} scale={[0.34, 0.16, 1]}>
           <planeGeometry args={[1, 1]} />
-          <meshBasicMaterial map={shadowBlob} transparent opacity={isLight ? 0.85 : 0.55} depthWrite={false} toneMapped={false} />
+          <meshBasicMaterial map={shadowBlob} transparent opacity={isLight ? 0.4 : 0.55} depthWrite={false} toneMapped={false} />
         </mesh>
         {walls && <group>
         {/* museum niche walls (vitrine mode) */}
