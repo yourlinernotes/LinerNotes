@@ -189,13 +189,16 @@ function makeDiscEnv() {
   const w = 512, h = 256;
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const a = c.getContext("2d")!;
+  // varied but floored: bright streaks over MID-grey zones (never near-black) —
+  // the tonal movement is what reads as "CD", the grey floor is what prevents dark phases
   const g = a.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, "#ffffff"); g.addColorStop(0.5, "#c9ced4"); g.addColorStop(1, "#8b9096");
+  g.addColorStop(0, "#f2f4f6"); g.addColorStop(0.35, "#9aa0a7"); g.addColorStop(0.62, "#c7ccd2");
+  g.addColorStop(0.82, "#6d737a"); g.addColorStop(1, "#a7adb4");
   a.fillStyle = g; a.fillRect(0, 0, w, h);
-  a.fillStyle = "rgba(255,255,255,0.9)";
-  a.fillRect(0, 30, w, 26); a.fillRect(0, 96, w, 18); a.fillRect(0, 150, w, 30);
-  a.fillStyle = "rgba(255,255,255,0.75)";
-  a.fillRect(0, 214, w, 30); // bright low band too — no dark phases anywhere in the sweep
+  a.fillStyle = "rgba(255,255,255,0.95)";
+  a.fillRect(0, 26, w, 20); a.fillRect(0, 118, w, 14); a.fillRect(0, 168, w, 24);
+  a.fillStyle = "rgba(90,95,102,0.6)";
+  a.fillRect(0, 74, w, 16); a.fillRect(0, 210, w, 18);
   const t = new THREE.CanvasTexture(c);
   t.mapping = THREE.EquirectangularReflectionMapping;
   t.colorSpace = THREE.SRGBColorSpace;
