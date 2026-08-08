@@ -535,7 +535,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
       else g.opacity = t.baseOpacity; // the opacity-glass base
     }
     // idle sway: slow museum-turntable drift around the yaw
-    scene.rotation.y = Math.PI + Math.sin(state.clock.elapsedTime * 0.3) * 0.045;
+    scene.rotation.y = Math.PI + Math.sin(state.clock.elapsedTime * 0.3) * 0.065;
     scene.rotation.x = Math.sin(state.clock.elapsedTime * 0.21) * 0.012;
     // lid swing for the player (book-style around the spine hinge)
     if (hingeRef.current) {
@@ -634,12 +634,12 @@ export default function CDCaseViewer({
             blur={isLight ? [520, 220] : [floor.floorBlur, floor.floorBlur / 3]}
             resolution={1024}
             mixBlur={1}
-            mixStrength={isLight ? 8 : floor.mixStrength}
+            mixStrength={isLight ? 13 : floor.mixStrength}
             mirror={isLight ? 0.32 : floor.mirror}
             roughness={1}
-            depthScale={isLight ? 0 : 1.2}
-            minDepthThreshold={isLight ? 0 : 0.4}
-            maxDepthThreshold={isLight ? 1 : 1.4}
+            depthScale={0}
+            minDepthThreshold={0}
+            maxDepthThreshold={1}
             color={isLight ? floorCol : bg}
             metalness={isLight ? 0 : 0.5}
           />
