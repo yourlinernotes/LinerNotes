@@ -659,7 +659,7 @@ export default function CDCaseViewer({
       clipBias: 0.003, textureWidth: 1024, textureHeight: 1024, color: 0xffffff,
     });
     m.rotation.x = -Math.PI / 2;
-    m.position.y = -0.066;
+    m.position.y = -0.062;
     return m;
   }, []);
   const tuning: Tuning = { ...disc, ...art, ...glass, exposure: light.exposure, glassTint: "#ffffff" };
@@ -709,7 +709,7 @@ export default function CDCaseViewer({
             {/* true mirror: reflects the scene incl. the white void (no black buffer) */}
             <primitive object={lightMirror} />
             {/* white fade: reflection lives near the case, melts to void outward */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0645, 0]}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0617, 0]}>
               <planeGeometry args={[6, 6]} />
               <meshBasicMaterial map={mirrorFade} transparent toneMapped={false} depthWrite={false} />
             </mesh>
@@ -731,7 +731,7 @@ export default function CDCaseViewer({
             metalness={0}
           />
         </mesh>}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.0652, 0.01]} scale={[0.34, 0.16, 1]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, isLight ? -0.0615 : -0.0652, 0.01]} scale={[0.34, 0.16, 1]}>
           <planeGeometry args={[1, 1]} />
           <meshBasicMaterial map={shadowBlob} transparent opacity={isLight ? 0.4 : 0.55} depthWrite={false} toneMapped={false} />
         </mesh>
