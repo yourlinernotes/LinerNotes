@@ -3,7 +3,7 @@
 //  A) coverMode="disc": art on the disc, closed clear case; review-click -> small spin beat
 //  B) coverMode="pane": art on the front pane, reflective disc; review-click -> disc peeks out
 //  Player) playerOpen: lid swings open on the spine hinge, disc spins continuously
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Environment, Lightformer, OrbitControls, useTexture, Center, MeshReflectorMaterial } from "@react-three/drei";
 import { Suspense, useRef, useMemo, useEffect } from "react";
 import { useControls } from "leva";
@@ -141,8 +141,8 @@ function makeMirrorFade() {
   const a = c.getContext("2d")!;
   const g = a.createLinearGradient(0, 0, 0, 512);
   g.addColorStop(0, "rgba(255,255,255,1)");
-  g.addColorStop(0.40, "rgba(255,255,255,0)");
-  g.addColorStop(0.60, "rgba(255,255,255,0)");
+  g.addColorStop(0.40, "rgba(255,255,255,0.5)");
+  g.addColorStop(0.60, "rgba(255,255,255,0.5)");
   g.addColorStop(1, "rgba(255,255,255,1)");
   a.fillStyle = g; a.fillRect(0, 0, 4, 512);
   const t = new THREE.CanvasTexture(c);
@@ -180,6 +180,25 @@ function makeHubMap() {
   a.globalAlpha = 1;
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+
+// private environment for the silver disc: bright studio strips — the disc keeps
+// its mirror-silver at every rotation, independent of the scene's dark-card rig
+function makeDiscEnv() {
+  const w = 512, h = 256;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const a = c.getContext("2d")!;
+  const g = a.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "#ffffff"); g.addColorStop(0.5, "#c9ced4"); g.addColorStop(1, "#8b9096");
+  a.fillStyle = g; a.fillRect(0, 0, w, h);
+  a.fillStyle = "rgba(255,255,255,0.9)";
+  a.fillRect(0, 30, w, 26); a.fillRect(0, 96, w, 18); a.fillRect(0, 150, w, 30);
+  a.fillStyle = "rgba(40,42,46,0.55)";
+  a.fillRect(0, 208, w, 48);
+  const t = new THREE.CanvasTexture(c);
+  t.mapping = THREE.EquirectangularReflectionMapping;
+  t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 
@@ -227,6 +246,14 @@ type Props = {
 function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode, rating }: Required<Props> & { tuning: Tuning; extrasMode: string; rating: number }) {
   const { scene } = useGLTF("/cd_case.glb?v=3");
   const cover = useTexture(albumArt);
+  const gl = useThree((st) => st.gl);
+  // PMREM-process the disc's private env once (raw equirects aren't valid material envMaps)
+  const discEnv = useMemo(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const tex = pmrem.fromEquirectangular(makeDiscEnv()).texture;
+    pmrem.dispose();
+    return tex;
+  }, [gl]);
 
   const discRef = useRef<THREE.Object3D | null>(null);   // the "scaled_cd" GROUP (multi-material disc)
   const discMeshes = useRef<THREE.Mesh[]>([]);           // its primitive sub-meshes
@@ -657,7 +684,7 @@ export default function CDCaseViewer({
   const mirrorFade = useMemo(() => makeMirrorFade(), []);
   const lightMirror = useMemo(() => {
     const m = new Reflector(new THREE.PlaneGeometry(6, 6), {
-      clipBias: 0.003, textureWidth: 1024, textureHeight: 1024, color: 0xffffff,
+      clipBias: 0.003, textureWidth: 256, textureHeight: 256, color: 0xffffff,
     });
     m.rotation.x = -Math.PI / 2;
     m.position.y = -0.062;
