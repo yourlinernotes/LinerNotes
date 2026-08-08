@@ -642,6 +642,7 @@ export default function CDCaseViewer({
         {isLight ? (
           <Environment resolution={256}>
             {/* white softboxes for the premium streaks... */}
+            <Lightformer intensity={1.6} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[12, 12, 1]} />
             <Lightformer intensity={5} position={[0, 2.5, 2.5]} scale={[3.5, 1.8, 1]} />
             <Lightformer intensity={3} position={[-3.5, 1.2, 0.5]} rotation-y={Math.PI / 2.6} scale={[2.4, 2, 1]} />
             <Lightformer intensity={2} position={[3.5, 0.8, 1]} rotation-y={-Math.PI / 2.6} scale={[1.8, 1.6, 1]} />
@@ -654,28 +655,36 @@ export default function CDCaseViewer({
         <Case albumArt={albumArt} coverMode={coverMode} playerOpen={playerOpen} reviewBeat={reviewBeat} tuning={tuning} extrasMode={stickerCtl.extrasMode} rating={stickerCtl.rating} />
         {/* studio sweep backdrop: gradient from join-tone up to the surface colour.
             Hides the floor's far edge by occlusion — no fog, so the case stays crisp. */}
-        <mesh position={[0, 1.51, -0.62]}>
-          <planeGeometry args={[8, 3.2]} />
-          <meshBasicMaterial map={backdropTex} toneMapped={false} />
-        </mesh>
+        {!isLight && (
+          <mesh position={[0, 1.51, -0.62]}>
+            <planeGeometry args={[8, 3.2]} />
+            <meshBasicMaterial map={backdropTex} toneMapped={false} />
+          </mesh>
+        )}
         {/* dark: glossy mirrored countertop; light: matte seamless, shadow does the grounding */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.066, 0]}>
           <planeGeometry args={[6, 6]} />
+          {isLight ? (
+            /* white void: the reflector's black-clearing buffer can't sit on white —
+               shadow does the grounding (backlog: custom white-clearing mirror pass) */
+            <meshStandardMaterial color="#ffffff" roughness={0.95} metalness={0} envMapIntensity={0.4} />
+          ) : (
           <MeshReflectorMaterial
-            blur={isLight ? [520, 220] : [floor.floorBlur, floor.floorBlur / 3]}
+            blur={[floor.floorBlur, floor.floorBlur / 3]}
             resolution={2048}
             mixBlur={1}
-            mixStrength={isLight ? 13 : floor.mixStrength}
-            mirror={isLight ? 0.32 : floor.mirror}
+            mixStrength={floor.mixStrength}
+            mirror={floor.mirror}
             roughness={1}
-            depthScale={isLight ? 0.6 : 1.2}
+            depthScale={1.2}
             minDepthThreshold={0.4}
             maxDepthThreshold={1.4}
-            color={isLight ? floorCol : bg}
+            color={bg}
             metalness={0}
           />
+          )}
         </mesh>
-        <ContactShadows position={[0, -0.0655, 0]} opacity={isLight ? 0.8 : 0.4} scale={0.5} blur={isLight ? 1.9 : 2.4} far={0.15} />
+        <ContactShadows position={[0, -0.0655, 0]} opacity={isLight ? 0.5 : 0.3} scale={1.6} blur={0.9} far={0.12} />
         {walls && <group>
         {/* museum niche walls (vitrine mode) */}
         <mesh position={[0, 0.23, -0.28]}>
