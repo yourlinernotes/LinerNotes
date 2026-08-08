@@ -486,6 +486,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         const m = new THREE.MeshPhysicalMaterial({
           map: makeUndersideMap(), metalness: 1, roughness: 0.2, envMapIntensity: 1.9,
           iridescence: 0.25, iridescenceIOR: 1.7,
+          envMap: discEnv, // private bright PMREM env: silver at every rotation
         });
         (m as unknown as { anisotropy: number }).anisotropy = 0.9;
         m.onBeforeCompile = (shader) => {
