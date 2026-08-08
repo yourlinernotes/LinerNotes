@@ -79,12 +79,37 @@ function makeStickerMap(rating: number) {
 }
 
 // paper obi (Japanese CD spine band): title block + vertical text + rating
-function makeObiMap(rating: number) {
+// album-accent: hue from the art, saturation/lightness clamped so it can never go muddy
+function deriveAccent(img: CanvasImageSource | undefined): string {
+  const FALLBACK = "#c0392b"; // classic obi red for colourless covers
+  if (!img) return FALLBACK;
+  try {
+    const n = 24, c = document.createElement("canvas"); c.width = c.height = n;
+    const x = c.getContext("2d")!;
+    x.drawImage(img, 0, 0, n, n);
+    const d = x.getImageData(0, 0, n, n).data;
+    let sx = 0, sy = 0, w = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255;
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+      const sat = mx === mn ? 0 : (mx - mn) / (1 - Math.abs(2 * l - 1));
+      if (sat < 0.15 || l < 0.12 || l > 0.92) continue; // skip mud + near-b&w
+      let h = mx === r ? ((g - b) / (mx - mn)) % 6 : mx === g ? (b - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4;
+      h *= 60; if (h < 0) h += 360;
+      sx += Math.cos(h * Math.PI / 180) * sat; sy += Math.sin(h * Math.PI / 180) * sat; w += sat;
+    }
+    if (w < 3) return FALLBACK; // not enough real colour in the art
+    const h = (Math.atan2(sy, sx) * 180 / Math.PI + 360) % 360;
+    return `hsl(${h.toFixed(0)} 62% 46%)`; // fixed vivid S/L — shareable-pretty by construction
+  } catch { return FALLBACK; }
+}
+
+function makeObiMap(rating: number, accent: string = "#c0392b") {
   const w = 256, h = 1024;
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const a = c.getContext("2d")!;
   a.fillStyle = "#f4efe1"; a.fillRect(0, 0, w, h);          // paper
-  a.fillStyle = "#c0392b"; a.fillRect(0, 0, w, 150);        // red block, no text
+  a.fillStyle = accent; a.fillRect(0, 0, w, 150);           // accent block (album-derived)
   a.save();                                                  // vertical artist / title
   a.translate(w / 2 + 30, 200); a.rotate(Math.PI / 2);
   a.fillStyle = "#1c1c1c"; a.textAlign = "left";
@@ -99,7 +124,7 @@ function makeObiMap(rating: number) {
   a.restore();
   // vertical star column
   const full = Math.round(rating);
-  a.fillStyle = "#c0392b"; a.textAlign = "center";
+  a.fillStyle = accent; a.textAlign = "center";
   a.font = "58px system-ui, sans-serif";
   for (let i = 0; i < 5; i++) {
     a.fillText(i < full ? "\u2605" : "\u2606", w / 2, h - 330 + i * 64);
@@ -452,7 +477,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
     if (obi) {
       obi.visible = extrasMode === "obi";
       const om = obi.material as THREE.MeshStandardMaterial;
-      om.map = makeObiMap(rating); om.needsUpdate = true;
+      om.map = makeObiMap(rating, deriveAccent(cover.image as CanvasImageSource)); om.needsUpdate = true;
     }
     // B = the disc physically flipped: flat data side out (the label-side ridges are
     // real geometry — no texture can hide them, so we turn the disc over, as per spec)
@@ -605,23 +630,19 @@ export default function CDCaseViewer({
         {/* dark: glossy mirrored countertop; light: matte seamless, shadow does the grounding */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.066, 0]}>
           <planeGeometry args={[3, 3]} />
-          {isLight ? (
-            <meshStandardMaterial color={floorCol} roughness={0.96} metalness={0} envMapIntensity={0.15} />
-          ) : (
           <MeshReflectorMaterial
-            blur={[floor.floorBlur, floor.floorBlur / 3]}
+            blur={isLight ? [520, 220] : [floor.floorBlur, floor.floorBlur / 3]}
             resolution={1024}
             mixBlur={1}
-            mixStrength={floor.mixStrength}
-            mirror={floor.mirror}
+            mixStrength={isLight ? 8 : floor.mixStrength}
+            mirror={isLight ? 0.32 : floor.mirror}
             roughness={1}
-            depthScale={1.2}
-            minDepthThreshold={0.4}
-            maxDepthThreshold={1.4}
-            color={bg}
-            metalness={0.5}
+            depthScale={isLight ? 0 : 1.2}
+            minDepthThreshold={isLight ? 0 : 0.4}
+            maxDepthThreshold={isLight ? 1 : 1.4}
+            color={isLight ? floorCol : bg}
+            metalness={isLight ? 0 : 0.5}
           />
-          )}
         </mesh>
         <ContactShadows position={[0, -0.0655, 0]} opacity={isLight ? 0.8 : 0.4} scale={0.5} blur={isLight ? 1.9 : 2.4} far={0.15} />
         {walls && <group>
