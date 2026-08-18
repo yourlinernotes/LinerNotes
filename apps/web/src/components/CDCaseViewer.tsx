@@ -238,7 +238,7 @@ function makeUndersideMap() {
 
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
-  gratingDensity: number; discPrivateEnv: boolean;
+  gratingDensity: number; discPrivateEnv: boolean; wobble: number;
   artEnv: number; artClearcoat: number;
   glassEnv: number; glassSmudge: number; glassRough: number; glassClearcoat: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
@@ -304,6 +304,8 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
   const peekUntil = useRef(0);
   const lastBeat = useRef(reviewBeat);
   const glassMats = useRef<THREE.MeshPhysicalMaterial[]>([]);
+  const _wobbleQ = useRef(new THREE.Quaternion());   // last applied runout tilt
+  const _wobbleAxis = useRef(new THREE.Vector3(1, 0, 0));
   const baseMats = useRef<{ mesh: THREE.Mesh; real: THREE.MeshPhysicalMaterial; fake: THREE.MeshPhysicalMaterial } | null>(null);
   const tuningRef = useRef(tuning);
   tuningRef.current = tuning;
@@ -594,7 +596,11 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
                 vec3 axisW = normalize( vWNrm );
                 vec3 rel = vWPos - uDiscCenter;
                 vec3 radialW = normalize( rel - axisW * dot( rel, axisW ) );
-                vec3 viewW = normalize( cameraPosition - vWPos );
+                // view from the DISC CENTRE, not per-pixel: with a close 35deg camera
+                // the per-pixel view direction bends across the face and bows the fan
+                // contours. Product shots use a long lens from further back — constant
+                // view direction, straight radial fans. This is that lens.
+                vec3 viewW = normalize( cameraPosition - uDiscCenter );
                 // virtual light = the overhead key strip of the studio rig; a fixed
                 // world direction, so the fan is pinned in world space (spin-proof)
                 vec3 lightW = normalize( vec3( 0.0, 0.95, 0.31 ) );
@@ -688,9 +694,26 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           m.color.setScalar(t.hubOpacity); // brightness of the frosted hub
         }
       }
-      // continuous spin in the player; decaying beat-spin otherwise
+      // continuous spin in the player; decaying beat-spin otherwise.
+      // WOBBLE (runout): a flat disc's diffraction fan is genuinely spin-invariant
+      // — but no real disc is flat. Real discs carry a tiny warp, fixed in the
+      // disc's own frame, so the tilt direction precesses with the spin and the
+      // fan rocks/shimmers. Model exactly that: a constant small tilt in LOCAL
+      // frame, composed after the spin (undo -> spin -> reapply each frame).
       const base = playerOpen ? 1.2 : 0;
-      disc.rotateOnAxis(spinAxis.current, (base + spinVel.current) * dt);
+      const spinRate = base + spinVel.current;
+      disc.quaternion.multiply(_wobbleQ.current.clone().invert()); // undo last frame's tilt
+      disc.rotateOnAxis(spinAxis.current, spinRate * dt);
+      {
+        // tilt axis ⊥ spin axis, fixed in the disc's local frame
+        const a = spinAxis.current;
+        _wobbleAxis.current.set(1, 0, 0);
+        if (Math.abs(a.x) > 0.9) _wobbleAxis.current.set(0, 0, 1);
+        _wobbleAxis.current.cross(a).normalize();
+        const amp = THREE.MathUtils.degToRad(t.wobble) * THREE.MathUtils.clamp(spinRate / 1.2, 0, 1);
+        _wobbleQ.current.setFromAxisAngle(_wobbleAxis.current, amp);
+        disc.quaternion.multiply(_wobbleQ.current);
+      }
       spinVel.current = THREE.MathUtils.damp(spinVel.current, 0, 3, dt);
       // peek slide (Option B)
       const targetPeek = performance.now() < peekUntil.current ? 1 : 0;
@@ -750,6 +773,7 @@ export default function CDCaseViewer({
     anisotropy: { value: 1.0, min: 0, max: 1, step: 0.05 },
     iridescence: { value: 0.4, min: 0, max: 1, step: 0.05 },
     hubOpacity: { value: 0.85, min: 0.3, max: 1.3, step: 0.05 }, // hub brightness
+    wobble: { value: 0.5, min: 0, max: 2, step: 0.05 }, // runout tilt (deg): the fan's shimmer when spinning
   });
   const art = useControls("disc (art)", {
     artEnv: { value: 0.8, min: 0, max: 3, step: 0.05 },
