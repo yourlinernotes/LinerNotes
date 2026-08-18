@@ -633,6 +633,20 @@ export default function CDCaseViewer({
     extrasMode: { options: ["obi", "sticker", "none"], value: "obi" },
     rating: { value: 4.5, min: 0, max: 5, step: 0.5 },
   });
+  // Light-mode env rig. The env map drives REFLECTIONS only — the white page comes
+  // from `bg`/`floorCol`, which are separate. Clear glass reads its edges from DARK
+  // reflections, so the env must stay mostly black even on a white page. The two big
+  // fills (ceiling + camera-side) are what previously covered the whole sphere and
+  // left the case with no edges; they're on sliders now so their coverage is tunable.
+  const rig = useControls("light rig (env)", {
+    ceilingIntensity: { value: 0.35, min: 0, max: 2, step: 0.05 },
+    ceilingScale: { value: 4, min: 1, max: 12, step: 0.5 }, // was 12 — a full white sky
+    backfillIntensity: { value: 0.18, min: 0, max: 1.5, step: 0.02 }, // was 0.75 — the milk
+    backfillScale: { value: 4, min: 1, max: 10, step: 0.5 }, // was 10x7
+    topIntensity: { value: 4, min: 0, max: 8, step: 0.1 }, // keep: defines the case TOP
+    backIntensity: { value: 2.4, min: 0, max: 6, step: 0.1 }, // keep: rims the silhouette
+    sideIntensity: { value: 2, min: 0, max: 6, step: 0.1 },
+  });
   const floor = useControls("floor (iPod ad)", {
     mirror: { value: 0.5, min: 0, max: 1, step: 0.05 },
     floorBlur: { value: 420, min: 0, max: 800, step: 10 },
@@ -688,15 +702,15 @@ export default function CDCaseViewer({
             {/* white softboxes for the premium streaks... */}
             {/* dim camera-side backfill: floors the disc's mirror at silver without
                 sheeting the glass (the old bright version was the milk) */}
-            <Lightformer intensity={0.75} position={[0, 1, 4.5]} scale={[10, 7, 1]} />
+            <Lightformer intensity={rig.backfillIntensity} position={[0, 1, 4.5]} scale={[rig.backfillScale, rig.backfillScale * 0.7, 1]} />
             {/* museum toplight: reflects on the case TOP, not the front pane — art stays clear */}
-            <Lightformer intensity={4} position={[0, 4, 0.6]} rotation-x={Math.PI / 2.4} scale={[5, 2.6, 1]} />
-            <Lightformer intensity={1.2} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[12, 12, 1]} />
+            <Lightformer intensity={rig.topIntensity} position={[0, 4, 0.6]} rotation-x={Math.PI / 2.4} scale={[5, 2.6, 1]} />
+            <Lightformer intensity={rig.ceilingIntensity} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[rig.ceilingScale, rig.ceilingScale, 1]} />
             {/* backlight: rims the silhouette through the glass edges */}
-            <Lightformer intensity={2} position={[0, 1.2, -4]} scale={[5, 4, 1]} />
+            <Lightformer intensity={rig.backIntensity} position={[0, 1.2, -4]} scale={[5, 4, 1]} />
             {/* side boxes dimmed: glints, not veils */}
-            <Lightformer intensity={2} position={[-3.5, 1.2, 0.5]} rotation-y={Math.PI / 2.6} scale={[2.4, 2, 1]} />
-            <Lightformer intensity={1.4} position={[3.5, 0.8, 1]} rotation-y={-Math.PI / 2.6} scale={[1.8, 1.6, 1]} />
+            <Lightformer intensity={rig.sideIntensity} position={[-3.5, 1.2, 0.5]} rotation-y={Math.PI / 2.6} scale={[2.4, 2, 1]} />
+            <Lightformer intensity={rig.sideIntensity * 0.7} position={[3.5, 0.8, 1]} rotation-y={-Math.PI / 2.6} scale={[1.8, 1.6, 1]} />
             {/* ...everything else stays BLACK: the dark-card reflections that
                 define clear glass against a white page */}
           </Environment>
