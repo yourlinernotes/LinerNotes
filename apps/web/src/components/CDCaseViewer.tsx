@@ -646,6 +646,12 @@ export default function CDCaseViewer({
     topIntensity: { value: 4, min: 0, max: 8, step: 0.1 }, // keep: defines the case TOP
     backIntensity: { value: 2.4, min: 0, max: 6, step: 0.1 }, // keep: rims the silhouette
     sideIntensity: { value: 2, min: 0, max: 6, step: 0.1 },
+    // The disc reads its brightness from envMapIntensity off the SAME env map, so
+    // dimming the env to give the glass dark edges also darkened the disc. Rather
+    // than re-brighten the env (which is what made the glass milky), the disc gets
+    // its own gain in light mode — glass contrast and disc brightness decoupled.
+    discGainLight: { value: 2.2, min: 1, max: 5, step: 0.05 },
+    artGainLight: { value: 2.6, min: 1, max: 5, step: 0.05 },
   });
   const floor = useControls("floor (iPod ad)", {
     mirror: { value: 0.5, min: 0, max: 1, step: 0.05 },
@@ -670,14 +676,23 @@ export default function CDCaseViewer({
   const shadowBlob = useMemo(() => makeShadowBlob(), []);
   const mirrorFade = useMemo(() => makeMirrorFade(), []);
   const lightMirror = useMemo(() => {
+    // 256x256 over a 6x6 plane was ~43 texels per world unit — far too coarse, so
+    // every high-contrast edge in the reflection stair-stepped and crawled as the
+    // scene moved ("glitching edges"). Dark mode's reflector runs at 2048; 1024 is
+    // enough here because the fade texture hides the outer half of the mirror.
     const m = new Reflector(new THREE.PlaneGeometry(6, 6), {
-      clipBias: 0.003, textureWidth: 256, textureHeight: 256, color: 0xffffff,
+      clipBias: 0.003, textureWidth: 1024, textureHeight: 1024, color: 0xffffff,
     });
     m.rotation.x = -Math.PI / 2;
     m.position.y = -0.062;
     return m;
   }, []);
-  const tuning: Tuning = { ...disc, ...art, ...glass, exposure: light.exposure, glassTint: "#ffffff" };
+  const tuning: Tuning = {
+    ...disc, ...art, ...glass, exposure: light.exposure, glassTint: "#ffffff",
+    // dark mode keeps the studio preset's energy, so the gain only applies to light
+    discEnv: isLight ? disc.discEnv * rig.discGainLight : disc.discEnv,
+    artEnv: isLight ? art.artEnv * rig.artGainLight : art.artEnv,
+  };
   return (
     <Canvas
       camera={{ position: [0.015, 0.012, 0.36], fov: 35 }}
