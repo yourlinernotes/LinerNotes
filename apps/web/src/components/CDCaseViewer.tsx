@@ -256,7 +256,7 @@ type Props = {
   debug?: boolean; // dev-only orbit controls
 };
 
-function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode, rating }: Required<Props> & { tuning: Tuning; extrasMode: string; rating: number }) {
+function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode, rating }: Pick<Required<Props>, "albumArt" | "coverMode" | "playerOpen" | "reviewBeat"> & { tuning: Tuning; extrasMode: string; rating: number }) {
   const { scene } = useGLTF("/cd_case.glb?v=3");
   const cover = useTexture(albumArt);
   const gl = useThree((s) => s.gl);
