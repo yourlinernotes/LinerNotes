@@ -530,7 +530,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           shader.uniforms.uSpectral = { value: 0.5 };
           // world-space disc frame, refreshed per frame — see useFrame below
           shader.uniforms.uDiscCenter = { value: new THREE.Vector3() };
-          shader.uniforms.uGrating = { value: 7 }; // 26 packed the arcs like an oil slick; live via gratingDensity
+          shader.uniforms.uGrating = { value: 16 }; // groove pitch /100nm — 16 = a real CD's 1600nm track
           // A CD's rainbow is DIFFRACTION off a 1.6um spiral track, not reflection off
           // bumps — the structure is finer than visible light, so it can never be
           // geometry or a normal map. It's modelled here as a grating whose phase
@@ -550,34 +550,66 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
               vWPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;
               vWNrm = normalize( mat3( modelMatrix ) * objectNormal );`
             );
+          // REAL diffraction, not a palette. The old cosine-RGB "rainbow" was
+          // dominated by MAGENTA — a colour that does not exist in any physical
+          // spectrum (it's non-spectral), which is why no slider setting ever
+          // looked like a CD. This solves the grating equation per pixel:
+          //   sin(theta_view) - sin(theta_light) = m * lambda / d
+          // along the groove normal (world radial), for orders m=1..3, and maps
+          // each solved wavelength through Zucconi's spectral fit (violet ->
+          // red only, silver gaps between orders — exactly what a disc does).
           shader.fragmentShader = shader.fragmentShader
             .replace(
               "#include <common>",
-              "#include <common>\nuniform float uSpectral;\nuniform vec3 uDiscCenter;\nuniform float uGrating;\nvarying vec3 vWPos;\nvarying vec3 vWNrm;"
+              `#include <common>
+              uniform float uSpectral;
+              uniform vec3 uDiscCenter;
+              uniform float uGrating; // groove pitch in units of 100nm (16 = real CD's 1600nm)
+              varying vec3 vWPos;
+              varying vec3 vWNrm;
+              vec3 bump3y( vec3 x, vec3 yoffset ) {
+                vec3 y = 1.0 - x * x;
+                return clamp( y - yoffset, 0.0, 1.0 );
+              }
+              // Zucconi 2017: closest RGB fit to the visible spectrum (400-700nm)
+              vec3 spectral_zucconi6( float w ) {
+                float x = clamp( ( w - 400.0 ) / 300.0, 0.0, 1.0 );
+                vec3 c1 = vec3( 3.54585104, 2.93225262, 2.41593945 );
+                vec3 x1 = vec3( 0.69549072, 0.49228336, 0.27699880 );
+                vec3 y1 = vec3( 0.02312639, 0.15225084, 0.52607955 );
+                vec3 c2 = vec3( 3.90307140, 3.21182957, 3.96587128 );
+                vec3 x2 = vec3( 0.11748627, 0.86755042, 0.66077860 );
+                vec3 y2 = vec3( 0.84897130, 0.88445281, 0.73949448 );
+                return bump3y( c1 * ( vec3( x ) - x1 ), y1 ) + bump3y( c2 * ( vec3( x ) - x2 ), y2 );
+              }`
             )
             .replace(
               "#include <emissivemap_fragment>",
               `#include <emissivemap_fragment>
               {
-                vec3 nrm = normalize( normal );
-                vec3 vdir = normalize( vViewPosition );
-                float ndv = clamp( dot( nrm, vdir ), 0.0, 1.0 );
-                float sinT = sqrt( 1.0 - ndv * ndv );
                 vec2 duv = vMapUv - 0.5;
-                float r = length( duv ); // radius is already spin-invariant
+                float r = length( duv ); // radius is spin-invariant
                 float band = smoothstep( 0.055, 0.10, r ) * ( 1.0 - smoothstep( 0.465, 0.50, r ) );
-                // grooves run tangentially, so the grating normal is the world radial
+                // grooves run tangentially -> the grating vector is the world radial
                 vec3 axisW = normalize( vWNrm );
                 vec3 rel = vWPos - uDiscCenter;
                 vec3 radialW = normalize( rel - axisW * dot( rel, axisW ) );
                 vec3 viewW = normalize( cameraPosition - vWPos );
-                // path difference across the grating: how obliquely we look ALONG the
-                // groove normal. Fixed in world space => stays put as the disc spins.
-                float proj = dot( radialW, viewW );
-                float t = uGrating * proj + 7.0 * sinT;
-                vec3 rainbow = 0.5 + 0.5 * cos( 6.2831 * ( t + vec3( 0.0, 0.33, 0.67 ) ) );
-                float w = pow( sinT, 1.4 ) * 0.85 + 0.06;
-                totalEmissiveRadiance += rainbow * band * w * uSpectral;
+                // virtual light = the overhead key strip of the studio rig; a fixed
+                // world direction, so the fan is pinned in world space (spin-proof)
+                vec3 lightW = normalize( vec3( 0.0, 0.95, 0.31 ) );
+                // grating equation: path difference along the groove normal
+                float u = dot( lightW, radialW ) - dot( viewW, radialW );
+                float au = abs( u );
+                float d_nm = uGrating * 100.0; // groove pitch
+                vec3 fan = vec3( 0.0 );
+                // first three diffraction orders; out-of-gamut orders contribute 0,
+                // leaving the silver gaps a real disc has between its fans
+                for ( int m = 1; m <= 3; m++ ) {
+                  float wl = au * d_nm / float( m );
+                  fan += spectral_zucconi6( wl );
+                }
+                totalEmissiveRadiance += fan * band * uSpectral;
               }`
             );
           m.userData.shader = shader;
@@ -764,7 +796,7 @@ export default function CDCaseViewer({
     artGainLight: { value: 2.6, min: 1, max: 5, step: 0.05 },
     // disc reflects its own bright room while the glass keeps the dark cards
     discPrivateEnv: true,
-    gratingDensity: { value: 7, min: 2, max: 30, step: 0.5 }, // rainbow arc spacing
+    gratingDensity: { value: 16, min: 6, max: 30, step: 0.5 }, // groove pitch /100nm (16 = real CD, 7.4 = DVD)
     // emissive rainbow must outshine a brighter light-mode base to stay visible
     spectralGainLight: { value: 3.2, min: 0.5, max: 6, step: 0.1 },
   });
