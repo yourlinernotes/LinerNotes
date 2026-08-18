@@ -9,7 +9,6 @@ import { Suspense, useRef, useMemo, useEffect } from "react";
 import { useControls } from "leva";
 import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 // ---- procedural texture kit: photoreal = layered imperfection ----------------
 function makeDiscMaps() {
@@ -268,8 +267,26 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
   // tonally-varied room while the glass keeps its dark cards. Dark mode never uses
   // it (discPrivateEnv is gated on isLight upstream).
   const discRoomEnv = useMemo(() => {
+    // NOT RoomEnvironment: a generic room is bright nearly everywhere, and metal
+    // under a contrast-free env reads as flat matte plastic (verified: the disc
+    // rendered as a white blob). Chrome reads as chrome from HARD bright/dark
+    // transitions — so: a black world with a few crisp studio strip-lights. The
+    // dark zones double as the canvas the diffraction rainbow shows against.
+    const s = new THREE.Scene();
+    const strip = (w: number, h: number, pos: [number, number, number], lum: number) => {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(lum, lum, lum) })
+      );
+      m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
+    };
+    strip(6, 1.2, [0, 6, 2], 5);     // overhead key strip (HDR-bright)
+    strip(1.0, 5, [-5, 1.5, 3], 3);  // tall side strip
+    strip(0.7, 4, [5, 0.8, 2], 2);   // slimmer opposing strip
+    strip(8, 0.8, [0, -1, 6], 1.2);  // low front bar, weak
+    strip(4, 4, [0, -6, 0], 0.3);    // dim floor bounce so the dark isn't dead
     const pmrem = new THREE.PMREMGenerator(gl);
-    const tex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const tex = pmrem.fromScene(s, 0.02).texture; // low sigma: keep the streak edges crisp
     pmrem.dispose();
     return tex;
   }, [gl]);
@@ -748,6 +765,8 @@ export default function CDCaseViewer({
     // disc reflects its own bright room while the glass keeps the dark cards
     discPrivateEnv: true,
     gratingDensity: { value: 7, min: 2, max: 30, step: 0.5 }, // rainbow arc spacing
+    // emissive rainbow must outshine a brighter light-mode base to stay visible
+    spectralGainLight: { value: 3.2, min: 0.5, max: 6, step: 0.1 },
   });
   const floor = useControls("floor (iPod ad)", {
     mirror: { value: 0.5, min: 0, max: 1, step: 0.05 },
@@ -790,6 +809,7 @@ export default function CDCaseViewer({
     artEnv: isLight ? art.artEnv * rig.artGainLight : art.artEnv,
     discPrivateEnv: isLight && rig.discPrivateEnv, // never in dark mode
     gratingDensity: rig.gratingDensity,
+    spectral: isLight ? disc.spectral * rig.spectralGainLight : disc.spectral,
   };
   return (
     <Canvas
