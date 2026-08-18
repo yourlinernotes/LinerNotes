@@ -463,8 +463,33 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         (m as unknown as { anisotropy: number }).anisotropy = 0.9;
         m.onBeforeCompile = (shader) => {
           shader.uniforms.uSpectral = { value: 0.5 };
+          // world-space disc frame, refreshed per frame — see useFrame below
+          shader.uniforms.uDiscCenter = { value: new THREE.Vector3() };
+          shader.uniforms.uGrating = { value: 26 };
+          // A CD's rainbow is DIFFRACTION off a 1.6um spiral track, not reflection off
+          // bumps — the structure is finer than visible light, so it can never be
+          // geometry or a normal map. It's modelled here as a grating whose phase
+          // depends on view/groove angle.
+          //
+          // The groove is circularly symmetric, so spinning the disc about its own
+          // axis must NOT move the pattern — only moving the eye or the light does.
+          // The previous version keyed phase to atan() in disc-local UV space, which
+          // rotates WITH the mesh, so the bands swept around as it spun. That is the
+          // "fake pulsing sweep". Phase is now built from a WORLD-space radial
+          // direction, which is invariant under spin.
+          shader.vertexShader = shader.vertexShader
+            .replace("#include <common>", "#include <common>\nvarying vec3 vWPos;\nvarying vec3 vWNrm;")
+            .replace(
+              "#include <project_vertex>",
+              `#include <project_vertex>
+              vWPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;
+              vWNrm = normalize( mat3( modelMatrix ) * objectNormal );`
+            );
           shader.fragmentShader = shader.fragmentShader
-            .replace("#include <common>", "#include <common>\nuniform float uSpectral;")
+            .replace(
+              "#include <common>",
+              "#include <common>\nuniform float uSpectral;\nuniform vec3 uDiscCenter;\nuniform float uGrating;\nvarying vec3 vWPos;\nvarying vec3 vWNrm;"
+            )
             .replace(
               "#include <emissivemap_fragment>",
               `#include <emissivemap_fragment>
@@ -474,10 +499,17 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
                 float ndv = clamp( dot( nrm, vdir ), 0.0, 1.0 );
                 float sinT = sqrt( 1.0 - ndv * ndv );
                 vec2 duv = vMapUv - 0.5;
-                float r = length( duv );
+                float r = length( duv ); // radius is already spin-invariant
                 float band = smoothstep( 0.055, 0.10, r ) * ( 1.0 - smoothstep( 0.465, 0.50, r ) );
-                float ang = atan( duv.y, duv.x );
-                float t = 7.0 * sinT + ang * 0.6366;
+                // grooves run tangentially, so the grating normal is the world radial
+                vec3 axisW = normalize( vWNrm );
+                vec3 rel = vWPos - uDiscCenter;
+                vec3 radialW = normalize( rel - axisW * dot( rel, axisW ) );
+                vec3 viewW = normalize( cameraPosition - vWPos );
+                // path difference across the grating: how obliquely we look ALONG the
+                // groove normal. Fixed in world space => stays put as the disc spins.
+                float proj = dot( radialW, viewW );
+                float t = uGrating * proj + 7.0 * sinT;
                 vec3 rainbow = 0.5 + 0.5 * cos( 6.2831 * ( t + vec3( 0.0, 0.33, 0.67 ) ) );
                 float w = pow( sinT, 1.4 ) * 0.85 + 0.06;
                 totalEmissiveRadiance += rainbow * band * w * uSpectral;
@@ -538,8 +570,13 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         if (m.userData.kind === "silver") {
           m.roughness = t.discRough; m.envMapIntensity = t.discEnv; m.iridescence = t.iridescence;
           (m as unknown as { anisotropy: number }).anisotropy = t.anisotropy;
-          const sh = m.userData.shader as { uniforms: { uSpectral: { value: number } } } | undefined;
-          if (sh) sh.uniforms.uSpectral.value = t.spectral;
+          const sh = m.userData.shader as { uniforms: { uSpectral: { value: number }; uDiscCenter: { value: THREE.Vector3 } } } | undefined;
+          if (sh) {
+            sh.uniforms.uSpectral.value = t.spectral;
+            // the grating frame is world-space; keep its origin pinned to the disc
+            // as the case animates (slide-out, beat-spin move the whole group)
+            dm.getWorldPosition(sh.uniforms.uDiscCenter.value);
+          }
         } else if (m.userData.kind === "art") {
           m.envMapIntensity = t.artEnv; m.clearcoat = t.artClearcoat;
         } else if (m.userData.kind === "hub") {
