@@ -3,12 +3,13 @@
 //  A) coverMode="disc": art on the disc, closed clear case; review-click -> small spin beat
 //  B) coverMode="pane": art on the front pane, reflective disc; review-click -> disc peeks out
 //  Player) playerOpen: lid swings open on the spine hinge, disc spins continuously
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Environment, Lightformer, OrbitControls, useTexture, Center, MeshReflectorMaterial } from "@react-three/drei";
 import { Suspense, useRef, useMemo, useEffect } from "react";
 import { useControls } from "leva";
 import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 // ---- procedural texture kit: photoreal = layered imperfection ----------------
 function makeDiscMaps() {
@@ -184,6 +185,36 @@ function makeHubMap() {
 }
 
 // underside (data side): fully reflective — NO rim/ring structure, just mirror + track scratches
+// tangential anisotropy-direction map. Three derives the anisotropy direction from
+// the material's tangent frame, and this disc's planar UV unwrap gives a UNIFORM
+// tangent across the face — so the elongated highlight had one fixed orientation
+// that rotated with the mesh, sweeping around as the disc spun (the "pulsing
+// sweep" that survived the grating fix). Real CD grooves are tangential at every
+// point, which makes the highlight field circularly symmetric: spin-invariant by
+// construction. RG encode the per-texel direction (-sin, cos in UV space, mapped
+// [-1,1] -> [0,1]); B is full strength, scaled by material.anisotropy.
+function makeAnisotropyMap() {
+  const size = 512, c = document.createElement("canvas"); c.width = c.height = size;
+  const a = c.getContext("2d")!;
+  const img = a.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    const v = 1 - (y + 0.5) / size; // CanvasTexture flips Y; work in UV space
+    for (let x = 0; x < size; x++) {
+      const u = (x + 0.5) / size;
+      const ang = Math.atan2(v - 0.5, u - 0.5);
+      const i = (y * size + x) * 4;
+      img.data[i] = Math.round((0.5 - 0.5 * Math.sin(ang)) * 255);     // dir.x = -sin
+      img.data[i + 1] = Math.round((0.5 + 0.5 * Math.cos(ang)) * 255); // dir.y =  cos
+      img.data[i + 2] = 255; // strength
+      img.data[i + 3] = 255;
+    }
+  }
+  a.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.NoColorSpace; // direction data, not colour
+  return t;
+}
+
 function makeUndersideMap() {
   const size = 1024, cx = size / 2;
   const c = document.createElement("canvas"); c.width = c.height = size;
@@ -208,6 +239,7 @@ function makeUndersideMap() {
 
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
+  gratingDensity: number; discPrivateEnv: boolean;
   artEnv: number; artClearcoat: number;
   glassEnv: number; glassSmudge: number; glassRough: number; glassClearcoat: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
@@ -227,6 +259,20 @@ type Props = {
 function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode, rating }: Required<Props> & { tuning: Tuning; extrasMode: string; rating: number }) {
   const { scene } = useGLTF("/cd_case.glb?v=3");
   const cover = useTexture(albumArt);
+  const gl = useThree((s) => s.gl);
+  // Private env for the DISC ONLY. The light-mode scene env is deliberately mostly
+  // black so the clear glass has dark reflections to read its edges from — but the
+  // silver underside is metalness 1, so it lives entirely off the env map and went
+  // dark with it (a gain multiplier on near-black stays near-black). This is a
+  // per-object LIGHTING fix, not paint on the material: the disc reflects a bright
+  // tonally-varied room while the glass keeps its dark cards. Dark mode never uses
+  // it (discPrivateEnv is gated on isLight upstream).
+  const discRoomEnv = useMemo(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const tex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
+    return tex;
+  }, [gl]);
 
   const discRef = useRef<THREE.Object3D | null>(null);   // the "scaled_cd" GROUP (multi-material disc)
   const discMeshes = useRef<THREE.Mesh[]>([]);           // its primitive sub-meshes
@@ -461,11 +507,13 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           iridescence: 0.25, iridescenceIOR: 1.7,
         });
         (m as unknown as { anisotropy: number }).anisotropy = 0.9;
+        // tangential grooves: spin-invariant highlight field (see makeAnisotropyMap)
+        (m as unknown as { anisotropyMap: THREE.Texture }).anisotropyMap = makeAnisotropyMap();
         m.onBeforeCompile = (shader) => {
           shader.uniforms.uSpectral = { value: 0.5 };
           // world-space disc frame, refreshed per frame — see useFrame below
           shader.uniforms.uDiscCenter = { value: new THREE.Vector3() };
-          shader.uniforms.uGrating = { value: 26 };
+          shader.uniforms.uGrating = { value: 7 }; // 26 packed the arcs like an oil slick; live via gratingDensity
           // A CD's rainbow is DIFFRACTION off a 1.6um spiral track, not reflection off
           // bumps — the structure is finer than visible light, so it can never be
           // geometry or a normal map. It's modelled here as a grating whose phase
@@ -567,12 +615,20 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
       // live-apply the tuning panel to whichever disc material is active
       for (const dm of discMeshes.current) {
         const m = dm.material as THREE.MeshPhysicalMaterial;
+        // disc-only private env (light mode): bright room for the metal, while the
+        // scene env stays dark for the glass. Toggle costs a recompile, so only
+        // touch the material when the wanted state actually changes.
+        if (m.userData.kind === "silver" || m.userData.kind === "art") {
+          const wantEnv = t.discPrivateEnv ? discRoomEnv : null;
+          if (m.envMap !== wantEnv) { m.envMap = wantEnv; m.needsUpdate = true; }
+        }
         if (m.userData.kind === "silver") {
           m.roughness = t.discRough; m.envMapIntensity = t.discEnv; m.iridescence = t.iridescence;
           (m as unknown as { anisotropy: number }).anisotropy = t.anisotropy;
-          const sh = m.userData.shader as { uniforms: { uSpectral: { value: number }; uDiscCenter: { value: THREE.Vector3 } } } | undefined;
+          const sh = m.userData.shader as { uniforms: { uSpectral: { value: number }; uDiscCenter: { value: THREE.Vector3 }; uGrating: { value: number } } } | undefined;
           if (sh) {
             sh.uniforms.uSpectral.value = t.spectral;
+            sh.uniforms.uGrating.value = t.gratingDensity;
             // the grating frame is world-space; keep its origin pinned to the disc
             // as the case animates (slide-out, beat-spin move the whole group)
             dm.getWorldPosition(sh.uniforms.uDiscCenter.value);
@@ -689,6 +745,9 @@ export default function CDCaseViewer({
     // its own gain in light mode — glass contrast and disc brightness decoupled.
     discGainLight: { value: 2.2, min: 1, max: 5, step: 0.05 },
     artGainLight: { value: 2.6, min: 1, max: 5, step: 0.05 },
+    // disc reflects its own bright room while the glass keeps the dark cards
+    discPrivateEnv: true,
+    gratingDensity: { value: 7, min: 2, max: 30, step: 0.5 }, // rainbow arc spacing
   });
   const floor = useControls("floor (iPod ad)", {
     mirror: { value: 0.5, min: 0, max: 1, step: 0.05 },
@@ -729,6 +788,8 @@ export default function CDCaseViewer({
     // dark mode keeps the studio preset's energy, so the gain only applies to light
     discEnv: isLight ? disc.discEnv * rig.discGainLight : disc.discEnv,
     artEnv: isLight ? art.artEnv * rig.artGainLight : art.artEnv,
+    discPrivateEnv: isLight && rig.discPrivateEnv, // never in dark mode
+    gratingDensity: rig.gratingDensity,
   };
   return (
     <Canvas
