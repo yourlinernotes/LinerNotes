@@ -12,40 +12,102 @@ name: Keep Warm
 # fails loudly). Keep-warm is best-effort and never fails the build — a missed
 # ping just means the next real user might pay a cold-start, which is tolerable.
 #
-# Note: GitHub Actions scheduled runs are best-effort and can be delayed several
-# minutes under load. That's fine for warming. If you need a hard sub-minute
-# guarantee, move this to a Vercel Cron (requires Pro for sub-daily cadence).
+# WHY THIS JOB LOOPS INTERNALLY (2026-08-18)
+# ------------------------------------------
+# A `*/10` cron does NOT get you a ping every 10 minutes. GitHub heavily
+# throttles high-frequency schedules, and measuring 100 real runs of this
+# workflow showed what we actually got:
+#
+#     median gap 33 min | p90 56 min | max 110 min | 95% of gaps > 15 min
+#
+# Vercel functions idle out long before 33 minutes, so the every-10-min config
+# was a placebo for most of the day. The trigger cadence is not something we
+# control — so instead each run now stays alive and pings on its own timer for
+# ~52 minutes. Even a badly-delayed trigger overlaps the previous run's window,
+# which turns unreliable scheduling into near-continuous coverage.
+#
+# `cancel-in-progress: true` is deliberate: a fresh trigger replaces the running
+# loop rather than queueing behind it. That means you WILL see `cancelled` runs
+# in the Actions tab as the normal steady state — that is the mechanism working,
+# not a failure.
+#
+# Residual gap: the measured max trigger delay (110 min) still exceeds one loop
+# window, so a long GitHub backlog can leave a hole. The durable fix is a Vercel
+# Cron (`crons` in vercel.json, `*/5 * * * *`), which needs the project on a Pro
+# team — `linernotes-beta` currently lives in the Hobby `liner-notes` team, where
+# Vercel Cron is capped at once per day.
 
 on:
   schedule:
-    - cron: "*/10 * * * *" # every 10 minutes
+    - cron: "*/10 * * * *" # aspirational; GitHub actually delivers ~1 trigger/33min
   workflow_dispatch: {}
 
 concurrency:
   group: keep-warm
-  cancel-in-progress: true
+  cancel-in-progress: true # a new trigger supersedes the running loop (see note above)
 
 jobs:
   warm:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 60 # must exceed LOOP_SECONDS below
     steps:
-      - name: Ping resolve routes
+      - name: Ping resolve routes on a 3-minute timer
+        shell: bash # the loop uses process substitution
         continue-on-error: true # warming is best-effort; never fail the workflow
         env:
           BASE: https://beta-linernotes.vercel.app
           # A canned, reliably-resolvable track just to spin the functions up.
-          TRACK: Redbone
-          ARTIST: Childish Gambino
+          # Pre-encoded so the loop needs no interpreter.
+          QUERY: track=Redbone&artist=Childish%20Gambino
+          LOOP_SECONDS: 3120 # ~52 min of coverage per run
+          INTERVAL_SECONDS: 180 # ping every 3 min — under Vercel's idle window
+          # A warm function answers these in well under a second. Anything above
+          # this is reported as a suspected cold-start so the summary shows
+          # whether warming is actually holding.
+          COLD_THRESHOLD_MS: 3000
         run: |
           set +e
-          q="track=$(python3 -c "import urllib.parse,os;print(urllib.parse.quote(os.environ['TRACK']))")&artist=$(python3 -c "import urllib.parse,os;print(urllib.parse.quote(os.environ['ARTIST']))")"
-          for path in \
-            "/api/preview?$q" \
-            "/api/lyrics?$q" \
-            "/api/soundcloud-link?$q" \
-            "/api/youtube-audio?$q"; do
-            code=$(curl -s -o /dev/null -w "%{http_code} %{time_total}s" --max-time 20 "$BASE$path")
-            echo "warm $path -> $code"
+          rounds=0
+          cold=0
+          errors=0
+          deadline=$((SECONDS + LOOP_SECONDS))
+
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            rounds=$((rounds + 1))
+            echo "── round $rounds (t+$((SECONDS / 60))m) ──"
+
+            for path in \
+              "/api/preview?$QUERY" \
+              "/api/lyrics?$QUERY" \
+              "/api/soundcloud-link?$QUERY" \
+              "/api/youtube-audio?$QUERY"; do
+              read -r code ms < <(curl -s -o /dev/null \
+                -w "%{http_code} %{time_total}" --max-time 20 "$BASE$path" \
+                | awk '{printf "%s %.0f", $1, $2 * 1000}')
+
+              flag=""
+              case "$code" in
+                2*) [ "${ms:-0}" -gt "$COLD_THRESHOLD_MS" ] && { flag=" COLD"; cold=$((cold + 1)); } ;;
+                *)  flag=" ERROR"; errors=$((errors + 1)) ;;
+              esac
+              echo "  warm $path -> HTTP $code ${ms}ms$flag"
+            done
+
+            # Don't sleep past the deadline — exit promptly at the end of the window.
+            [ $((SECONDS + INTERVAL_SECONDS)) -ge "$deadline" ] && break
+            sleep "$INTERVAL_SECONDS"
           done
+
+          {
+            echo "### Keep-warm coverage"
+            echo ""
+            echo "- Window: ~$((SECONDS / 60)) min, **$rounds rounds** every $((INTERVAL_SECONDS / 60)) min"
+            echo "- Suspected cold-starts (>${COLD_THRESHOLD_MS}ms): **$cold**"
+            echo "- Request errors (non-2xx / timeout): **$errors**"
+            echo ""
+            echo "A healthy steady state is a low cold count after round 1. Persistent"
+            echo "cold hits mean the gap between runs is still letting functions idle out."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "done: $rounds rounds, $cold cold, $errors errors"
           exit 0
