@@ -242,7 +242,8 @@ function makeUndersideMap(withMatrix = true) {
     a.font = "600 9px 'Courier New', monospace";
     a.textAlign = "center"; a.textBaseline = "middle";
     const text = "LINERNOTES · ILMC-2026 · A1";
-    const rText = size * 0.162; // just clear of the hub dome — 0.148 hid under it
+    const rText = size * 0.176; // measured: silver UVs start at 0.15 and the 3D hub dome
+    // overhangs to ~0.17 — this is the closest visible radius to the hub
     let ang = -0.5; // one compact arc, ~55 degrees total
     for (const ch of text) {
       const w = a.measureText(ch).width + 1.2;
