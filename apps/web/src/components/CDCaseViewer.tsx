@@ -238,8 +238,10 @@ function makeUndersideMap(withMatrix = true) {
   if (withMatrix) {
     a.save();
     a.translate(cx, cx);
-    a.fillStyle = "#b6bcc2"; a.globalAlpha = 0.75;
-    a.font = "600 9px 'Courier New', monospace";
+    // pixel-probed: #b6bcc2-on-#d8dee5 ink was ~8% contrast — mips ate it whole.
+    // Small stays small, but the ink must be DARK to survive filtering.
+    a.fillStyle = "#5f666d"; a.globalAlpha = 0.9;
+    a.font = "700 12px 'Courier New', monospace";
     a.textAlign = "center"; a.textBaseline = "middle";
     const text = "LINERNOTES · ILMC-2026 · A1";
     const rText = size * 0.176; // measured: silver UVs start at 0.15 and the 3D hub dome
