@@ -247,11 +247,11 @@ function makeUndersideMap() {
   // inner mirror band. It rotates with the disc — the honest near-hub spin cue.
   a.save();
   a.translate(cx, cx);
-  a.fillStyle = "#aab0b7"; a.globalAlpha = 0.85;
-  a.font = "600 17px 'Courier New', monospace";
+  a.fillStyle = "#b6bcc2"; a.globalAlpha = 0.6; // a cue, not a caption
+  a.font = "600 9px 'Courier New', monospace";
   a.textAlign = "center"; a.textBaseline = "middle";
   const chars = "LINERNOTES · ILMC-2026 · A1 · ".repeat(3);
-  const rText = size * 0.185;
+  const rText = size * 0.155; // hugging the stacking ring
   for (let i = 0; i < chars.length; i++) {
     a.save(); a.rotate((i / chars.length) * Math.PI * 2); a.translate(0, -rText);
     a.fillText(chars[i], 0, 0); a.restore();
@@ -597,8 +597,8 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           // world-space disc frame, refreshed per frame — see useFrame below
           shader.uniforms.uDiscCenter = { value: new THREE.Vector3() };
           shader.uniforms.uDiscAxis = { value: new THREE.Vector3(0, 1, 0) };
-          shader.uniforms.uGrating = { value: 11 }; // groove pitch /100nm; lower = broader fans
-          shader.uniforms.uFanSat = { value: 0.75 }; // pastel-over-silver, not vector stripes
+          shader.uniforms.uGrating = { value: 16 }; // groove pitch /100nm — real CD
+          shader.uniforms.uFanSat = { value: 1.0 };
           // A CD's rainbow is DIFFRACTION off a 1.6um spiral track, not reflection off
           // bumps — the structure is finer than visible light, so it can never be
           // geometry or a normal map. It's modelled here as a grating whose phase
@@ -674,29 +674,17 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
                 vec3 viewW = normalize( cameraPosition - uDiscCenter );
                 // virtual light = the overhead key strip of the studio rig; a fixed
                 // world direction, so the fan is pinned in world space (spin-proof)
-                // TWO lights, like the reference photos: each strip casts its own
-                // fan family (the key overhead strip + the tall side strip)
-                vec3 lightA = normalize( vec3( 0.0, 0.95, 0.31 ) );
-                vec3 lightB = normalize( vec3( -0.72, 0.42, 0.55 ) );
+                // single light, unblurred spectrum: the vivid fan. (An extended-
+                // source blur + second light was tried against reference photos and
+                // summed to a milky veil under this rig — overlapping blurred
+                // spectra add toward white. Reverted; fanSat stays as a dial.)
+                vec3 lightW = normalize( vec3( 0.0, 0.95, 0.31 ) );
+                float au = abs( dot( lightW, radialW ) - dot( viewW, radialW ) );
                 float d_nm = uGrating * 100.0; // groove pitch
                 vec3 fan = vec3( 0.0 );
-                for ( int li = 0; li < 2; li++ ) {
-                  vec3 lw = li == 0 ? lightA : lightB;
-                  float lWeight = li == 0 ? 1.0 : 0.55;
-                  float au = abs( dot( lw, radialW ) - dot( viewW, radialW ) );
-                  for ( int m = 1; m <= 3; m++ ) {
-                    float wl = au * d_nm / float( m );
-                    // extended-source blur: a real strip light spans a range of
-                    // incident angles, which is exactly why real fans are BROAD and
-                    // soft-edged instead of hard needles. Convolve cheaply by
-                    // averaging the spectrum over a small wavelength neighbourhood.
-                    vec3 c = 0.5  * spectral_zucconi6( wl )
-                           + 0.25 * spectral_zucconi6( wl * 0.90 )
-                           + 0.25 * spectral_zucconi6( wl * 1.10 );
-                    fan += c * lWeight;
-                  }
+                for ( int m = 1; m <= 3; m++ ) {
+                  fan += spectral_zucconi6( au * d_nm / float( m ) );
                 }
-                // real discs are pastel-over-silver, not vector stripes
                 float luma = dot( fan, vec3( 0.299, 0.587, 0.114 ) );
                 fan = mix( vec3( luma ), fan, uFanSat );
                 totalEmissiveRadiance += fan * band * uSpectral;
@@ -918,8 +906,8 @@ export default function CDCaseViewer({
     artGainLight: { value: 2.6, min: 1, max: 5, step: 0.05 },
     // disc reflects its own bright room while the glass keeps the dark cards
     discPrivateEnv: true,
-    gratingDensity: { value: 11, min: 6, max: 30, step: 0.5 }, // groove pitch /100nm: lower = broader, fewer fans
-    fanSat: { value: 0.75, min: 0, max: 1.5, step: 0.05 }, // fan saturation: pastel <-> vivid
+    gratingDensity: { value: 16, min: 6, max: 30, step: 0.5 }, // groove pitch /100nm (16 = real CD; lower = broader fans)
+    fanSat: { value: 1.0, min: 0, max: 1.5, step: 0.05 }, // fan saturation: pastel <-> vivid
     // emissive rainbow must outshine a brighter light-mode base to stay visible
     spectralGainLight: { value: 3.2, min: 0.5, max: 6, step: 0.1 },
   });
