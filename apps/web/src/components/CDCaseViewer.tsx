@@ -921,7 +921,10 @@ export default function CDCaseViewer({
     // dark mode keeps the studio preset's energy, so the gain only applies to light
     discEnv: isLight ? disc.discEnv * rig.discGainLight : disc.discEnv,
     artEnv: isLight ? art.artEnv * rig.artGainLight : art.artEnv,
-    discPrivateEnv: isLight && rig.discPrivateEnv, // never in dark mode
+    // both modes: in dark the studio preset is tonally so even that the spinning
+    // disc showed no moving glints at all — the strips give the wobble something
+    // to rock, which is the visible spin cue
+    discPrivateEnv: rig.discPrivateEnv,
     gratingDensity: rig.gratingDensity,
     spectral: isLight ? disc.spectral * rig.spectralGainLight : disc.spectral,
   };
