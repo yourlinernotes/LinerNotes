@@ -36,12 +36,7 @@ function makeDiscMaps() {
     a.stroke();
   }
   a.globalAlpha = 1;
-  // concentric moulding rings in the clear hub (reads as a different material)
-  a.strokeStyle = "#b9bfc6"; a.globalAlpha = 0.5;
-  for (let rr = 0.06; rr < 0.155; rr += 0.012) {
-    a.lineWidth = 1.2; a.beginPath(); a.arc(cx, cx, size * rr, 0, 7); a.stroke();
-  }
-  a.globalAlpha = 1;
+  // (the clear-hub zone stays unpainted — the ring detail read as divots/tracks)
   const color = new THREE.CanvasTexture(c1);
   color.colorSpace = THREE.SRGBColorSpace;
   color.anisotropy = 8;
@@ -203,20 +198,15 @@ function weldSeamNormals(geom: THREE.BufferGeometry) {
   nrm.needsUpdate = true;
 }
 
-// clear hub: concentric moulding rings on a light base — presence without opacity
+// clear hub: plain frosted base. This map USED to paint concentric "moulding
+// rings" — procedural detail that was never in the GLB — and at render scale
+// they read as tracks/divots cut into the hub rather than moulded plastic.
+// Frosted plastic sells itself through roughness; the paint just muddied it.
 function makeHubMap() {
-  const size = 512, cx = size / 2;
+  const size = 64;
   const c = document.createElement("canvas"); c.width = c.height = size;
   const a = c.getContext("2d")!;
   a.fillStyle = "#eef1f4"; a.fillRect(0, 0, size, size);
-  a.strokeStyle = "#c3c9cf";
-  for (let rr = 0.04; rr < 0.5; rr += 0.028) {
-    a.globalAlpha = 0.55; a.lineWidth = 2;
-    a.beginPath(); a.arc(cx, cx, size * rr, 0, 7); a.stroke();
-    a.globalAlpha = 0.25; a.lineWidth = 5;
-    a.beginPath(); a.arc(cx, cx, size * (rr + 0.011), 0, 7); a.stroke();
-  }
-  a.globalAlpha = 1;
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
@@ -243,7 +233,11 @@ function makeAnisotropyMap() {
       const i = (y * size + x) * 4;
       img.data[i] = Math.round((0.5 - 0.5 * Math.sin(ang)) * 255);     // dir.x = -sin
       img.data[i + 1] = Math.round((0.5 + 0.5 * Math.cos(ang)) * 255); // dir.y =  cos
-      img.data[i + 2] = 255; // strength
+      // strength ramps in OUTSIDE the hub: atan2 is singular at the centre, and
+      // the quantised direction noise there rendered as a dark glint riding the
+      // hub edge as the disc spun. No grooves near the clamp anyway.
+      const rr = Math.hypot(u - 0.5, v - 0.5);
+      img.data[i + 2] = Math.round(THREE.MathUtils.smoothstep(rr, 0.13, 0.19) * 255);
       img.data[i + 3] = 255;
     }
   }
@@ -732,8 +726,14 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
             sh.uniforms.uSpectral.value = t.spectral;
             sh.uniforms.uGrating.value = t.gratingDensity;
             // the grating frame is world-space; keep its origin pinned to the disc
-            // as the case animates (slide-out, beat-spin move the whole group)
-            dm.getWorldPosition(sh.uniforms.uDiscCenter.value);
+            // as the case animates. Use the GEOMETRY's bounding-sphere centre, not
+            // getWorldPosition: the GLB's mesh origin sits off the disc's true
+            // centre, and an in-plane offset bends the fan's iso-colour lines —
+            // worst near the hub (the "fans curving" artifact).
+            if (!dm.geometry.boundingSphere) dm.geometry.computeBoundingSphere();
+            sh.uniforms.uDiscCenter.value
+              .copy(dm.geometry.boundingSphere!.center)
+              .applyMatrix4(dm.matrixWorld);
           }
         } else if (m.userData.kind === "art") {
           m.envMapIntensity = t.artEnv; m.clearcoat = t.artClearcoat;
@@ -817,7 +817,7 @@ export default function CDCaseViewer({
     discRough: { value: 0.24, min: 0, max: 0.6, step: 0.01 },
     discEnv: { value: 2.0, min: 0, max: 6, step: 0.1 },
     spectral: { value: 0.56, min: 0, max: 1, step: 0.01 },
-    anisotropy: { value: 1.0, min: 0, max: 1, step: 0.05 },
+    anisotropy: { value: 0.35, min: 0, max: 1, step: 0.05 }, // tangential smear: seasoning, not the dish — 1.0 bent the fans
     iridescence: { value: 0.4, min: 0, max: 1, step: 0.05 },
     hubOpacity: { value: 0.85, min: 0.3, max: 1.3, step: 0.05 }, // hub brightness
     wobble: { value: 0.5, min: 0, max: 2, step: 0.05 }, // runout tilt (deg): the fan's shimmer when spinning
