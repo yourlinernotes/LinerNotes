@@ -164,49 +164,29 @@ function makeShadowBlob() {
   return t;
 }
 
-// Weld the shading seam on lathe/cylinder geometry. Blender's glTF export splits
-// vertices where the surface wraps (UV seam), and the two copies carry slightly
-// different normals — invisible on matte surfaces, but on glossy materials it
-// reads as a thin dark glint that RIDES THE SPIN and appears/disappears with the
-// light angle (the hub's "tiny divot"). Average normals across position-duplicate
-// vertices, but ONLY where they're already nearly parallel (<30 deg): that mends
-// the seam while leaving the hub's genuine hard-edged steps alone.
-function weldSeamNormals(geom: THREE.BufferGeometry) {
-  const pos = geom.attributes.position, nrm = geom.attributes.normal;
-  if (!pos || !nrm) return;
-  const groups = new Map<string, number[]>();
-  for (let i = 0; i < pos.count; i++) {
-    const k = `${pos.getX(i).toFixed(5)},${pos.getY(i).toFixed(5)},${pos.getZ(i).toFixed(5)}`;
-    const g = groups.get(k); if (g) g.push(i); else groups.set(k, [i]);
-  }
-  const a = new THREE.Vector3(), b = new THREE.Vector3(), sum = new THREE.Vector3();
-  const COS30 = Math.cos(Math.PI / 6);
-  for (const idx of groups.values()) {
-    if (idx.length < 2) continue;
-    a.set(nrm.getX(idx[0]), nrm.getY(idx[0]), nrm.getZ(idx[0]));
-    let parallel = true;
-    for (let j = 1; j < idx.length && parallel; j++) {
-      b.set(nrm.getX(idx[j]), nrm.getY(idx[j]), nrm.getZ(idx[j]));
-      if (a.dot(b) < COS30) parallel = false; // a real hard edge — leave it
-    }
-    if (!parallel) continue;
-    sum.set(0, 0, 0);
-    for (const i of idx) sum.add(b.set(nrm.getX(i), nrm.getY(i), nrm.getZ(i)));
-    sum.normalize();
-    for (const i of idx) nrm.setXYZ(i, sum.x, sum.y, sum.z);
-  }
-  nrm.needsUpdate = true;
-}
-
-// clear hub: plain frosted base. This map USED to paint concentric "moulding
-// rings" — procedural detail that was never in the GLB — and at render scale
-// they read as tracks/divots cut into the hub rather than moulded plastic.
-// Frosted plastic sells itself through roughness; the paint just muddied it.
+// clear hub: frosted base + FAINT concentric moulding rings (the plain version
+// read as flat) + a few irregular mould marks. The marks matter: they're the
+// asymmetric detail every injection-moulded hub really has (gate/ejector
+// marks), and because they rotate with the disc they double as the visible
+// spin cue on an otherwise symmetric part.
 function makeHubMap() {
-  const size = 64;
+  const size = 512, cx = size / 2;
   const c = document.createElement("canvas"); c.width = c.height = size;
   const a = c.getContext("2d")!;
   a.fillStyle = "#eef1f4"; a.fillRect(0, 0, size, size);
+  a.strokeStyle = "#d3d8dd"; // softer than the old #c3c9cf "track" look
+  for (let rr = 0.06; rr < 0.5; rr += 0.045) {
+    a.globalAlpha = 0.35; a.lineWidth = 2;
+    a.beginPath(); a.arc(cx, cx, size * rr, 0, 7); a.stroke();
+  }
+  // mould marks: short arcs at irregular angles/radii — asymmetry that spins
+  a.strokeStyle = "#c8cdd3"; a.lineWidth = 7; a.lineCap = "round";
+  const marks: Array<[number, number, number]> = [[0.7, 0.30, 0.5], [2.6, 0.20, 0.35], [4.4, 0.38, 0.42]];
+  for (const [ang, rr, span] of marks) {
+    a.globalAlpha = 0.5;
+    a.beginPath(); a.arc(cx, cx, size * rr, ang, ang + span); a.stroke();
+  }
+  a.globalAlpha = 1;
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
@@ -283,7 +263,7 @@ function makeTrackBump() {
     const ang = (i / SPOKES) * Math.PI * 2 + (Math.random() - 0.5) * 0.012;
     const lum = 128 + (i % 2 === 0 ? 1 : -1) * (26 + Math.random() * 22);
     a.strokeStyle = `rgb(${lum|0},${lum|0},${lum|0})`;
-    a.lineWidth = 1.6; a.globalAlpha = 0.85;
+    a.lineWidth = 3; a.globalAlpha = 0.9; // thick enough to survive mip filtering
     const r0 = size * 0.16, r1 = size * (0.485 - Math.random() * 0.01);
     a.beginPath();
     a.moveTo(cx + Math.cos(ang) * r0, cx + Math.sin(ang) * r0);
@@ -406,7 +386,6 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           const mn = ((mesh.material as THREE.Material)?.name || "").toLowerCase();
           mesh.userData.slot = mn.includes("print") ? "print"
             : (mn.includes("plastic") || mn.includes("transparent")) ? "hub" : "cd";
-          weldSeamNormals(mesh.geometry); // once per cached mesh, with the tag
         }
         discMeshes.current.push(mesh);
       });
@@ -755,7 +734,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         }
         if (m.userData.kind === "silver") {
           m.roughness = t.discRough; m.envMapIntensity = t.discEnv; m.iridescence = t.iridescence;
-          m.bumpScale = t.trackShimmer * 0.004; // relief amplitude on the dial
+          m.bumpScale = t.trackShimmer * 0.02; // relief amplitude on the dial (0.3 ~= visible, 1 = bold)
           (m as unknown as { anisotropy: number }).anisotropy = t.anisotropy;
           const sh = m.userData.shader as { uniforms: { uSpectral: { value: number }; uDiscCenter: { value: THREE.Vector3 }; uGrating: { value: number } } } | undefined;
           if (sh) {
