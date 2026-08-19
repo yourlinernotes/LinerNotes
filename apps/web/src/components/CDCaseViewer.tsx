@@ -271,7 +271,7 @@ function makeUndersideMap() {
 
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
-  gratingDensity: number; discPrivateEnv: boolean; wobble: number;
+  gratingDensity: number; discPrivateEnv: boolean; wobble: number; hubRough: number; hubCoat: number;
   artEnv: number; artClearcoat: number;
   glassEnv: number; glassSmudge: number; glassRough: number; glassClearcoat: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
@@ -554,8 +554,8 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         // transmission buffer (engine limit) — an opaque scattering hub is both visible
         // through the closed case AND how a real moulded hub actually reads
         const m = new THREE.MeshPhysicalMaterial({
-          map: makeHubMap(), roughness: 0.22,
-          clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.6,
+          map: makeHubMap(), roughness: 0.45,
+          clearcoat: 0.25, clearcoatRoughness: 0.3, envMapIntensity: 1.6,
           specularIntensity: 1.2,
         });
         m.userData.kind = "hub";
@@ -726,19 +726,17 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
             sh.uniforms.uSpectral.value = t.spectral;
             sh.uniforms.uGrating.value = t.gratingDensity;
             // the grating frame is world-space; keep its origin pinned to the disc
-            // as the case animates. Use the GEOMETRY's bounding-sphere centre, not
-            // getWorldPosition: the GLB's mesh origin sits off the disc's true
-            // centre, and an in-plane offset bends the fan's iso-colour lines —
-            // worst near the hub (the "fans curving" artifact).
-            if (!dm.geometry.boundingSphere) dm.geometry.computeBoundingSphere();
-            sh.uniforms.uDiscCenter.value
-              .copy(dm.geometry.boundingSphere!.center)
-              .applyMatrix4(dm.matrixWorld);
+            // as the case animates. MESH ORIGIN, deliberately: the disc spins about
+            // its origin with no visible orbit, so the origin IS the true centre.
+            // (A bounding-sphere-centre "fix" bent the fans — the sphere centre of
+            // the annulus geometry is the off one, not the origin. Verified by eye.)
+            dm.getWorldPosition(sh.uniforms.uDiscCenter.value);
           }
         } else if (m.userData.kind === "art") {
           m.envMapIntensity = t.artEnv; m.clearcoat = t.artClearcoat;
         } else if (m.userData.kind === "hub") {
           m.color.setScalar(t.hubOpacity); // brightness of the frosted hub
+          m.roughness = t.hubRough; m.clearcoat = t.hubCoat;
         }
       }
       // continuous spin in the player; decaying beat-spin otherwise.
@@ -821,6 +819,8 @@ export default function CDCaseViewer({
     iridescence: { value: 0.4, min: 0, max: 1, step: 0.05 },
     hubOpacity: { value: 0.85, min: 0.3, max: 1.3, step: 0.05 }, // hub brightness
     wobble: { value: 0.5, min: 0, max: 2, step: 0.05 }, // runout tilt (deg): the fan's shimmer when spinning
+    hubRough: { value: 0.45, min: 0.05, max: 1, step: 0.05 }, // frosted <-> glossy hub
+    hubCoat: { value: 0.25, min: 0, max: 1, step: 0.05 },     // clearcoat sheen on the hub
   });
   const art = useControls("disc (art)", {
     artEnv: { value: 0.8, min: 0, max: 3, step: 0.05 },
