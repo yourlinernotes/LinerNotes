@@ -51,7 +51,12 @@ function makeDiscMaps() {
   const d = c3.getContext("2d")!;
   d.fillStyle = "rgb(0,30,255)"; d.fillRect(0, 0, size, size);      // data band: polished metal
   d.beginPath(); d.arc(cx, cx, size * 0.155, 0, 7); d.arc(cx, cx, size * 0.05, 0, 7, true);
-  d.closePath(); d.fillStyle = "rgb(0,95,110)"; d.fill();           // hub: rough clear plastic
+  // clamp zone: FROSTED plastic, not half-metal. The old rgb(0,95,110) made a
+  // mid-rough half-metal annulus that went dark under the strip env and read as
+  // a circular divot pressed into the disc around the hub. High roughness + low
+  // metalness hands it to the directional lights instead: light frosted grey,
+  // matching the hub itself.
+  d.closePath(); d.fillStyle = "rgb(0,175,40)"; d.fill();
   const props = new THREE.CanvasTexture(c3);
 
   return { color, props };
@@ -492,7 +497,14 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         m.map = cover; m.needsUpdate = true;
       }
       discHome.current.copy(disc.position);
-      baseQuat.current.copy(disc.quaternion);
+      // useGLTF CACHES the scene graph — the same disc Object3D survives across
+      // mounts, carrying any flip/spin already applied to it. Capturing "base"
+      // from the current quaternion therefore baked in a stale B-side flip after
+      // visiting a pane view (feed then showed the silver back instead of the
+      // art). Capture the pristine GLB orientation exactly once, on the shared
+      // object itself, and reuse it on every mount.
+      if (!disc.userData.baseQuat) disc.userData.baseQuat = disc.quaternion.clone();
+      baseQuat.current.copy(disc.userData.baseQuat as THREE.Quaternion);
     }
     return { paneMesh };
   }, [scene, cover]);
@@ -700,7 +712,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
       // disc's own frame, so the tilt direction precesses with the spin and the
       // fan rocks/shimmers. Model exactly that: a constant small tilt in LOCAL
       // frame, composed after the spin (undo -> spin -> reapply each frame).
-      const base = playerOpen ? 2.4 : 0; // rad/s — ~23rpm, quick enough to feel like playback
+      const base = playerOpen ? 3.4 : 0; // rad/s — ~32rpm
       const spinRate = base + spinVel.current;
       disc.quaternion.multiply(_wobbleQ.current.clone().invert()); // undo last frame's tilt
       disc.rotateOnAxis(spinAxis.current, spinRate * dt);
@@ -710,7 +722,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         _wobbleAxis.current.set(1, 0, 0);
         if (Math.abs(a.x) > 0.9) _wobbleAxis.current.set(0, 0, 1);
         _wobbleAxis.current.cross(a).normalize();
-        const amp = THREE.MathUtils.degToRad(t.wobble) * THREE.MathUtils.clamp(spinRate / 2.4, 0, 1);
+        const amp = THREE.MathUtils.degToRad(t.wobble) * THREE.MathUtils.clamp(spinRate / 3.4, 0, 1);
         _wobbleQ.current.setFromAxisAngle(_wobbleAxis.current, amp);
         disc.quaternion.multiply(_wobbleQ.current);
       }
