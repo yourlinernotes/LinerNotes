@@ -169,6 +169,40 @@ function makeShadowBlob() {
   return t;
 }
 
+// Weld the shading seam on lathe/cylinder geometry. Blender's glTF export splits
+// vertices where the surface wraps (UV seam), and the two copies carry slightly
+// different normals — invisible on matte surfaces, but on glossy materials it
+// reads as a thin dark glint that RIDES THE SPIN and appears/disappears with the
+// light angle (the hub's "tiny divot"). Average normals across position-duplicate
+// vertices, but ONLY where they're already nearly parallel (<30 deg): that mends
+// the seam while leaving the hub's genuine hard-edged steps alone.
+function weldSeamNormals(geom: THREE.BufferGeometry) {
+  const pos = geom.attributes.position, nrm = geom.attributes.normal;
+  if (!pos || !nrm) return;
+  const groups = new Map<string, number[]>();
+  for (let i = 0; i < pos.count; i++) {
+    const k = `${pos.getX(i).toFixed(5)},${pos.getY(i).toFixed(5)},${pos.getZ(i).toFixed(5)}`;
+    const g = groups.get(k); if (g) g.push(i); else groups.set(k, [i]);
+  }
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), sum = new THREE.Vector3();
+  const COS30 = Math.cos(Math.PI / 6);
+  for (const idx of groups.values()) {
+    if (idx.length < 2) continue;
+    a.set(nrm.getX(idx[0]), nrm.getY(idx[0]), nrm.getZ(idx[0]));
+    let parallel = true;
+    for (let j = 1; j < idx.length && parallel; j++) {
+      b.set(nrm.getX(idx[j]), nrm.getY(idx[j]), nrm.getZ(idx[j]));
+      if (a.dot(b) < COS30) parallel = false; // a real hard edge — leave it
+    }
+    if (!parallel) continue;
+    sum.set(0, 0, 0);
+    for (const i of idx) sum.add(b.set(nrm.getX(i), nrm.getY(i), nrm.getZ(i)));
+    sum.normalize();
+    for (const i of idx) nrm.setXYZ(i, sum.x, sum.y, sum.z);
+  }
+  nrm.needsUpdate = true;
+}
+
 // clear hub: concentric moulding rings on a light base — presence without opacity
 function makeHubMap() {
   const size = 512, cx = size / 2;
@@ -349,6 +383,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           const mn = ((mesh.material as THREE.Material)?.name || "").toLowerCase();
           mesh.userData.slot = mn.includes("print") ? "print"
             : (mn.includes("plastic") || mn.includes("transparent")) ? "hub" : "cd";
+          weldSeamNormals(mesh.geometry); // once per cached mesh, with the tag
         }
         discMeshes.current.push(mesh);
       });
