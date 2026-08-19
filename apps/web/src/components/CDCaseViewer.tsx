@@ -700,7 +700,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
       // disc's own frame, so the tilt direction precesses with the spin and the
       // fan rocks/shimmers. Model exactly that: a constant small tilt in LOCAL
       // frame, composed after the spin (undo -> spin -> reapply each frame).
-      const base = playerOpen ? 1.2 : 0;
+      const base = playerOpen ? 2.4 : 0; // rad/s — ~23rpm, quick enough to feel like playback
       const spinRate = base + spinVel.current;
       disc.quaternion.multiply(_wobbleQ.current.clone().invert()); // undo last frame's tilt
       disc.rotateOnAxis(spinAxis.current, spinRate * dt);
@@ -710,7 +710,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         _wobbleAxis.current.set(1, 0, 0);
         if (Math.abs(a.x) > 0.9) _wobbleAxis.current.set(0, 0, 1);
         _wobbleAxis.current.cross(a).normalize();
-        const amp = THREE.MathUtils.degToRad(t.wobble) * THREE.MathUtils.clamp(spinRate / 1.2, 0, 1);
+        const amp = THREE.MathUtils.degToRad(t.wobble) * THREE.MathUtils.clamp(spinRate / 2.4, 0, 1);
         _wobbleQ.current.setFromAxisAngle(_wobbleAxis.current, amp);
         disc.quaternion.multiply(_wobbleQ.current);
       }
