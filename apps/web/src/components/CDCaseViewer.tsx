@@ -267,11 +267,39 @@ function makeUndersideMap() {
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
 }
+// track relief: the spin cue that finally matches how a real disc reads. The
+// pressed track structure is micro surface RELIEF — light catches it as a fine
+// radial shimmer that strobes as the disc turns. Roughness hairlines read as
+// dirt (tried, rejected); relief belongs in a bump map, which bends the
+// reflection direction instead of dulling it. Fine radial spokes, data band
+// only, with mild per-spoke jitter so it doesn't read as machined.
+function makeTrackBump() {
+  const size = 1024, cx = size / 2;
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  const a = c.getContext("2d")!;
+  a.fillStyle = "rgb(128,128,128)"; a.fillRect(0, 0, size, size); // neutral height
+  const SPOKES = 220;
+  for (let i = 0; i < SPOKES; i++) {
+    const ang = (i / SPOKES) * Math.PI * 2 + (Math.random() - 0.5) * 0.012;
+    const lum = 128 + (i % 2 === 0 ? 1 : -1) * (26 + Math.random() * 22);
+    a.strokeStyle = `rgb(${lum|0},${lum|0},${lum|0})`;
+    a.lineWidth = 1.6; a.globalAlpha = 0.85;
+    const r0 = size * 0.16, r1 = size * (0.485 - Math.random() * 0.01);
+    a.beginPath();
+    a.moveTo(cx + Math.cos(ang) * r0, cx + Math.sin(ang) * r0);
+    a.lineTo(cx + Math.cos(ang) * r1, cx + Math.sin(ang) * r1);
+    a.stroke();
+  }
+  a.globalAlpha = 1;
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.NoColorSpace; t.anisotropy = 8; // height data, not colour
+  return t;
+}
 // ------------------------------------------------------------------------------
 
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
-  gratingDensity: number; discPrivateEnv: boolean; wobble: number; hubRough: number; hubCoat: number;
+  gratingDensity: number; discPrivateEnv: boolean; wobble: number; hubRough: number; hubCoat: number; trackShimmer: number;
   artEnv: number; artClearcoat: number;
   glassEnv: number; glassSmudge: number; glassRough: number; glassClearcoat: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
@@ -564,7 +592,8 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
       })();
       const silverMat = (() => {
         const m = new THREE.MeshPhysicalMaterial({
-          map: makeUndersideMap(), metalness: 1, roughness: 0.2, envMapIntensity: 1.9,
+          map: makeUndersideMap(), bumpMap: makeTrackBump(), bumpScale: 0.0012,
+          metalness: 1, roughness: 0.2, envMapIntensity: 1.9,
           iridescence: 0.25, iridescenceIOR: 1.7,
         });
         (m as unknown as { anisotropy: number }).anisotropy = 0.9;
@@ -726,6 +755,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
         }
         if (m.userData.kind === "silver") {
           m.roughness = t.discRough; m.envMapIntensity = t.discEnv; m.iridescence = t.iridescence;
+          m.bumpScale = t.trackShimmer * 0.004; // relief amplitude on the dial
           (m as unknown as { anisotropy: number }).anisotropy = t.anisotropy;
           const sh = m.userData.shader as { uniforms: { uSpectral: { value: number }; uDiscCenter: { value: THREE.Vector3 }; uGrating: { value: number } } } | undefined;
           if (sh) {
@@ -830,6 +860,7 @@ export default function CDCaseViewer({
     iridescence: { value: 0.4, min: 0, max: 1, step: 0.05 },
     hubOpacity: { value: 0.85, min: 0.05, max: 1.3, step: 0.05 }, // hub brightness
     wobble: { value: 0.5, min: 0, max: 2, step: 0.05 }, // runout tilt (deg): the fan's shimmer when spinning
+    trackShimmer: { value: 0.3, min: 0, max: 1, step: 0.02 }, // radial track relief catching the light
     hubRough: { value: 0.45, min: 0.05, max: 1, step: 0.05 }, // frosted <-> glossy hub
     hubCoat: { value: 0.25, min: 0, max: 1, step: 0.05 },     // clearcoat sheen on the hub
   });
