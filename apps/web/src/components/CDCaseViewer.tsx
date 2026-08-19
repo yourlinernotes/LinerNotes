@@ -828,7 +828,7 @@ export default function CDCaseViewer({
     spectral: { value: 0.56, min: 0, max: 1, step: 0.01 },
     anisotropy: { value: 0.35, min: 0, max: 1, step: 0.05 }, // tangential smear: seasoning, not the dish — 1.0 bent the fans
     iridescence: { value: 0.4, min: 0, max: 1, step: 0.05 },
-    hubOpacity: { value: 0.85, min: 0.3, max: 1.3, step: 0.05 }, // hub brightness
+    hubOpacity: { value: 0.85, min: 0.05, max: 1.3, step: 0.05 }, // hub brightness
     wobble: { value: 0.5, min: 0, max: 2, step: 0.05 }, // runout tilt (deg): the fan's shimmer when spinning
     hubRough: { value: 0.45, min: 0.05, max: 1, step: 0.05 }, // frosted <-> glossy hub
     hubCoat: { value: 0.25, min: 0, max: 1, step: 0.05 },     // clearcoat sheen on the hub
