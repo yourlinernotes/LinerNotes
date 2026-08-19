@@ -227,11 +227,30 @@ function makeAnisotropyMap() {
   return t;
 }
 
-function makeUndersideMap() {
+function makeUndersideMap(withMatrix = true) {
   const size = 1024, cx = size / 2;
   const c = document.createElement("canvas"); c.width = c.height = size;
   const a = c.getContext("2d")!;
   a.fillStyle = "#d8dee5"; a.fillRect(0, 0, size, size);
+  // matrix ring: the etched catalogue text on a pressed CD's inner mirror band.
+  // A real one is a SHORT arc hugging the hub, not a full-circle caption — it
+  // rotates with the disc, which makes it the honest near-hub spin cue.
+  if (withMatrix) {
+    a.save();
+    a.translate(cx, cx);
+    a.fillStyle = "#b6bcc2"; a.globalAlpha = 0.6;
+    a.font = "600 9px 'Courier New', monospace";
+    a.textAlign = "center"; a.textBaseline = "middle";
+    const text = "LINERNOTES · ILMC-2026 · A1";
+    const rText = size * 0.148; // tucked against the stacking ring
+    let ang = -0.5; // one compact arc, ~55 degrees total
+    for (const ch of text) {
+      const w = a.measureText(ch).width + 1.2;
+      a.save(); a.rotate(ang); a.translate(0, -rText); a.fillText(ch, 0, 0); a.restore();
+      ang += w / rText;
+    }
+    a.restore(); a.globalAlpha = 1;
+  }
   a.globalAlpha = 0.10;
   for (let i = 0; i < 1600; i++) {
     const ang = Math.random() * Math.PI * 2;
