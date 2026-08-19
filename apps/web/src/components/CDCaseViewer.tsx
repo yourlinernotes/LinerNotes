@@ -238,11 +238,11 @@ function makeUndersideMap(withMatrix = true) {
   if (withMatrix) {
     a.save();
     a.translate(cx, cx);
-    a.fillStyle = "#b6bcc2"; a.globalAlpha = 0.6;
+    a.fillStyle = "#b6bcc2"; a.globalAlpha = 0.75;
     a.font = "600 9px 'Courier New', monospace";
     a.textAlign = "center"; a.textBaseline = "middle";
     const text = "LINERNOTES · ILMC-2026 · A1";
-    const rText = size * 0.148; // tucked against the stacking ring
+    const rText = size * 0.162; // just clear of the hub dome — 0.148 hid under it
     let ang = -0.5; // one compact arc, ~55 degrees total
     for (const ch of text) {
       const w = a.measureText(ch).width + 1.2;
