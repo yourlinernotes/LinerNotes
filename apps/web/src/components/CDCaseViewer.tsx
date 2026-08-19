@@ -339,6 +339,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
   const glassMats = useRef<THREE.MeshPhysicalMaterial[]>([]);
   const _wobbleQ = useRef(new THREE.Quaternion());   // last applied runout tilt
   const _wobbleAxis = useRef(new THREE.Vector3(1, 0, 0));
+  const _axisQ = useRef(new THREE.Quaternion());     // scratch for uDiscAxis
   const baseMats = useRef<{ mesh: THREE.Mesh; real: THREE.MeshPhysicalMaterial; fake: THREE.MeshPhysicalMaterial } | null>(null);
   const tuningRef = useRef(tuning);
   tuningRef.current = tuning;
@@ -573,6 +574,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           shader.uniforms.uSpectral = { value: 0.5 };
           // world-space disc frame, refreshed per frame — see useFrame below
           shader.uniforms.uDiscCenter = { value: new THREE.Vector3() };
+          shader.uniforms.uDiscAxis = { value: new THREE.Vector3(0, 1, 0) };
           shader.uniforms.uGrating = { value: 16 }; // groove pitch /100nm — 16 = a real CD's 1600nm track
           // A CD's rainbow is DIFFRACTION off a 1.6um spiral track, not reflection off
           // bumps — the structure is finer than visible light, so it can never be
@@ -608,6 +610,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
               uniform float uSpectral;
               uniform vec3 uDiscCenter;
               uniform float uGrating; // groove pitch in units of 100nm (16 = real CD's 1600nm)
+              uniform vec3 uDiscAxis;
               varying vec3 vWPos;
               varying vec3 vWNrm;
               vec3 bump3y( vec3 x, vec3 yoffset ) {
@@ -633,8 +636,11 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
                 vec2 duv = vMapUv - 0.5;
                 float r = length( duv ); // radius is spin-invariant
                 float band = smoothstep( 0.055, 0.10, r ) * ( 1.0 - smoothstep( 0.465, 0.50, r ) );
-                // grooves run tangentially -> the grating vector is the world radial
-                vec3 axisW = normalize( vWNrm );
+                // grooves run tangentially -> the grating vector is the world radial.
+                // The axis comes in as a UNIFORM: the interpolated per-pixel normal
+                // (vWNrm) varies by fractions of a degree across the face, and every
+                // wiggle bends the fan's iso-lines. One disc = one axis = straight rays.
+                vec3 axisW = normalize( uDiscAxis );
                 vec3 rel = vWPos - uDiscCenter;
                 vec3 radialW = normalize( rel - axisW * dot( rel, axisW ) );
                 // view from the DISC CENTRE, not per-pixel: with a close 35deg camera
@@ -731,6 +737,11 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
             // (A bounding-sphere-centre "fix" bent the fans — the sphere centre of
             // the annulus geometry is the off one, not the origin. Verified by eye.)
             dm.getWorldPosition(sh.uniforms.uDiscCenter.value);
+            // one disc = one axis: local spin axis through the disc's world rotation
+            // (includes the runout tilt, so the fan still breathes with the wobble)
+            sh.uniforms.uDiscAxis.value
+              .copy(spinAxis.current)
+              .applyQuaternion(disc.getWorldQuaternion(_axisQ.current));
           }
         } else if (m.userData.kind === "art") {
           m.envMapIntensity = t.artEnv; m.clearcoat = t.artClearcoat;
