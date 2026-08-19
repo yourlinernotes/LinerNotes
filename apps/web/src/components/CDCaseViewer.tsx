@@ -243,20 +243,6 @@ function makeUndersideMap() {
     a.stroke();
   }
   a.globalAlpha = 1;
-  // matrix ring: the etched catalogue text every pressed CD carries on its
-  // inner mirror band. It rotates with the disc — the honest near-hub spin cue.
-  a.save();
-  a.translate(cx, cx);
-  a.fillStyle = "#b6bcc2"; a.globalAlpha = 0.6; // a cue, not a caption
-  a.font = "600 9px 'Courier New', monospace";
-  a.textAlign = "center"; a.textBaseline = "middle";
-  const chars = "LINERNOTES · ILMC-2026 · A1 · ".repeat(3);
-  const rText = size * 0.155; // hugging the stacking ring
-  for (let i = 0; i < chars.length; i++) {
-    a.save(); a.rotate((i / chars.length) * Math.PI * 2); a.translate(0, -rText);
-    a.fillText(chars[i], 0, 0); a.restore();
-  }
-  a.restore(); a.globalAlpha = 1;
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
@@ -293,7 +279,7 @@ function makeTrackBump() {
 
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
-  gratingDensity: number; fanSat: number; discPrivateEnv: boolean; wobble: number; hubRough: number; hubCoat: number; trackShimmer: number;
+  gratingDensity: number; discPrivateEnv: boolean; wobble: number; hubRough: number; hubCoat: number; trackShimmer: number;
   artEnv: number; artClearcoat: number;
   glassEnv: number; glassSmudge: number; glassRough: number; glassClearcoat: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
@@ -597,8 +583,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           // world-space disc frame, refreshed per frame — see useFrame below
           shader.uniforms.uDiscCenter = { value: new THREE.Vector3() };
           shader.uniforms.uDiscAxis = { value: new THREE.Vector3(0, 1, 0) };
-          shader.uniforms.uGrating = { value: 16 }; // groove pitch /100nm — real CD
-          shader.uniforms.uFanSat = { value: 1.0 };
+          shader.uniforms.uGrating = { value: 16 }; // groove pitch /100nm — 16 = a real CD's 1600nm track
           // A CD's rainbow is DIFFRACTION off a 1.6um spiral track, not reflection off
           // bumps — the structure is finer than visible light, so it can never be
           // geometry or a normal map. It's modelled here as a grating whose phase
@@ -632,8 +617,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
               `#include <common>
               uniform float uSpectral;
               uniform vec3 uDiscCenter;
-              uniform float uGrating; // groove pitch in units of 100nm
-              uniform float uFanSat;
+              uniform float uGrating; // groove pitch in units of 100nm (16 = real CD's 1600nm)
               uniform vec3 uDiscAxis;
               varying vec3 vWPos;
               varying vec3 vWNrm;
@@ -674,19 +658,18 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
                 vec3 viewW = normalize( cameraPosition - uDiscCenter );
                 // virtual light = the overhead key strip of the studio rig; a fixed
                 // world direction, so the fan is pinned in world space (spin-proof)
-                // single light, unblurred spectrum: the vivid fan. (An extended-
-                // source blur + second light was tried against reference photos and
-                // summed to a milky veil under this rig — overlapping blurred
-                // spectra add toward white. Reverted; fanSat stays as a dial.)
                 vec3 lightW = normalize( vec3( 0.0, 0.95, 0.31 ) );
-                float au = abs( dot( lightW, radialW ) - dot( viewW, radialW ) );
+                // grating equation: path difference along the groove normal
+                float u = dot( lightW, radialW ) - dot( viewW, radialW );
+                float au = abs( u );
                 float d_nm = uGrating * 100.0; // groove pitch
                 vec3 fan = vec3( 0.0 );
+                // first three diffraction orders; out-of-gamut orders contribute 0,
+                // leaving the silver gaps a real disc has between its fans
                 for ( int m = 1; m <= 3; m++ ) {
-                  fan += spectral_zucconi6( au * d_nm / float( m ) );
+                  float wl = au * d_nm / float( m );
+                  fan += spectral_zucconi6( wl );
                 }
-                float luma = dot( fan, vec3( 0.299, 0.587, 0.114 ) );
-                fan = mix( vec3( luma ), fan, uFanSat );
                 totalEmissiveRadiance += fan * band * uSpectral;
               }`
             );
@@ -757,7 +740,6 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           if (sh) {
             sh.uniforms.uSpectral.value = t.spectral;
             sh.uniforms.uGrating.value = t.gratingDensity;
-            sh.uniforms.uFanSat.value = t.fanSat;
             // the grating frame is world-space; keep its origin pinned to the disc
             // as the case animates. MESH ORIGIN, deliberately: the disc spins about
             // its origin with no visible orbit, so the origin IS the true centre.
@@ -856,7 +838,7 @@ export default function CDCaseViewer({
     anisotropy: { value: 0.35, min: 0, max: 1, step: 0.05 }, // tangential smear: seasoning, not the dish — 1.0 bent the fans
     iridescence: { value: 0.4, min: 0, max: 1, step: 0.05 },
     hubOpacity: { value: 0.85, min: 0.05, max: 1.3, step: 0.05 }, // hub brightness
-    wobble: { value: 0.9, min: 0, max: 2, step: 0.05 }, // runout tilt (deg): the fan's shimmer when spinning
+    wobble: { value: 0.5, min: 0, max: 2, step: 0.05 }, // runout tilt (deg): the fan's shimmer when spinning
     trackShimmer: { value: 0.3, min: 0, max: 1, step: 0.02 }, // radial track relief catching the light
     hubRough: { value: 0.45, min: 0.05, max: 1, step: 0.05 }, // frosted <-> glossy hub
     hubCoat: { value: 0.25, min: 0, max: 1, step: 0.05 },     // clearcoat sheen on the hub
@@ -906,8 +888,7 @@ export default function CDCaseViewer({
     artGainLight: { value: 2.6, min: 1, max: 5, step: 0.05 },
     // disc reflects its own bright room while the glass keeps the dark cards
     discPrivateEnv: true,
-    gratingDensity: { value: 16, min: 6, max: 30, step: 0.5 }, // groove pitch /100nm (16 = real CD; lower = broader fans)
-    fanSat: { value: 1.0, min: 0, max: 1.5, step: 0.05 }, // fan saturation: pastel <-> vivid
+    gratingDensity: { value: 16, min: 6, max: 30, step: 0.5 }, // groove pitch /100nm (16 = real CD, 7.4 = DVD)
     // emissive rainbow must outshine a brighter light-mode base to stay visible
     spectralGainLight: { value: 3.2, min: 0.5, max: 6, step: 0.1 },
   });
@@ -955,7 +936,6 @@ export default function CDCaseViewer({
     // to rock, which is the visible spin cue
     discPrivateEnv: rig.discPrivateEnv,
     gratingDensity: rig.gratingDensity,
-    fanSat: rig.fanSat,
     spectral: isLight ? disc.spectral * rig.spectralGainLight : disc.spectral,
   };
   return (
