@@ -678,20 +678,34 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
                 // contours. Product shots use a long lens from further back — constant
                 // view direction, straight radial fans. This is that lens.
                 vec3 viewW = normalize( cameraPosition - uDiscCenter );
-                // virtual light = the overhead key strip of the studio rig; a fixed
-                // world direction, so the fan is pinned in world space (spin-proof)
-                vec3 lightW = normalize( vec3( 0.0, 0.95, 0.31 ) );
-                // grating equation: path difference along the groove normal
-                float u = dot( lightW, radialW ) - dot( viewW, radialW );
-                float au = abs( u );
                 float d_nm = uGrating * 100.0; // groove pitch
                 vec3 fan = vec3( 0.0 );
-                // first three diffraction orders; out-of-gamut orders contribute 0,
-                // leaving the silver gaps a real disc has between its fans
-                for ( int m = 1; m <= 3; m++ ) {
-                  float wl = au * d_nm / float( m );
-                  fan += spectral_zucconi6( wl );
+                #ifdef ENVMAP_TYPE_CUBE_UV
+                {
+                  // TRUE-TO-SCENE diffraction: the old version invented a virtual
+                  // light and painted a constant-brightness rainbow, so the fan had
+                  // no relationship to the visible lighting. Diffraction does not
+                  // create light — it REDIRECTS it. So: for each wavelength, invert
+                  // the grating equation to find where that colour's light must have
+                  // come from, and SAMPLE THE ACTUAL ENV MAP there. Fans then appear
+                  // exactly where the strips are, at the strips' brightness, and die
+                  // off with them — falloff and placement for free, by physics.
+                  vec3 mirrorW = reflect( -viewW, axisW ); // zeroth order = plain specular
+                  for ( int m = 1; m <= 2; m++ ) {
+                    for ( int k = 0; k < 6; k++ ) {
+                      float wl = 415.0 + 54.0 * float( k ); // 415..685nm, 6 taps
+                      float shift = float( m ) * wl / d_nm; // grating deflection
+                      // both signs: order fans on either side of the specular
+                      vec3 dirA = normalize( mirrorW + shift * radialW );
+                      vec3 dirB = normalize( mirrorW - shift * radialW );
+                      vec3 e = textureCubeUV( envMap, dirA, 0.12 ).rgb
+                             + textureCubeUV( envMap, dirB, 0.12 ).rgb;
+                      fan += spectral_zucconi6( wl ) * e;
+                    }
+                  }
+                  fan *= 0.34; // normalise the 24-tap sum
                 }
+                #endif
                 totalEmissiveRadiance += fan * band * uSpectral;
               }`
             );
