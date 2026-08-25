@@ -301,7 +301,7 @@ function makeTrackBump() {
 
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
-  gratingDensity: number; discPrivateEnv: boolean; wobble: number; hubRough: number; hubCoat: number; trackShimmer: number;
+  gratingDensity: number; fanSpread: number; discPrivateEnv: boolean; wobble: number; hubRough: number; hubCoat: number; trackShimmer: number;
   artEnv: number; artClearcoat: number;
   glassEnv: number; glassSmudge: number; glassRough: number; glassClearcoat: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
@@ -606,6 +606,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           shader.uniforms.uDiscCenter = { value: new THREE.Vector3() };
           shader.uniforms.uDiscAxis = { value: new THREE.Vector3(0, 1, 0) };
           shader.uniforms.uGrating = { value: 16 }; // groove pitch /100nm — 16 = a real CD's 1600nm track
+          shader.uniforms.uFanSpread = { value: 0.4 }; // env-tap roughness: rainbow coverage
           // A CD's rainbow is DIFFRACTION off a 1.6um spiral track, not reflection off
           // bumps — the structure is finer than visible light, so it can never be
           // geometry or a normal map. It's modelled here as a grating whose phase
@@ -692,18 +693,20 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
                   // off with them — falloff and placement for free, by physics.
                   vec3 mirrorW = reflect( -viewW, axisW ); // zeroth order = plain specular
                   for ( int m = 1; m <= 2; m++ ) {
-                    for ( int k = 0; k < 6; k++ ) {
-                      float wl = 415.0 + 54.0 * float( k ); // 415..685nm, 6 taps
+                    for ( int k = 0; k < 8; k++ ) {
+                      float wl = 415.0 + 38.6 * float( k ); // 415..685nm, 8 taps
                       float shift = float( m ) * wl / d_nm; // grating deflection
                       // both signs: order fans on either side of the specular
                       vec3 dirA = normalize( mirrorW + shift * radialW );
                       vec3 dirB = normalize( mirrorW - shift * radialW );
-                      vec3 e = textureCubeUV( envMap, dirA, 0.12 ).rgb
-                             + textureCubeUV( envMap, dirB, 0.12 ).rgb;
+                      // uFanSpread = sampling roughness: how far each strip's colour
+                      // smears across the disc (a bigger softbox, still the REAL rig)
+                      vec3 e = textureCubeUV( envMap, dirA, uFanSpread ).rgb
+                             + textureCubeUV( envMap, dirB, uFanSpread ).rgb;
                       fan += spectral_zucconi6( wl ) * e;
                     }
                   }
-                  fan *= 0.34; // normalise the 24-tap sum
+                  fan *= 0.45; // normalise the 32-tap sum
                 }
                 #endif
                 totalEmissiveRadiance += fan * band * uSpectral;
@@ -772,19 +775,24 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           m.roughness = t.discRough; m.envMapIntensity = t.discEnv; m.iridescence = t.iridescence;
           m.bumpScale = t.trackShimmer * 0.02; // relief amplitude on the dial (0.3 ~= visible, 1 = bold)
           (m as unknown as { anisotropy: number }).anisotropy = t.anisotropy;
-          const sh = m.userData.shader as { uniforms: { uSpectral: { value: number }; uDiscCenter: { value: THREE.Vector3 }; uGrating: { value: number } } } | undefined;
+          // defensive by design: after an HMR that adds a uniform, materials
+          // compiled under the OLD shader can survive a frame — writing to a
+          // uniform they don't have crashed the whole render loop. Guard each.
+          const sh = m.userData.shader as { uniforms: Record<string, { value: unknown } | undefined> } | undefined;
           if (sh) {
-            sh.uniforms.uSpectral.value = t.spectral;
-            sh.uniforms.uGrating.value = t.gratingDensity;
+            const uu = sh.uniforms;
+            if (uu.uSpectral) uu.uSpectral.value = t.spectral;
+            if (uu.uGrating) uu.uGrating.value = t.gratingDensity;
+            if (uu.uFanSpread) uu.uFanSpread.value = t.fanSpread;
             // the grating frame is world-space; keep its origin pinned to the disc
             // as the case animates. MESH ORIGIN, deliberately: the disc spins about
             // its origin with no visible orbit, so the origin IS the true centre.
             // (A bounding-sphere-centre "fix" bent the fans — the sphere centre of
             // the annulus geometry is the off one, not the origin. Verified by eye.)
-            dm.getWorldPosition(sh.uniforms.uDiscCenter.value);
+            if (uu.uDiscCenter) dm.getWorldPosition(uu.uDiscCenter.value as THREE.Vector3);
             // one disc = one axis: local spin axis through the disc's world rotation
             // (includes the runout tilt, so the fan still breathes with the wobble)
-            sh.uniforms.uDiscAxis.value
+            if (uu.uDiscAxis) (uu.uDiscAxis.value as THREE.Vector3)
               .copy(spinAxis.current)
               .applyQuaternion(disc.getWorldQuaternion(_axisQ.current));
           }
@@ -925,6 +933,7 @@ export default function CDCaseViewer({
     // disc reflects its own bright room while the glass keeps the dark cards
     discPrivateEnv: true,
     gratingDensity: { value: 16, min: 6, max: 30, step: 0.5 }, // groove pitch /100nm (16 = real CD, 7.4 = DVD)
+    fanSpread: { value: 0.4, min: 0.05, max: 1, step: 0.05 }, // rainbow coverage: tight strips <-> wide wash
     // emissive rainbow must outshine a brighter light-mode base to stay visible
     spectralGainLight: { value: 3.2, min: 0.5, max: 6, step: 0.1 },
   });
@@ -972,6 +981,7 @@ export default function CDCaseViewer({
     // to rock, which is the visible spin cue
     discPrivateEnv: rig.discPrivateEnv,
     gratingDensity: rig.gratingDensity,
+    fanSpread: rig.fanSpread,
     spectral: isLight ? disc.spectral * rig.spectralGainLight : disc.spectral,
   };
   return (
