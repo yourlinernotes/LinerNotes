@@ -641,6 +641,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
               uniform float uSpectral;
               uniform vec3 uDiscCenter;
               uniform float uGrating; // groove pitch in units of 100nm (16 = real CD's 1600nm)
+              uniform float uFanSpread; // env-tap roughness: rainbow coverage
               uniform vec3 uDiscAxis;
               varying vec3 vWPos;
               varying vec3 vWNrm;
