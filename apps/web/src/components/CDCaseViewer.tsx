@@ -3,7 +3,7 @@
 //  A) coverMode="disc": art on the disc, closed clear case; review-click -> small spin beat
 //  B) coverMode="pane": art on the front pane, reflective disc; review-click -> disc peeks out
 //  Player) playerOpen: lid swings open on the spine hinge, disc spins continuously
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, Environment, Lightformer, OrbitControls, useTexture, Center, MeshReflectorMaterial } from "@react-three/drei";
 import { Suspense, useRef, useMemo, useEffect } from "react";
 import { useControls } from "leva";
@@ -301,7 +301,7 @@ function makeTrackBump() {
 
 type Tuning = {
   discRough: number; discEnv: number; spectral: number; anisotropy: number; iridescence: number; hubOpacity: number;
-  gratingDensity: number; fanSpread: number; discPrivateEnv: boolean; wobble: number; hubRough: number; hubCoat: number; trackShimmer: number;
+  gratingDensity: number; fanSpread: number; wobble: number; hubRough: number; hubCoat: number; trackShimmer: number;
   artEnv: number; artClearcoat: number;
   glassEnv: number; glassSmudge: number; glassRough: number; glassClearcoat: number; baseOpacity: number; baseRealGlass: boolean; glassTint: string;
   exposure: number;
@@ -321,46 +321,6 @@ type Props = {
 function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode, rating }: Pick<Required<Props>, "albumArt" | "coverMode" | "playerOpen" | "reviewBeat"> & { tuning: Tuning; extrasMode: string; rating: number }) {
   const { scene } = useGLTF("/cd_case.glb?v=3");
   const cover = useTexture(albumArt);
-  const gl = useThree((s) => s.gl);
-  // Private env for the DISC ONLY. The light-mode scene env is deliberately mostly
-  // black so the clear glass has dark reflections to read its edges from — but the
-  // silver underside is metalness 1, so it lives entirely off the env map and went
-  // dark with it (a gain multiplier on near-black stays near-black). This is a
-  // per-object LIGHTING fix, not paint on the material: the disc reflects a bright
-  // tonally-varied room while the glass keeps its dark cards. Dark mode never uses
-  // it (discPrivateEnv is gated on isLight upstream).
-  const discRoomEnv = useMemo(() => {
-    // NOT RoomEnvironment: a generic room is bright nearly everywhere, and metal
-    // under a contrast-free env reads as flat matte plastic (verified: the disc
-    // rendered as a white blob). Chrome reads as chrome from HARD bright/dark
-    // transitions — so: a black world with a few crisp studio strip-lights. The
-    // dark zones double as the canvas the diffraction rainbow shows against.
-    const s = new THREE.Scene();
-    const strip = (w: number, h: number, pos: [number, number, number], lum: number) => {
-      const m = new THREE.Mesh(
-        new THREE.PlaneGeometry(w, h),
-        new THREE.MeshBasicMaterial({ color: new THREE.Color(lum, lum, lum) })
-      );
-      m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
-    };
-    strip(6, 1.2, [0, 6, 2], 5);     // overhead key strip (HDR-bright)
-    // the FAN MAKER: an ARC of thin bright strips on the ~28deg cone off the
-    // camera axis — the band first-order diffraction samples from the front
-    // view. An arc (not a point) casts ONE broad continuous fan regardless of
-    // the exact disc orientation per view. Genuinely lit, not painted.
-    strip(1.6, 0.45, [-2.4, 2.4, 6], 6);
-    strip(1.6, 0.45, [0, 3.3, 6], 6);
-    strip(1.6, 0.45, [2.4, 2.4, 6], 6);
-    strip(1.0, 5, [-5, 1.5, 3], 3);  // tall side strip
-    strip(0.7, 4, [5, 0.8, 2], 2);   // slimmer opposing strip
-    strip(8, 0.8, [0, -1, 6], 1.2);  // low front bar, weak
-    strip(4, 4, [0, -6, 0], 0.3);    // dim floor bounce so the dark isn't dead
-    const pmrem = new THREE.PMREMGenerator(gl);
-    const tex = pmrem.fromScene(s, 0.02).texture; // low sigma: keep the streak edges crisp
-    pmrem.dispose();
-    return tex;
-  }, [gl]);
-
   const discRef = useRef<THREE.Object3D | null>(null);   // the "scaled_cd" GROUP (multi-material disc)
   const discMeshes = useRef<THREE.Mesh[]>([]);           // its primitive sub-meshes
   const hingeRef = useRef<THREE.Group | null>(null);
@@ -776,13 +736,6 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
       // live-apply the tuning panel to whichever disc material is active
       for (const dm of discMeshes.current) {
         const m = dm.material as THREE.MeshPhysicalMaterial;
-        // disc-only private env (light mode): bright room for the metal, while the
-        // scene env stays dark for the glass. Toggle costs a recompile, so only
-        // touch the material when the wanted state actually changes.
-        if (m.userData.kind === "silver" || m.userData.kind === "art") {
-          const wantEnv = t.discPrivateEnv ? discRoomEnv : null;
-          if (m.envMap !== wantEnv) { m.envMap = wantEnv; m.needsUpdate = true; }
-        }
         if (m.userData.kind === "silver") {
           m.roughness = t.discRough; m.envMapIntensity = t.discEnv; m.iridescence = t.iridescence;
           m.bumpScale = t.trackShimmer * 0.02; // relief amplitude on the dial (0.3 ~= visible, 1 = bold)
@@ -942,8 +895,6 @@ export default function CDCaseViewer({
     // its own gain in light mode — glass contrast and disc brightness decoupled.
     discGainLight: { value: 2.2, min: 1, max: 5, step: 0.05 },
     artGainLight: { value: 2.6, min: 1, max: 5, step: 0.05 },
-    // disc reflects its own bright room while the glass keeps the dark cards
-    discPrivateEnv: true,
     gratingDensity: { value: 16, min: 6, max: 30, step: 0.5 }, // groove pitch /100nm (16 = real CD, 7.4 = DVD)
     fanSpread: { value: 0.18, min: 0.05, max: 1, step: 0.05 }, // rainbow coverage: tight strips <-> milky wash
     // emissive rainbow must outshine a brighter light-mode base to stay visible
@@ -1008,10 +959,6 @@ export default function CDCaseViewer({
     // dark mode keeps the studio preset's energy, so the gain only applies to light
     discEnv: isLight ? disc.discEnv * rig.discGainLight : disc.discEnv,
     artEnv: isLight ? art.artEnv * rig.artGainLight : art.artEnv,
-    // LIGHT mode only. In dark the user wants ONE shared lighting world — no
-    // separate env for the disc — with the scene env itself built to flood the
-    // disc (below). Realism: disc, glass and floor all reflect the same room.
-    discPrivateEnv: isLight && rig.discPrivateEnv,
     gratingDensity: rig.gratingDensity,
     fanSpread: rig.fanSpread,
     spectral: isLight ? disc.spectral * rig.spectralGainLight : disc.spectral,
@@ -1044,6 +991,11 @@ export default function CDCaseViewer({
             {/* museum toplight: reflects on the case TOP, not the front pane — art stays clear */}
             <Lightformer intensity={rig.topIntensity} position={[0, 4, 0.6]} rotation-x={Math.PI / 2.4} scale={[5, 2.6, 1]} />
             <Lightformer intensity={rig.ceilingIntensity} position={[0, 5, 0]} rotation-x={Math.PI / 2} scale={[rig.ceilingScale, rig.ceilingScale, 1]} />
+            {/* fan-maker arc on the ~28deg diffraction cone — real room lights,
+                shared by disc, glass and floor alike */}
+            <Lightformer intensity={4} position={[-2.4, 2.4, 6]} scale={[1.6, 0.5, 1]} />
+            <Lightformer intensity={4.5} position={[0, 3.3, 6]} scale={[1.8, 0.5, 1]} />
+            <Lightformer intensity={4} position={[2.4, 2.4, 6]} scale={[1.6, 0.5, 1]} />
             {/* backlight: rims the silhouette through the glass edges */}
             <Lightformer intensity={rig.backIntensity} position={[0, 1.2, -4]} scale={[5, 4, 1]} />
             {/* side boxes dimmed: glints, not veils */}
@@ -1060,7 +1012,16 @@ export default function CDCaseViewer({
                 diffraction band means every azimuth and wavelength finds real
                 light, so colour floods the whole disc. Shared by the glass and
                 floor too: one world, honestly lit. */}
-            <Lightformer intensity={9} position={[0, 1.2, 5]} scale={[7, 7, 1]} />
+            {/* the reference's lamp is OFF-AXIS: the mirror reflection MISSES it
+                (face stays dark) while the diffracted orders HIT it (colour
+                floods in). A frontal flood did the opposite — white disc. So:
+                an arc of bright panels on the ~28deg cone, nothing at the
+                mirror direction itself. */}
+            <Lightformer intensity={7} position={[-2.6, 2.2, 5.4]} scale={[1.8, 0.9, 1]} />
+            <Lightformer intensity={8} position={[0, 3.4, 5.2]} scale={[2.2, 0.9, 1]} />
+            <Lightformer intensity={7} position={[2.6, 2.2, 5.4]} scale={[1.8, 0.9, 1]} />
+            <Lightformer intensity={5} position={[-3.4, -1.2, 5.2]} scale={[1.4, 0.7, 1]} />
+            <Lightformer intensity={5} position={[3.4, -1.2, 5.2]} scale={[1.4, 0.7, 1]} />
             {/* faint top rim so the case edges still read against black */}
             <Lightformer intensity={1.2} position={[0, 5, -1]} rotation-x={Math.PI / 2} scale={[4, 2, 1]} />
           </Environment>
