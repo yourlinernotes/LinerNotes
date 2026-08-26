@@ -139,7 +139,11 @@ jobs:
         run: |
           set -uo pipefail
           if [ -z "${SPOTIFY_TOTP_SECRET:-}" ]; then
-            echo "⚪ Spotify sp_dc TOTP — SKIPPED (no SPOTIFY_TOTP_SECRET secret)"
+            # A silent skip is dangerous here: this step is the ONLY thing that
+            # catches a rotated TOTP secret, and skipping still reports a green
+            # step — indistinguishable from "checked and healthy". Warn loudly so
+            # an unset secret shows up as yellow in the run summary.
+            echo "::warning::⚪ Spotify sp_dc TOTP — NOT CHECKED: no SPOTIFY_TOTP_SECRET repo secret is set, so a rotated secret would go unnoticed. Add SPOTIFY_TOTP_SECRET (and optionally SPOTIFY_TOTP_VER) under Settings → Secrets and variables → Actions."
             exit 0
           fi
           # RFC-6238 TOTP (HMAC-SHA1, 30s, 6 digits) over the base32 secret; the

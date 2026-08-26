@@ -33,6 +33,8 @@ const langName = (code: string) => LANG_NAMES[code] || code;
 export interface TranslationResult {
   translations: string[];
   sourceLang: string | null;
+  /** Which tier produced the translation — for diagnostics. */
+  engine?: "gemini" | "google-nmt" | "none";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,7 +43,7 @@ export interface TranslationResult {
 
 async function geminiTranslate(lines: string[], target: string): Promise<string[] | null> {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return null;
+  if (!key) { console.log("[translate] GEMINI_API_KEY not set — using NMT"); return null; }
 
   // Blank lines carry no text but must keep their slot for timestamp alignment.
   // Send only the non-blank lines to the model, then splice back.
@@ -80,13 +82,19 @@ async function geminiTranslate(lines: string[], target: string): Promise<string[
         }),
       },
     );
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.log(`[translate] Gemini HTTP ${r.status}: ${(await r.text()).slice(0, 300)}`);
+      return null;
+    }
     const j = await r.json();
     const text = j?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return null;
+    if (!text) { console.log(`[translate] Gemini empty response: ${JSON.stringify(j).slice(0, 300)}`); return null; }
     const arr = JSON.parse(text);
     // Must line up exactly, or we can't trust the alignment — bail to the next tier.
-    if (!Array.isArray(arr) || arr.length !== payloadLines.length) return null;
+    if (!Array.isArray(arr) || arr.length !== payloadLines.length) {
+      console.log(`[translate] Gemini length mismatch: got ${Array.isArray(arr) ? arr.length : "non-array"} vs ${payloadLines.length}`);
+      return null;
+    }
 
     const out = lines.map(() => "");
     idxMap.forEach((origIdx, k) => { out[origIdx] = String(arr[k] ?? ""); });
@@ -213,7 +221,7 @@ export async function translateLines(lines: string[], target = "en"): Promise<Tr
   const gem = await geminiTranslate(lines, target);
   if (gem) {
     const sourceLang = await detectSource(lines, target);
-    return { translations: gem, sourceLang };
+    return { translations: gem, sourceLang, engine: "gemini" };
   }
 
   // Tier 2 — keyless Google, batched with context.
@@ -230,5 +238,5 @@ export async function translateLines(lines: string[], target = "en"): Promise<Tr
     }),
   );
 
-  return { translations, sourceLang: batched.sourceLang };
+  return { translations, sourceLang: batched.sourceLang, engine: "google-nmt" };
 }
