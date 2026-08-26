@@ -344,6 +344,11 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
       m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
     };
     strip(6, 1.2, [0, 6, 2], 5);     // overhead key strip (HDR-bright)
+    // the FAN MAKER: a long thin bright strip ~28deg off the camera axis — the
+    // band where first-order diffraction samples from the front view. This is
+    // what guarantees one dominant, clean rainbow fan that is genuinely cast
+    // by the rig rather than painted on.
+    strip(5, 0.45, [0, 3.2, 6], 6);
     strip(1.0, 5, [-5, 1.5, 3], 3);  // tall side strip
     strip(0.7, 4, [5, 0.8, 2], 2);   // slimmer opposing strip
     strip(8, 0.8, [0, -1, 6], 1.2);  // low front bar, weak
@@ -966,7 +971,7 @@ export default function CDCaseViewer({
     // scene moved ("glitching edges"). Dark mode's reflector runs at 2048; 1024 is
     // enough here because the fade texture hides the outer half of the mirror.
     const m = new Reflector(new THREE.PlaneGeometry(6, 6), {
-      clipBias: 0.003, textureWidth: 1024, textureHeight: 1024, color: 0xffffff,
+      clipBias: 0.003, textureWidth: 2048, textureHeight: 2048, color: 0xffffff,
     });
     m.rotation.x = -Math.PI / 2;
     m.position.y = -0.062;
