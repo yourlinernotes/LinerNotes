@@ -344,11 +344,13 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
       m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
     };
     strip(6, 1.2, [0, 6, 2], 5);     // overhead key strip (HDR-bright)
-    // the FAN MAKER: a long thin bright strip ~28deg off the camera axis — the
-    // band where first-order diffraction samples from the front view. This is
-    // what guarantees one dominant, clean rainbow fan that is genuinely cast
-    // by the rig rather than painted on.
-    strip(5, 0.45, [0, 3.2, 6], 6);
+    // the FAN MAKER: an ARC of thin bright strips on the ~28deg cone off the
+    // camera axis — the band first-order diffraction samples from the front
+    // view. An arc (not a point) casts ONE broad continuous fan regardless of
+    // the exact disc orientation per view. Genuinely lit, not painted.
+    strip(1.6, 0.45, [-2.4, 2.4, 6], 6);
+    strip(1.6, 0.45, [0, 3.3, 6], 6);
+    strip(1.6, 0.45, [2.4, 2.4, 6], 6);
     strip(1.0, 5, [-5, 1.5, 3], 3);  // tall side strip
     strip(0.7, 4, [5, 0.8, 2], 2);   // slimmer opposing strip
     strip(8, 0.8, [0, -1, 6], 1.2);  // low front bar, weak
@@ -611,7 +613,7 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
           shader.uniforms.uDiscCenter = { value: new THREE.Vector3() };
           shader.uniforms.uDiscAxis = { value: new THREE.Vector3(0, 1, 0) };
           shader.uniforms.uGrating = { value: 16 }; // groove pitch /100nm — 16 = a real CD's 1600nm track
-          shader.uniforms.uFanSpread = { value: 0.4 }; // env-tap roughness: rainbow coverage
+          shader.uniforms.uFanSpread = { value: 0.18 }; // env-tap roughness: 0.4 milked the strips into white
           // A CD's rainbow is DIFFRACTION off a 1.6um spiral track, not reflection off
           // bumps — the structure is finer than visible light, so it can never be
           // geometry or a normal map. It's modelled here as a grating whose phase
@@ -698,9 +700,13 @@ function Case({ albumArt, coverMode, playerOpen, reviewBeat, tuning, extrasMode,
                   // exactly where the strips are, at the strips' brightness, and die
                   // off with them — falloff and placement for free, by physics.
                   vec3 mirrorW = reflect( -viewW, axisW ); // zeroth order = plain specular
+                  // per-pixel wavelength dither: 8 discrete taps otherwise show as
+                  // visible colour BANDS ("segmented"); jittering each pixel's taps
+                  // by up to one tap-step turns the banding into a smooth spectrum.
+                  float jit = fract( sin( dot( gl_FragCoord.xy, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 ) - 0.5;
                   for ( int m = 1; m <= 2; m++ ) {
                     for ( int k = 0; k < 8; k++ ) {
-                      float wl = 415.0 + 38.6 * float( k ); // 415..685nm, 8 taps
+                      float wl = 415.0 + 38.6 * ( float( k ) + jit ); // 415..685nm
                       float shift = float( m ) * wl / d_nm; // grating deflection
                       // both signs: order fans on either side of the specular
                       vec3 dirA = normalize( mirrorW + shift * radialW );
@@ -939,7 +945,7 @@ export default function CDCaseViewer({
     // disc reflects its own bright room while the glass keeps the dark cards
     discPrivateEnv: true,
     gratingDensity: { value: 16, min: 6, max: 30, step: 0.5 }, // groove pitch /100nm (16 = real CD, 7.4 = DVD)
-    fanSpread: { value: 0.4, min: 0.05, max: 1, step: 0.05 }, // rainbow coverage: tight strips <-> wide wash
+    fanSpread: { value: 0.18, min: 0.05, max: 1, step: 0.05 }, // rainbow coverage: tight strips <-> milky wash
     // emissive rainbow must outshine a brighter light-mode base to stay visible
     spectralGainLight: { value: 3.2, min: 0.5, max: 6, step: 0.1 },
   });
@@ -975,6 +981,26 @@ export default function CDCaseViewer({
     });
     m.rotation.x = -Math.PI / 2;
     m.position.y = -0.062;
+    // The case glass must NOT render into the mirror pass: its refraction
+    // buffer is built for the MAIN camera, so from the mirror's flipped camera
+    // the glass drew unrefracted nonsense — the "pink reflection phasing
+    // through the case corner". Physically a clear case shows almost nothing
+    // in a floor reflection anyway, so hide transmissive/transparent surfaces
+    // for the duration of the reflector's own render.
+    const origBefore = m.onBeforeRender.bind(m);
+    m.onBeforeRender = (renderer: THREE.WebGLRenderer, sc: THREE.Scene, cam: THREE.Camera, ...rest: unknown[]) => {
+      const hidden: THREE.Mesh[] = [];
+      sc.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh || !mesh.visible) return;
+        const mat = mesh.material as THREE.MeshPhysicalMaterial;
+        if (mat && ((mat as { transmission?: number }).transmission ?? 0) > 0) {
+          mesh.visible = false; hidden.push(mesh);
+        }
+      });
+      (origBefore as (...a: unknown[]) => void)(renderer, sc, cam, ...rest);
+      for (const mesh of hidden) mesh.visible = true;
+    };
     return m;
   }, []);
   const tuning: Tuning = {
