@@ -1008,10 +1008,10 @@ export default function CDCaseViewer({
     // dark mode keeps the studio preset's energy, so the gain only applies to light
     discEnv: isLight ? disc.discEnv * rig.discGainLight : disc.discEnv,
     artEnv: isLight ? art.artEnv * rig.artGainLight : art.artEnv,
-    // both modes: in dark the studio preset is tonally so even that the spinning
-    // disc showed no moving glints at all — the strips give the wobble something
-    // to rock, which is the visible spin cue
-    discPrivateEnv: rig.discPrivateEnv,
+    // LIGHT mode only. In dark the user wants ONE shared lighting world — no
+    // separate env for the disc — with the scene env itself built to flood the
+    // disc (below). Realism: disc, glass and floor all reflect the same room.
+    discPrivateEnv: isLight && rig.discPrivateEnv,
     gratingDensity: rig.gratingDensity,
     fanSpread: rig.fanSpread,
     spectral: isLight ? disc.spectral * rig.spectralGainLight : disc.spectral,
@@ -1053,7 +1053,17 @@ export default function CDCaseViewer({
                 define clear glass against a white page */}
           </Environment>
         ) : (
-          <Environment preset="studio" />
+          <Environment resolution={256}>
+            {/* the hand-held-CD-under-a-lamp reference: dark room, ONE large
+                bright panel. Full-face rainbow is a property of light-source
+                SIZE — a panel spanning the mirror direction plus the 15-40deg
+                diffraction band means every azimuth and wavelength finds real
+                light, so colour floods the whole disc. Shared by the glass and
+                floor too: one world, honestly lit. */}
+            <Lightformer intensity={9} position={[0, 1.2, 5]} scale={[7, 7, 1]} />
+            {/* faint top rim so the case edges still read against black */}
+            <Lightformer intensity={1.2} position={[0, 5, -1]} rotation-x={Math.PI / 2} scale={[4, 2, 1]} />
+          </Environment>
         )}
         <Case albumArt={albumArt} coverMode={coverMode} playerOpen={playerOpen} reviewBeat={reviewBeat} tuning={tuning} extrasMode={stickerCtl.extrasMode} rating={stickerCtl.rating} />
         {/* studio sweep backdrop: gradient from join-tone up to the surface colour.
